@@ -1,0 +1,87 @@
+﻿<UserControl x:Class="MSCS.Views.ReaderSidebar"
+             x:Name="Root"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:MSCS.Views"
+             Background="#202737"
+             MinWidth="260" Width="300">
+    <UserControl.Resources>
+        <!-- chapters view with text filter (handled in code-behind) -->
+        <CollectionViewSource x:Key="ChaptersView"
+                              Source="{Binding ElementName=Root, Path=ItemsSource}"
+                              Filter="ChaptersView_Filter"/>
+        <!-- common brushes (fall back if window theme not present) -->
+        <SolidColorBrush x:Key="Fg" Color="#E9EEF7"/>
+        <SolidColorBrush x:Key="FgMuted" Color="#A7B0C0"/>
+        <SolidColorBrush x:Key="Accent" Color="#7C9CFF"/>
+    </UserControl.Resources>
+
+    <Border Background="#202737"
+            BorderBrush="#263149"
+            BorderThickness="1"
+            CornerRadius="10"
+            Padding="10">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="8"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="10"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Header: Home + Title (optional) -->
+            <DockPanel Grid.Row="0">
+                <Button Content="Home"
+                        Command="{Binding ElementName=Root, Path=HomeCommand}"
+                        Padding="10,6"
+                        Margin="0,0,8,0"
+                        DockPanel.Dock="Left"/>
+                <TextBlock Text="Chapters"
+                           Foreground="{StaticResource Fg}"
+                           VerticalAlignment="Center"
+                           FontWeight="SemiBold"/>
+            </DockPanel>
+
+            <!-- Search -->
+
+            <!-- List -->
+            <ListBox Grid.Row="4"
+                     ItemsSource="{Binding Source={StaticResource ChaptersView}}"
+                     SelectedItem="{Binding ElementName=Root, Path=SelectedItem, Mode=TwoWay}"
+                     BorderThickness="0"
+                     Background="#202737"
+                     Foreground="{StaticResource Fg}"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     VirtualizingStackPanel.IsVirtualizing="True"
+                     VirtualizingStackPanel.VirtualizationMode="Recycling">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Title}"
+                                   Margin="8,6"
+                                   TextTrimming="CharacterEllipsis"/>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Padding" Value="2"/>
+                        <Setter Property="Margin"  Value="0,2"/>
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="BorderBrush" Value="#324058"/>
+                        <Setter Property="BorderThickness" Value="1"/>
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#263149"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#33405C"/>
+                                <Setter Property="BorderBrush" Value="{StaticResource Accent}"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+            </ListBox>
+        </Grid>
+    </Border>
+</UserControl>

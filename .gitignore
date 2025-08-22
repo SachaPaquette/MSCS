@@ -1,0 +1,46 @@
+# Build results
+bin/
+obj/
+[Bb]uild/
+[Ll]og/
+TestResults/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio files
+.vs/
+*.dbmdl
+*.pdb
+*.cache
+*.ide
+
+# WPF specific
+*.xaml.cs~
+
+# NuGet packages
+*.nupkg
+packages/
+*.snupkg
+
+# Others
+*.log
+*.tmp
+*.bak
+*.swp
+*.vspscc
+*.vssscc
+
+# Rider
+.idea/
+*.DotSettings.user
+
+# Mac files
+.DS_Store
+
+# Windows thumbnail cache files
+Thumbs.db
+
+# Auto-generated files
+Generated_Code/

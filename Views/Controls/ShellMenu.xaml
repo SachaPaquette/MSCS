@@ -1,0 +1,47 @@
+﻿<UserControl x:Class="MSCS.Views.Controls.ShellMenu"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#1E1E2F"
+             xmlns:vm="clr-namespace:MSCS.ViewModels"
+             >
+    <!-- Expect DataContext = ShellMenuViewModel -->
+    <Grid>
+        <StackPanel Margin="10">
+            <TextBlock Text="Menu" FontWeight="Bold" FontSize="18" Foreground="White" Margin="0,10,0,20"/>
+
+            <ListBox ItemsSource="{Binding Items}"
+                     SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                     Background="{x:Null}"
+                     BorderThickness="0">
+                <ListBox.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:ShellMenuItem}">
+                        <Button Style="{StaticResource SideItem}"
+                                Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                CommandParameter="{Binding}">
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,0">
+                                <!-- optional icon -->
+                                <TextBlock Text="{Binding IconGlyph}" FontFamily="Segoe MDL2 Assets" Foreground="White" />
+                                <TextBlock Text="{Binding Title}" Foreground="White" />
+                            </StackPanel>
+                        </Button>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+
+                <!-- Selected visual -->
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Padding" Value="0"/>
+                        <Setter Property="Margin" Value="0,4,0,4"/>
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#263149"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+            </ListBox>
+        </StackPanel>
+    </Grid>
+</UserControl>

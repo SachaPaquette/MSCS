@@ -1,0 +1,135 @@
+﻿<UserControl x:Class="MSCS.Views.ChapterListView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:MSCS.Models"
+             xmlns:converters="clr-namespace:MSCS.Converters"
+             xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+             Height="Auto" Width="Auto">
+
+    <Grid Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
+        <Border Margin="16"
+                Padding="16"
+                Background="White"
+                CornerRadius="12">
+            <Border.Effect>
+                <DropShadowEffect ShadowDepth="0" BlurRadius="18" Opacity="0.25"/>
+            </Border.Effect>
+
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Header -->
+                <DockPanel Margin="0,0,0,12">
+                    <Button Content="← Back"
+                            Command="{Binding BackCommand}"
+                            Width="90" Height="32"
+                            Margin="0,0,12,0"
+                            DockPanel.Dock="Left"/>
+                    <StackPanel>
+                        <TextBlock Text="{Binding Manga.Title}"
+                                   FontSize="22"
+                                   FontWeight="SemiBold"/>
+                        <TextBlock Text="{Binding Manga.AlternativeTitles, Converter={StaticResource ListToStringConverter}}"
+                                   Foreground="#6B7280"
+                                   FontSize="12"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+                </DockPanel>
+
+                <!-- Body -->
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="16"/>
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Cover -->
+                    <Border Width="220" Height="330" CornerRadius="10" ClipToBounds="True" Background="#F3F4F6">
+                        <Image Stretch="UniformToFill">
+                            <Image.Style>
+                                <Style TargetType="Image">
+                                    <Setter Property="Source" Value="{Binding Manga.CoverImageUrl}"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Manga.CoverImageUrl}" Value="">
+                                            <Setter Property="Source" Value="/Ressources/Images/Not_found.jpg"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Manga.CoverImageUrl}" Value="{x:Null}">
+                                            <Setter Property="Source" Value="/Ressources/Images/Not_found.jpg"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Image.Style>
+                        </Image>
+                    </Border>
+
+                    <!-- Chapters -->
+                    <Grid Grid.Column="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Text="Chapters"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,8"/>
+
+                        <ListView x:Name="ChaptersList"
+                                  Grid.Row="1"
+                                  ItemsSource="{Binding Chapters}"
+                                  SelectedItem="{Binding SelectedChapter, Mode=TwoWay}"
+                                  BorderThickness="0"
+                                  Background="Transparent"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
+
+                            <!-- Double-click to open -->
+                            <i:Interaction.Triggers>
+                                <i:EventTrigger EventName="MouseDoubleClick">
+                                    <i:InvokeCommandAction
+                                        Command="{Binding OpenChapterCommand}"
+                                        CommandParameter="{Binding SelectedItem, ElementName=ChaptersList}"/>
+                                </i:EventTrigger>
+                            </i:Interaction.Triggers>
+
+                            <!-- Item template -->
+                            <ListView.ItemTemplate>
+                                <DataTemplate DataType="{x:Type local:Chapter}">
+                                    <Grid Margin="0">
+                                        <TextBlock Text="{Binding Title}"
+                                                   FontSize="14"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+
+                            <!-- Row look & feel -->
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="Padding" Value="10,8"/>
+                                    <Setter Property="Margin" Value="0,4"/>
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="BorderThickness" Value="1"/>
+                                    <Setter Property="BorderBrush" Value="#E5E7EB"/>
+                                    <Setter Property="SnapsToDevicePixels" Value="True"/>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#F3F4F6"/>
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter Property="Background" Value="#DBEAFE"/>
+                                            <Setter Property="BorderBrush" Value="#93C5FD"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                        </ListView>
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>
