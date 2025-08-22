@@ -36,7 +36,7 @@ namespace MSCS.Views
                 if (DataContext is ReaderViewModel viewModel)
                 {
                     viewModel.LoadMoreImages();
-                    if (viewModel.remainingImages == 0)
+                    if (viewModel.RemainingImages == 0)
                     {
                         GoToNextChapter(viewModel);
                     }

@@ -6,12 +6,13 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using System.Diagnostics;
 using MSCS.Views;
+using MSCS.Sources;
 
 namespace MSCS.ViewModels
 {
     public class MangaListViewModel : BaseViewModel
     {
-        private IScraper _scraper;
+        private IMangaSource _source;
         private readonly INavigationService _navigationService;
         public ObservableCollection<Manga> MangaResults { get; } = new ObservableCollection<Manga>();
         public ICommand MangaSelectedCommand { get; }
@@ -51,24 +52,29 @@ namespace MSCS.ViewModels
             private set => SetProperty(ref canLoadMore, value);
         }
 
-        public MangaListViewModel(IScraper scraper, INavigationService navigationService)
+        public MangaListViewModel(IMangaSource source, INavigationService navigationService)
         {
-            _scraper = scraper;
+            _source = source ?? throw new ArgumentNullException(nameof(source));
             _navigationService = navigationService;
             MangaSelectedCommand = new RelayCommand(OnMangaSelected);
         }
         public MangaListViewModel()
         {
             _navigationService = App.Current.MainWindow?.DataContext as INavigationService ?? throw new InvalidOperationException("NavigationService is not available.");
-            _scraper = null!;
+            _source = SourceRegistry.Resolve("mangaread") ?? throw new InvalidOperationException("Source not registered.");
             MangaSelectedCommand = new RelayCommand(OnMangaSelected);
             _selectedManga = null!;
             currentQuery = string.Empty;
         }
-
-        public void SetScraper(IScraper scraper)
+        public MangaListViewModel(string sourceKey, INavigationService navigationService)
+            : this(SourceRegistry.Resolve(sourceKey) ?? throw new InvalidOperationException("Source not registered."), navigationService)
         {
-            _scraper = scraper ?? throw new ArgumentNullException(nameof(scraper));
+        }
+
+
+        public void SetSource(IMangaSource source)
+        {
+            _source = source ?? throw new ArgumentNullException(nameof(source));
         }
 
         public void OnMangaSelected(object obj)
@@ -89,7 +95,7 @@ namespace MSCS.ViewModels
             currentPage = 0;
             IsLoading = true;
 
-            var firstPageResults = await _scraper.SearchMangaAsync(query);
+            var firstPageResults = await _source.SearchMangaAsync(query);
             foreach (var manga in firstPageResults)
                 MangaResults.Add(manga);
 
@@ -104,7 +110,7 @@ namespace MSCS.ViewModels
             IsLoading = true;
             currentPage++;
 
-            var moreHtml = await _scraper.LoadMoreSeriesHtmlAsync(currentQuery, currentPage);
+            var moreHtml = await _source.LoadMoreSeriesHtmlAsync(currentQuery, currentPage);
             Debug.WriteLine($"Loading more manga for page {currentPage}: {currentQuery}");
             if (string.IsNullOrEmpty(moreHtml))
             {
@@ -113,7 +119,7 @@ namespace MSCS.ViewModels
                 return;
             }
 
-            var moreManga = _scraper.ParseMangaFromHtmlFragment(moreHtml);
+            var moreManga = _source.ParseMangaFromHtmlFragment(moreHtml);
             if (moreManga.Count == 0)
             {
                 CanLoadMore = false;

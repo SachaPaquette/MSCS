@@ -1,8 +1,8 @@
 ﻿using MSCS.Interfaces;
-using MSCS.Scrapers;
 using MSCS.Models;
 using System.Diagnostics;
 using MSCS.Services;
+using MSCS.Sources;
 
 namespace MSCS.ViewModels
 {
@@ -21,7 +21,7 @@ namespace MSCS.ViewModels
         {
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
 
-            MangaListVM = new MangaListViewModel(new MangaReadScraper(), _navigationService);
+            MangaListVM = new MangaListViewModel(SourceRegistry.Resolve("mangaread") ?? throw new InvalidOperationException("Source not registered."), _navigationService);
             _navigationService.RegisterSingleton(MangaListVM); 
 
             CurrentViewModel = MangaListVM;
@@ -31,13 +31,13 @@ namespace MSCS.ViewModels
 
         private void OnMangaSelected(object s, Manga m)
         {
-            var vm = new ChapterListViewModel(new MangaReadScraper(), _navigationService, m);
+            var vm = new ChapterListViewModel(SourceRegistry.Resolve("mangaread") ?? throw new InvalidOperationException("Source not registered."), _navigationService, m);
             _navigationService.NavigateToViewModel(vm); 
         }
 
         public void Initialize(INavigationService navigationService)
         {
-            var mangaListVM = new MangaListViewModel(new MangaReadScraper(), navigationService);
+            var mangaListVM = new MangaListViewModel(SourceRegistry.Resolve("mangaread") ?? throw new InvalidOperationException("Source not registered."), navigationService);
             mangaListVM.MangaSelected += OnMangaSelected;
 
             CurrentViewModel = mangaListVM;

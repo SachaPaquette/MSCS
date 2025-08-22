@@ -12,9 +12,9 @@ using HtmlAgilityPack;
 using MSCS.Interfaces;
 using MSCS.Models;
 
-namespace MSCS.Scrapers
+namespace MSCS.Sources
 {
-    public class MangaReadScraper : IScraper
+    public class MangaReadSource : IMangaSource
     {
         private static readonly Uri BaseUri = new("https://www.mangaread.org/");
         private static readonly Regex ChapterNum = new(@"\d+(?:\.\d+)?", RegexOptions.Compiled);
@@ -35,7 +35,7 @@ namespace MSCS.Scrapers
             Timeout = TimeSpan.FromSeconds(30)
         };
 
-        static MangaReadScraper()
+        static MangaReadSource()
         {
             // Sensible defaults; site-specific headers can be added per request
             Http.DefaultRequestHeaders.UserAgent.ParseAdd("MSCS/1.0 (+https://example)");

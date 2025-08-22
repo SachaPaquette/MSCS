@@ -1,6 +1,7 @@
 ﻿using MSCS.Commands;
 using MSCS.Models;
 using MSCS.Interfaces;
+using MSCS.Sources;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using System.Diagnostics;
@@ -14,7 +15,7 @@ namespace MSCS.ViewModels
 {
     public class ChapterListViewModel : BaseViewModel
     {
-        private readonly IScraper _scraper;
+        private readonly IMangaSource _source;
         private readonly INavigationService _navigationService;
         private readonly CancellationTokenSource _cts = new();
 
@@ -43,9 +44,9 @@ namespace MSCS.ViewModels
         public ICommand OpenChapterCommand { get; }
         public ICommand BackCommand { get; }
 
-        public ChapterListViewModel(IScraper scraper, INavigationService navigationService, Manga manga)
+        public ChapterListViewModel(IMangaSource source, INavigationService navigationService, Manga manga)
         {
-            _scraper = scraper;
+            _source = source;
             _navigationService = navigationService;
             Manga = manga;
 
@@ -61,7 +62,7 @@ namespace MSCS.ViewModels
         {
             if (string.IsNullOrEmpty(Manga?.Url)) return;
 
-            var chapters = await _scraper.GetChaptersAsync(Manga.Url, _cts.Token);
+            var chapters = await _source.GetChaptersAsync(Manga.Url, _cts.Token);
             Chapters = new ObservableCollection<Chapter>(chapters);
             Debug.WriteLine($"Loaded {Chapters.Count} chapters for {Manga.Title}");
         }
@@ -73,7 +74,7 @@ namespace MSCS.ViewModels
             Debug.WriteLine($"Opening chapter: {SelectedChapter.Title} ({SelectedChapter.Url})");
             int index = Chapters.IndexOf(SelectedChapter) + 1;
 
-            var images = await _scraper.FetchChapterImages(SelectedChapter.Url, _cts.Token);
+            var images = await _source.FetchChapterImages(SelectedChapter.Url, _cts.Token);
             if (images != null && images.Any())
             {
                 // Convert to ObservableCollection for the reader VM/UI
@@ -98,7 +99,7 @@ namespace MSCS.ViewModels
 
             var nextChapter = Chapters[index + 1];
             Debug.WriteLine($"Fetching next chapter: {nextChapter.Title} ({nextChapter.Url})");
-            return await _scraper.FetchChapterImages(nextChapter.Url, _cts.Token);
+            return await _source.FetchChapterImages(nextChapter.Url, _cts.Token);
         }
     }
 }

@@ -10,9 +10,9 @@ namespace MSCS.ViewModels
 
     public class ReaderViewModel : BaseViewModel
     {
-        private readonly List<ChapterImage> _allImages;  // full list of images
+        private readonly List<ChapterImage> _allImages;  
         private int _loadedCount = 0;
-        public int remainingImages => _allImages.Count - _loadedCount;
+        public int RemainingImages => _allImages.Count - _loadedCount;
         private double _widthFactor = Constants.DefaultWidthFactor;
         public double WidthFactor
         {
@@ -73,7 +73,7 @@ namespace MSCS.ViewModels
                 ImageUrls.Add(_allImages[_loadedCount + i]);
             }
             _loadedCount += countToLoad;
-
+            OnPropertyChanged(nameof(RemainingImages));
             Debug.WriteLine($"Loaded {_loadedCount} / {_allImages.Count} images");
         }
         public async Task GoToNextChapterAsync()
@@ -87,6 +87,7 @@ namespace MSCS.ViewModels
                 _allImages.Clear();
                 ImageUrls.Clear();
                 _loadedCount = 0;
+                OnPropertyChanged(nameof(RemainingImages));
                 _currentChapterIndex++;
 
                 foreach (var img in nextImages)

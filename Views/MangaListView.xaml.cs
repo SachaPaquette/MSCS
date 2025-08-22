@@ -1,7 +1,7 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using MSCS.Scrapers;
+using MSCS.Sources;
 using MSCS.ViewModels;
 using System.Diagnostics;
 using MSCS.Models;
@@ -27,14 +27,15 @@ namespace MSCS.Views
                 return;
             }
 
-            if (!ScraperRegistry.Sources.TryGetValue(selectedSource, out var scraper))
+            var source = SourceRegistry.Resolve(selectedSource);
+            if (source == null)
             {
                 MessageBox.Show("Invalid source selected.");
                 return;
             }
 
             var vm = (MangaListViewModel)DataContext;
-            vm.SetScraper(scraper); // Add this method to MangaListViewModel
+            vm.SetSource(source); 
             await vm.SearchAsync(query);
         }
 
