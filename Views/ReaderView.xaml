@@ -8,6 +8,7 @@
 
     <UserControl.Resources>
         <conv:ViewportFractionConverter x:Key="ViewportFraction"/>
+        <conv:BooleanOrConverter x:Key="BooleanOr"/>
 
         <Style x:Key="IconBtn" TargetType="Button">
             <Setter Property="Foreground" Value="#E9EEF7"/>
@@ -78,50 +79,63 @@
             </ItemsControl>
         </ScrollViewer>
 
-        <Grid HorizontalAlignment="Left" VerticalAlignment="Center" Margin="4" Panel.ZIndex="10">
-            <StackPanel>
-                <Button Style="{StaticResource IconBtn}"
+
+        <Grid x:Name="SidebarHost"
+              HorizontalAlignment="Left"
+              VerticalAlignment="Stretch"
+              Margin="4,0,0,0"
+              Panel.ZIndex="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                <StackPanel>
+                    <Button Style="{StaticResource IconBtn}"
                         Command="{Binding GoBackCommand}"
                         ToolTip="Back"
                         Margin="0,0,0,6">
-                    <TextBlock Text="&#xE72B;" FontSize="16"/>
-                </Button>
+                        <TextBlock Text="&#xE72B;" FontSize="16"/>
+                    </Button>
 
-                <Button x:Name="PinBtn" Style="{StaticResource IconBtn}" ToolTip="Chapters / Home">
-                    <TextBlock Text="&#xE718;" FontSize="16"/>
-                </Button>
-            </StackPanel>
+                    <Button x:Name="PinBtn" Style="{StaticResource IconBtn}" ToolTip="Chapters / Home">
+                        <TextBlock Text="&#xE718;" FontSize="16"/>
+                    </Button>
+                </StackPanel>
 
-            <Popup x:Name="SidePopup"
-                   PlacementTarget="{Binding ElementName=PinBtn}"
-                   Placement="Right"
-                   AllowsTransparency="True"
-                   StaysOpen="True">
-                <Popup.Style>
-                    <Style TargetType="Popup">
-                        <Setter Property="IsOpen" Value="False"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsMouseOver, ElementName=PinBtn}" Value="True">
-                                <Setter Property="IsOpen" Value="True"/>
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource Self}}" Value="True">
-                                <Setter Property="IsOpen" Value="True"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Popup.Style>
 
-                <Border Background="#202737"
-                        BorderBrush="#263149"
-                        BorderThickness="1"
-                        CornerRadius="10"
-                        Padding="10"
-                        Width="300"
-                        SnapsToDevicePixels="True">
+                <Border x:Name="ChapterSidebar"
+                    Grid.Column="1"
+                    Margin="8,4,0,4"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Stretch"
+                    Background="#202737"
+                    BorderBrush="#263149"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="10"
+                    Width="300"
+                    SnapsToDevicePixels="True">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Value="True">
+                                    <DataTrigger.Binding>
+                                        <MultiBinding Converter="{StaticResource BooleanOr}">
+                                            <Binding ElementName="PinBtn" Path="IsMouseOver"/>
+                                            <Binding RelativeSource="{RelativeSource Self}" Path="IsMouseOver"/>
+                                            <Binding ElementName="SidebarHost" Path="IsMouseOver"/>
+                                        </MultiBinding>
+                                    </DataTrigger.Binding>
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
                     <Grid>
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="8"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="8"/>
                             <RowDefinition Height="*"/>
@@ -129,9 +143,9 @@
 
                         <!-- Home -->
                         <Button Grid.Row="0"
-                                Style="{StaticResource IconBtn}"
-                                Command="{Binding GoHomeCommand}"
-                                HorizontalAlignment="Left">
+                            Style="{StaticResource IconBtn}"
+                            Command="{Binding GoHomeCommand}"
+                            HorizontalAlignment="Left">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <TextBlock Text="&#xE10F;" Margin="0,0,6,0"/>
                                 <!-- home icon -->
@@ -139,34 +153,59 @@
                             </StackPanel>
                         </Button>
 
-                        <!-- Quick selector -->
-                        <ComboBox Grid.Row="2"
-                                  ItemsSource="{Binding Chapters}"
-                                  SelectedItem="{Binding SelectedChapter, Mode=TwoWay}"
-                                  DisplayMemberPath="Title"
-                                  HorizontalContentAlignment="Stretch"/>
-
-                        <!-- Full chapter list -->
-                        <ListBox Grid.Row="4"
-                                 ItemsSource="{Binding Chapters}"
+                        <!-- Chapter list -->
+                        <Border Grid.Row="2"
+                            Background="#1A2230"
+                            CornerRadius="6"
+                            Padding="2"
+                            VerticalAlignment="Stretch">
+                            <ListBox ItemsSource="{Binding Chapters}"
                                  SelectedItem="{Binding SelectedChapter, Mode=TwoWay}"
                                  BorderThickness="0"
-                                 Background="#202737"
+                                 Background="Transparent"
                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
                                  VirtualizingStackPanel.IsVirtualizing="True"
                                  VirtualizingStackPanel.VirtualizationMode="Recycling">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding Title}"
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="Foreground" Value="#E9EEF7"/>
+                                        <Setter Property="Padding" Value="8,6"/>
+                                        <Setter Property="Margin" Value="0,2"/>
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ListBoxItem">
+                                                    <Border x:Name="ItemBorder"
+                                                        Background="Transparent"
+                                                        CornerRadius="4">
+                                                        <ContentPresenter VerticalAlignment="Center" Margin="4,0"/>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="ItemBorder" Property="Background" Value="#2A3A53"/>
+                                                        </Trigger>
+                                                        <Trigger Property="IsSelected" Value="True">
+                                                            <Setter TargetName="ItemBorder" Property="Background" Value="#3C4F6D"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Title}"
                                                Foreground="#E9EEF7"
-                                               Margin="6,4"
+                                               FontWeight="SemiBold"
                                                TextTrimming="CharacterEllipsis"/>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
                     </Grid>
                 </Border>
-            </Popup>
+            </StackPanel>
         </Grid>
     </Grid>
 </UserControl>
