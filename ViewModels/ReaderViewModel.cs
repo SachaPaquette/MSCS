@@ -1,4 +1,6 @@
-﻿using MSCS.Interfaces;
+﻿using MSCS.Commands;
+using MSCS.Helpers;
+using MSCS.Interfaces;
 using MSCS.Models;
 using System;
 using System.Collections.Generic;
@@ -6,7 +8,8 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using MSCS.Helpers;
+using System.Windows;
+using System.Windows.Input;
 
 namespace MSCS.ViewModels
 {
@@ -14,6 +17,7 @@ namespace MSCS.ViewModels
     {
         private readonly List<ChapterImage> _allImages;
         private readonly ChapterListViewModel? _chapterListViewModel;
+        private readonly INavigationService? _navigationService;
         private int _loadedCount;
         private int _currentChapterIndex;
         public int RemainingImages => _allImages.Count - _loadedCount;
@@ -45,12 +49,18 @@ namespace MSCS.ViewModels
         }
 
         public ObservableCollection<ChapterImage> ImageUrls { get; }
+        public ICommand GoBackCommand { get; private set; }
+        public ICommand GoHomeCommand { get; private set; }
+        public ICommand NextChapterCommand { get; private set; }
 
         public ReaderViewModel()
         {
             Debug.WriteLine("ReaderViewModel initialized with no images");
+            _navigationService = null;
+            _chapterListViewModel = null;
             _allImages = new List<ChapterImage>();
             ImageUrls = new ObservableCollection<ChapterImage>();
+            ConfigureNavigationCommands();
         }
 
         public ReaderViewModel(
@@ -60,7 +70,7 @@ namespace MSCS.ViewModels
             ChapterListViewModel chapterListViewModel,
             int currentChapterIndex)
         {
-            _ = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+            _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
             _chapterListViewModel = chapterListViewModel ?? throw new ArgumentNullException(nameof(chapterListViewModel));
             _currentChapterIndex = currentChapterIndex;
 
@@ -69,10 +79,12 @@ namespace MSCS.ViewModels
             ChapterTitle = title ?? string.Empty;
             _loadedCount = 0;
 
+            ConfigureNavigationCommands();
+
             Debug.WriteLine($"ReaderViewModel initialized with {_allImages.Count} images");
             Debug.WriteLine($"Current chapter index {_currentChapterIndex}");
 
-            LoadMoreImages();
+            LoadMoreImages();  // initial batch
             _ = _chapterListViewModel.PrefetchChapterAsync(_currentChapterIndex + 1);
         }
 
@@ -96,10 +108,17 @@ namespace MSCS.ViewModels
         {
             Debug.WriteLine("Navigating to next chapter...");
 
+            if (!CanGoToNextChapter())
+            {
+                Debug.WriteLine("No next chapter available.");
+                return;
+            }
+
             if (!await TryMoveToChapterAsync(_currentChapterIndex + 1))
             {
                 Debug.WriteLine("No next chapter available.");
             }
+            CommandManager.InvalidateRequerySuggested();
         }
 
         private async Task<bool> TryMoveToChapterAsync(int newIndex)
@@ -132,6 +151,7 @@ namespace MSCS.ViewModels
             ResetImages(images);
             _ = _chapterListViewModel.PrefetchChapterAsync(newIndex + 1);
             Debug.WriteLine($"Navigated to chapter {newIndex} with {images.Count} images.");
+            CommandManager.InvalidateRequerySuggested();
             return true;
         }
 
@@ -147,6 +167,42 @@ namespace MSCS.ViewModels
             }
 
             LoadMoreImages();
+        }
+
+        private bool CanGoToNextChapter()
+        {
+            if (_chapterListViewModel == null)
+            {
+                return false;
+            }
+
+            return _currentChapterIndex + 1 < _chapterListViewModel.Chapters.Count;
+        }
+
+        private void ConfigureNavigationCommands()
+        {
+            if (_navigationService == null)
+            {
+                GoBackCommand = new RelayCommand(_ => { }, _ => false);
+                GoHomeCommand = new RelayCommand(_ => { }, _ => false);
+            }
+            else
+            {
+                GoBackCommand = new RelayCommand(_ => _navigationService.GoBack(), _ => _navigationService.CanGoBack);
+                GoHomeCommand = new RelayCommand(_ => _navigationService.NavigateToSingleton<MangaListViewModel>());
+                WeakEventManager<INavigationService, EventArgs>.AddHandler(_navigationService, nameof(INavigationService.CanGoBackChanged), OnNavigationCanGoBackChanged);
+            }
+
+            NextChapterCommand = new RelayCommand(async _ => await GoToNextChapterAsync(), _ => CanGoToNextChapter());
+
+            OnPropertyChanged(nameof(GoBackCommand));
+            OnPropertyChanged(nameof(GoHomeCommand));
+            OnPropertyChanged(nameof(NextChapterCommand));
+        }
+
+        private void OnNavigationCanGoBackChanged(object sender, EventArgs e)
+        {
+            CommandManager.InvalidateRequerySuggested();
         }
     }
 }

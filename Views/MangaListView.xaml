@@ -32,25 +32,22 @@
                         </Style>
                     </Grid.Resources>
 
-                    <ComboBox x:Name="SourceSelector"
-                Grid.Column="0"
-                Style="{StaticResource InputBase}">
-                        <ComboBoxItem Content="mangaread"/>
-                        <ComboBoxItem Content="mangadex"/>
-                    </ComboBox>
+                    <ComboBox Grid.Column="0"
+                              Style="{StaticResource InputBase}"
+                              ItemsSource="{Binding AvailableSources}"
+                              SelectedItem="{Binding SelectedSourceKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
-                    <TextBox x:Name="QueryBox"
-               Grid.Column="2"
-               Style="{StaticResource InputBase}"
-               Padding="10,0"
-               MinWidth="200"
-               Text="" />
+                    <TextBox Grid.Column="2"
+                             Style="{StaticResource InputBase}"
+                             Padding="10,0"
+                             MinWidth="200"
+                             Text="{Binding SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
                     <Button Grid.Column="4"
-              Content="Search Manga"
-              Style="{StaticResource InputBase}"
-              Padding="16,0"
-              Click="Search_Click"/>
+                            Content="Search Manga"
+                            Style="{StaticResource InputBase}"
+                            Padding="16,0"
+                            Command="{Binding SearchCommand}"/>
                 </Grid>
             </Border>
         </DockPanel>

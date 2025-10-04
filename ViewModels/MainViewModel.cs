@@ -21,10 +21,11 @@ namespace MSCS.ViewModels
         {
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
 
-            MangaListVM = new MangaListViewModel(SourceRegistry.Resolve("mangaread") ?? throw new InvalidOperationException("Source not registered."), _navigationService);
-            _navigationService.RegisterSingleton(MangaListVM); 
+            MangaListVM = new MangaListViewModel("mangaread", _navigationService);
+            _navigationService.RegisterSingleton(MangaListVM);
 
             CurrentViewModel = MangaListVM;
+            _navigationService.SetRootViewModel(MangaListVM);
             MangaListVM.MangaSelected += OnMangaSelected;
         }
 
@@ -32,15 +33,16 @@ namespace MSCS.ViewModels
         private void OnMangaSelected(object s, Manga m)
         {
             var vm = new ChapterListViewModel(SourceRegistry.Resolve("mangaread") ?? throw new InvalidOperationException("Source not registered."), _navigationService, m);
-            _navigationService.NavigateToViewModel(vm); 
+            _navigationService.NavigateToViewModel(vm);
         }
 
         public void Initialize(INavigationService navigationService)
         {
-            var mangaListVM = new MangaListViewModel(SourceRegistry.Resolve("mangaread") ?? throw new InvalidOperationException("Source not registered."), navigationService);
+            var mangaListVM = new MangaListViewModel("mangaread", navigationService);
             mangaListVM.MangaSelected += OnMangaSelected;
 
             CurrentViewModel = mangaListVM;
+            navigationService.SetRootViewModel(mangaListVM);
         }
         public void NavigateTo<TViewModel>() where TViewModel : BaseViewModel
         {

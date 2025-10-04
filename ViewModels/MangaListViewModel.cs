@@ -1,117 +1,184 @@
 ﻿using MSCS.Commands;
-using MSCS.Models;
 using MSCS.Interfaces;
+using MSCS.Models;
+using MSCS.Sources;
+using System;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Windows.Input;
-using System.Diagnostics;
-using MSCS.Views;
-using MSCS.Sources;
 
 namespace MSCS.ViewModels
 {
     public class MangaListViewModel : BaseViewModel
     {
         private IMangaSource _source;
-        private readonly INavigationService _navigationService;
-        public ObservableCollection<Manga> MangaResults { get; } = new ObservableCollection<Manga>();
-        public ICommand MangaSelectedCommand { get; }
-        public event EventHandler<Manga> MangaSelected;
-        private int currentPage = 0;
-        private bool canLoadMore = true;
-        private bool isLoading = false;
         private Manga _selectedManga;
-        private string currentQuery;
+        private string _searchQuery = string.Empty;
+        private string _activeQuery = string.Empty;
+        private string _selectedSourceKey = string.Empty;
+        private int _currentPage;
+        private bool _canLoadMore = true;
+        private bool _isLoading;
+
+        public MangaListViewModel(string sourceKey, INavigationService navigationService)
+        {
+            if (navigationService == null)
+            {
+                throw new ArgumentNullException(nameof(navigationService));
+            }
+
+            AvailableSources = new ObservableCollection<string>
+            {
+                "mangaread",
+                "mangadex"
+            };
+
+            SearchCommand = new RelayCommand(async _ => await ExecuteSearchAsync(), _ => CanSearch());
+            MangaSelectedCommand = new RelayCommand(OnMangaSelected);
+
+            if (!string.IsNullOrWhiteSpace(sourceKey) && !AvailableSources.Contains(sourceKey))
+            {
+                AvailableSources.Add(sourceKey);
+            }
+
+            SelectedSourceKey = string.IsNullOrWhiteSpace(sourceKey) ? AvailableSources[0] : sourceKey;
+        }
+
+        public ObservableCollection<Manga> MangaResults { get; } = new();
+        public ObservableCollection<string> AvailableSources { get; }
+
+        public event EventHandler<Manga> MangaSelected;
+
+        public ICommand MangaSelectedCommand { get; }
+        public ICommand SearchCommand { get; }
 
         public Manga SelectedManga
         {
             get => _selectedManga;
             set
             {
-                if (_selectedManga != value)
+                if (SetProperty(ref _selectedManga, value) && value != null)
                 {
-                    _selectedManga = value;
-                    OnPropertyChanged();
-                    if (_selectedManga != null)
-                    {
-                        MangaSelected?.Invoke(this, _selectedManga);
-                    }
+                    MangaSelected?.Invoke(this, value);
+                }
+            }
+        }
+
+        public string SearchQuery
+        {
+            get => _searchQuery;
+            set
+            {
+                if (SetProperty(ref _searchQuery, value))
+                {
+                    CommandManager.InvalidateRequerySuggested();
+                }
+            }
+        }
+
+        public string SelectedSourceKey
+        {
+            get => _selectedSourceKey;
+            set
+            {
+                if (SetProperty(ref _selectedSourceKey, value))
+                {
+                    UpdateSourceFromKey(value);
+                    CommandManager.InvalidateRequerySuggested();
                 }
             }
         }
 
         public bool IsLoading
         {
-            get => isLoading;
-            private set => SetProperty(ref isLoading, value);
+            get => _isLoading;
+            private set
+            {
+                if (SetProperty(ref _isLoading, value))
+                {
+                    CommandManager.InvalidateRequerySuggested();
+                }
+            }
         }
 
         public bool CanLoadMore
         {
-            get => canLoadMore && !IsLoading;
-            private set => SetProperty(ref canLoadMore, value);
+            get => _canLoadMore && !IsLoading;
+            private set => SetProperty(ref _canLoadMore, value);
         }
 
-        public MangaListViewModel(IMangaSource source, INavigationService navigationService)
+        private bool CanSearch()
         {
-            _source = source ?? throw new ArgumentNullException(nameof(source));
-            _navigationService = navigationService;
-            MangaSelectedCommand = new RelayCommand(OnMangaSelected);
-        }
-        public MangaListViewModel()
-        {
-            _navigationService = App.Current.MainWindow?.DataContext as INavigationService ?? throw new InvalidOperationException("NavigationService is not available.");
-            _source = SourceRegistry.Resolve("mangaread") ?? throw new InvalidOperationException("Source not registered.");
-            MangaSelectedCommand = new RelayCommand(OnMangaSelected);
-            _selectedManga = null!;
-            currentQuery = string.Empty;
-        }
-        public MangaListViewModel(string sourceKey, INavigationService navigationService)
-            : this(SourceRegistry.Resolve(sourceKey) ?? throw new InvalidOperationException("Source not registered."), navigationService)
-        {
+            return !IsLoading &&
+                   !string.IsNullOrWhiteSpace(SelectedSourceKey) &&
+                   !string.IsNullOrWhiteSpace(SearchQuery);
         }
 
-
-        public void SetSource(IMangaSource source)
+        private async Task ExecuteSearchAsync()
         {
-            _source = source ?? throw new ArgumentNullException(nameof(source));
-        }
+            var query = SearchQuery?.Trim() ?? string.Empty;
+            var sourceKey = SelectedSourceKey;
 
-        public void OnMangaSelected(object obj)
-        {
-            if (obj is Manga selectedManga)
+            if (string.IsNullOrWhiteSpace(sourceKey) || string.IsNullOrWhiteSpace(query))
             {
-                MangaSelected?.Invoke(this, selectedManga);
+                return;
             }
+
+            var source = SourceRegistry.Resolve(sourceKey);
+            if (source == null)
+            {
+                Debug.WriteLine($"Search aborted. Source '{sourceKey}' was not found.");
+                return;
+            }
+
+            SetSource(source);
+            await SearchAsync(query);
         }
 
         public async Task SearchAsync(string query)
         {
-            if (IsLoading) return;
+            if (IsLoading)
+            {
+                return;
+            }
 
-            currentQuery = query;
+            var sanitized = query?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(sanitized))
+            {
+                return;
+            }
+
+            SearchQuery = sanitized;
+            _activeQuery = sanitized;
+
             MangaResults.Clear();
             CanLoadMore = true;
-            currentPage = 0;
+            _currentPage = 0;
             IsLoading = true;
 
-            var firstPageResults = await _source.SearchMangaAsync(query);
+            var firstPageResults = await _source.SearchMangaAsync(sanitized);
             foreach (var manga in firstPageResults)
+            {
                 MangaResults.Add(manga);
+            }
 
             IsLoading = false;
-            Debug.WriteLine($"Loaded {MangaResults.Count} manga for query: {query}");
+            Debug.WriteLine($"Loaded {MangaResults.Count} manga for query: {sanitized}");
         }
 
         public async Task LoadMoreAsync()
         {
-            if (!CanLoadMore) return;
+            if (!CanLoadMore || string.IsNullOrWhiteSpace(_activeQuery))
+            {
+                return;
+            }
 
             IsLoading = true;
-            currentPage++;
+            _currentPage++;
 
-            var moreHtml = await _source.LoadMoreSeriesHtmlAsync(currentQuery, currentPage);
-            Debug.WriteLine($"Loading more manga for page {currentPage}: {currentQuery}");
+            var moreHtml = await _source.LoadMoreSeriesHtmlAsync(_activeQuery, _currentPage);
+            Debug.WriteLine($"Loading more manga for page {_currentPage}: {_activeQuery}");
             if (string.IsNullOrEmpty(moreHtml))
             {
                 CanLoadMore = false;
@@ -127,11 +194,49 @@ namespace MSCS.ViewModels
             else
             {
                 foreach (var manga in moreManga)
+                {
                     MangaResults.Add(manga);
+                }
             }
 
             IsLoading = false;
             Debug.WriteLine($"Loaded {moreManga.Count} more manga, total: {MangaResults.Count}");
+        }
+
+        public void SetSource(IMangaSource source)
+        {
+            if (source == null) throw new ArgumentNullException(nameof(source));
+            if (ReferenceEquals(_source, source))
+            {
+                return;
+            }
+
+            _source = source;
+        }
+
+        public void OnMangaSelected(object obj)
+        {
+            if (obj is Manga selectedManga)
+            {
+                SelectedManga = selectedManga;
+            }
+        }
+
+        private void UpdateSourceFromKey(string key)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return;
+            }
+
+            var resolved = SourceRegistry.Resolve(key);
+            if (resolved == null)
+            {
+                Debug.WriteLine($"Source with key '{key}' could not be resolved.");
+                return;
+            }
+
+            SetSource(resolved);
         }
     }
 }

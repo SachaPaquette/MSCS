@@ -79,9 +79,18 @@
         </ScrollViewer>
 
         <Grid HorizontalAlignment="Left" VerticalAlignment="Center" Margin="4" Panel.ZIndex="10">
-            <Button x:Name="PinBtn" Style="{StaticResource IconBtn}" ToolTip="Chapters / Home">
-                <TextBlock Text="&#xE718;" FontSize="16"/>
-            </Button>
+            <StackPanel>
+                <Button Style="{StaticResource IconBtn}"
+                        Command="{Binding GoBackCommand}"
+                        ToolTip="Back"
+                        Margin="0,0,0,6">
+                    <TextBlock Text="&#xE72B;" FontSize="16"/>
+                </Button>
+
+                <Button x:Name="PinBtn" Style="{StaticResource IconBtn}" ToolTip="Chapters / Home">
+                    <TextBlock Text="&#xE718;" FontSize="16"/>
+                </Button>
+            </StackPanel>
 
             <Popup x:Name="SidePopup"
                    PlacementTarget="{Binding ElementName=PinBtn}"

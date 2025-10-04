@@ -4,6 +4,7 @@ using MSCS.Interfaces;
 using MSCS.Sources;
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
+using System.Windows;
 using System.Windows.Input;
 using System.Diagnostics;
 using System;
@@ -40,7 +41,13 @@ namespace MSCS.ViewModels
         public Chapter SelectedChapter
         {
             get => _selectedChapter;
-            set => SetProperty(ref _selectedChapter, value);
+            set
+            {
+                if (SetProperty(ref _selectedChapter, value))
+                {
+                    CommandManager.InvalidateRequerySuggested();
+                }
+            }
         }
 
         public ICommand OpenChapterCommand { get; }
@@ -53,7 +60,8 @@ namespace MSCS.ViewModels
             Manga = manga;
 
             OpenChapterCommand = new RelayCommand(_ => OpenChapter(), _ => SelectedChapter != null);
-            BackCommand = new RelayCommand(_ => _navigationService.NavigateToSingleton<MangaListViewModel>());
+            BackCommand = new RelayCommand(_ => _navigationService.GoBack(), _ => _navigationService.CanGoBack);
+            WeakEventManager<INavigationService, EventArgs>.AddHandler(_navigationService, nameof(INavigationService.CanGoBackChanged), OnNavigationStateChanged);
 
             _ = LoadChaptersAsync();
         }
@@ -91,6 +99,11 @@ namespace MSCS.ViewModels
                 Debug.WriteLine("Navigating to ReaderViewModel with images loaded.");
                 _ = PrefetchChapterAsync(index + 1);
             }
+        }
+
+        private void OnNavigationStateChanged(object sender, EventArgs e)
+        {
+            CommandManager.InvalidateRequerySuggested();
         }
 
         public Task<IReadOnlyList<ChapterImage>> GetChapterImagesAsync(int index)

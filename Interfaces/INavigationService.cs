@@ -14,6 +14,9 @@ namespace MSCS.Interfaces
         void NavigateToViewModel(BaseViewModel viewModel);
         void RegisterSingleton<TViewModel>(TViewModel instance) where TViewModel : BaseViewModel;
         void NavigateToSingleton<TViewModel>() where TViewModel : BaseViewModel;
-
+        void GoBack();
+        bool CanGoBack { get; }
+        event EventHandler CanGoBackChanged;
+        void SetRootViewModel(BaseViewModel viewModel);
     }
 }
