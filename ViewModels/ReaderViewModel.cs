@@ -1,17 +1,21 @@
 ﻿using MSCS.Interfaces;
 using MSCS.Models;
-using MSCS.ViewModels;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Linq;
+using System.Threading.Tasks;
 using MSCS.Helpers;
+
 namespace MSCS.ViewModels
 {
-
     public class ReaderViewModel : BaseViewModel
     {
-        private readonly List<ChapterImage> _allImages;  
-        private int _loadedCount = 0;
+        private readonly List<ChapterImage> _allImages;
+        private readonly ChapterListViewModel? _chapterListViewModel;
+        private int _loadedCount;
+        private int _currentChapterIndex;
         public int RemainingImages => _allImages.Count - _loadedCount;
         private double _widthFactor = Constants.DefaultWidthFactor;
         public double WidthFactor
@@ -32,6 +36,14 @@ namespace MSCS.ViewModels
             get => _isSidebarOpen;
             set => SetProperty(ref _isSidebarOpen, value);
         }
+
+        private string _chapterTitle = string.Empty;
+        public string ChapterTitle
+        {
+            get => _chapterTitle;
+            private set => SetProperty(ref _chapterTitle, value);
+        }
+
         public ObservableCollection<ChapterImage> ImageUrls { get; }
 
         public ReaderViewModel()
@@ -40,25 +52,28 @@ namespace MSCS.ViewModels
             _allImages = new List<ChapterImage>();
             ImageUrls = new ObservableCollection<ChapterImage>();
         }
-        private readonly ChapterListViewModel _chapterListViewModel;
-        private int _currentChapterIndex;
 
         public ReaderViewModel(
-            ObservableCollection<ChapterImage>? imageUrls,
+            IEnumerable<ChapterImage>? imageUrls,
             string title,
             INavigationService navigationService,
             ChapterListViewModel chapterListViewModel,
             int currentChapterIndex)
         {
-            Debug.WriteLine($"ReaderViewModel initialized with {imageUrls?.Count ?? 0} images");
-            Debug.WriteLine($"Current chapter index {currentChapterIndex}");
-
-            _chapterListViewModel = chapterListViewModel;
+            _ = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+            _chapterListViewModel = chapterListViewModel ?? throw new ArgumentNullException(nameof(chapterListViewModel));
             _currentChapterIndex = currentChapterIndex;
+
             _allImages = imageUrls?.ToList() ?? new List<ChapterImage>();
             ImageUrls = new ObservableCollection<ChapterImage>();
+            ChapterTitle = title ?? string.Empty;
+            _loadedCount = 0;
 
-            LoadMoreImages();  // initial batch
+            Debug.WriteLine($"ReaderViewModel initialized with {_allImages.Count} images");
+            Debug.WriteLine($"Current chapter index {_currentChapterIndex}");
+
+            LoadMoreImages();
+            _ = _chapterListViewModel.PrefetchChapterAsync(_currentChapterIndex + 1);
         }
 
 
@@ -76,34 +91,62 @@ namespace MSCS.ViewModels
             OnPropertyChanged(nameof(RemainingImages));
             Debug.WriteLine($"Loaded {_loadedCount} / {_allImages.Count} images");
         }
+
         public async Task GoToNextChapterAsync()
         {
             Debug.WriteLine("Navigating to next chapter...");
 
-            var nextImages = await _chapterListViewModel.GetNextChapterImages(_currentChapterIndex);
-
-            if (nextImages != null)
-            {
-                _allImages.Clear();
-                ImageUrls.Clear();
-                _loadedCount = 0;
-                OnPropertyChanged(nameof(RemainingImages));
-                _currentChapterIndex++;
-
-                foreach (var img in nextImages)
-                {
-                    _allImages.Add(img);
-                }
-
-                LoadMoreImages();
-
-                Debug.WriteLine("Next chapter loaded.");
-            }
-            else
+            if (!await TryMoveToChapterAsync(_currentChapterIndex + 1))
             {
                 Debug.WriteLine("No next chapter available.");
             }
         }
 
+        private async Task<bool> TryMoveToChapterAsync(int newIndex)
+        {
+            if (_chapterListViewModel == null)
+            {
+                Debug.WriteLine("Chapter list view model is unavailable for navigation.");
+                return false;
+            }
+
+            if (newIndex < 0 || newIndex >= _chapterListViewModel.Chapters.Count)
+            {
+                Debug.WriteLine($"Requested chapter index {newIndex} is out of range.");
+                return false;
+            }
+
+            var images = await _chapterListViewModel.GetChapterImagesAsync(newIndex);
+            if (images == null || images.Count == 0)
+            {
+                Debug.WriteLine($"No images returned for chapter at index {newIndex}.");
+                return false;
+            }
+
+            _currentChapterIndex = newIndex;
+            if (newIndex < _chapterListViewModel.Chapters.Count)
+            {
+                ChapterTitle = _chapterListViewModel.Chapters[newIndex].Title;
+            }
+
+            ResetImages(images);
+            _ = _chapterListViewModel.PrefetchChapterAsync(newIndex + 1);
+            Debug.WriteLine($"Navigated to chapter {newIndex} with {images.Count} images.");
+            return true;
+        }
+
+        private void ResetImages(IEnumerable<ChapterImage> images)
+        {
+            _allImages.Clear();
+            ImageUrls.Clear();
+            _loadedCount = 0;
+
+            foreach (var img in images)
+            {
+                _allImages.Add(img);
+            }
+
+            LoadMoreImages();
+        }
     }
 }

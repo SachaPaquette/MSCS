@@ -2,6 +2,7 @@
 using MSCS.Models;
 using MSCS.Interfaces;
 using MSCS.Sources;
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using System.Diagnostics;
@@ -18,6 +19,7 @@ namespace MSCS.ViewModels
         private readonly IMangaSource _source;
         private readonly INavigationService _navigationService;
         private readonly CancellationTokenSource _cts = new();
+        private readonly ConcurrentDictionary<int, Task<IReadOnlyList<ChapterImage>>> _chapterImageCache = new();
 
         private Manga _manga;
         private ObservableCollection<Chapter> _chapters = new();
@@ -53,7 +55,7 @@ namespace MSCS.ViewModels
             OpenChapterCommand = new RelayCommand(_ => OpenChapter(), _ => SelectedChapter != null);
             BackCommand = new RelayCommand(_ => _navigationService.NavigateToSingleton<MangaListViewModel>());
 
-            _ = LoadChaptersAsync(); 
+            _ = LoadChaptersAsync();
         }
 
         public ChapterListViewModel() { }
@@ -63,6 +65,7 @@ namespace MSCS.ViewModels
             if (string.IsNullOrEmpty(Manga?.Url)) return;
 
             var chapters = await _source.GetChaptersAsync(Manga.Url, _cts.Token);
+            _chapterImageCache.Clear();
             Chapters = new ObservableCollection<Chapter>(chapters);
             Debug.WriteLine($"Loaded {Chapters.Count} chapters for {Manga.Title}");
         }
@@ -72,16 +75,13 @@ namespace MSCS.ViewModels
             if (SelectedChapter == null || string.IsNullOrEmpty(SelectedChapter.Url)) return;
 
             Debug.WriteLine($"Opening chapter: {SelectedChapter.Title} ({SelectedChapter.Url})");
-            int index = Chapters.IndexOf(SelectedChapter) + 1;
+            int index = Chapters.IndexOf(SelectedChapter);
 
-            var images = await _source.FetchChapterImages(SelectedChapter.Url, _cts.Token);
+            var images = await GetChapterImagesAsync(index);
             if (images != null && images.Any())
             {
-                // Convert to ObservableCollection for the reader VM/UI
-                var imagesObs = new ObservableCollection<ChapterImage>(images);
-
                 var readerVM = new ReaderViewModel(
-                    imagesObs,
+                    images,
                     SelectedChapter.Title,
                     _navigationService,
                     this,
@@ -89,17 +89,63 @@ namespace MSCS.ViewModels
 
                 _navigationService.NavigateToViewModel(readerVM);
                 Debug.WriteLine("Navigating to ReaderViewModel with images loaded.");
+                _ = PrefetchChapterAsync(index + 1);
             }
         }
 
-        public async Task<IReadOnlyList<ChapterImage>> GetNextChapterImages(int index)
+        public Task<IReadOnlyList<ChapterImage>> GetChapterImagesAsync(int index)
         {
-            if (index < 0 || index >= Chapters.Count - 1)
-                return Array.Empty<ChapterImage>();
+            if (index < 0 || index >= Chapters.Count)
+            {
+                return Task.FromResult<IReadOnlyList<ChapterImage>>(Array.Empty<ChapterImage>());
+            }
 
-            var nextChapter = Chapters[index + 1];
-            Debug.WriteLine($"Fetching next chapter: {nextChapter.Title} ({nextChapter.Url})");
-            return await _source.FetchChapterImages(nextChapter.Url, _cts.Token);
+            return _chapterImageCache.GetOrAdd(index, FetchChapterImagesInternalAsync);
+        }
+
+        public async Task PrefetchChapterAsync(int index)
+        {
+            if (index < 0 || index >= Chapters.Count)
+            {
+                return;
+            }
+
+            try
+            {
+                await GetChapterImagesAsync(index).ConfigureAwait(false);
+                Debug.WriteLine($"Prefetched chapter at index {index}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to prefetch chapter at index {index}: {ex.Message}");
+            }
+        }
+
+        private async Task<IReadOnlyList<ChapterImage>> FetchChapterImagesInternalAsync(int index)
+        {
+            if (index < 0 || index >= Chapters.Count)
+            {
+                return Array.Empty<ChapterImage>();
+            }
+
+            var chapter = Chapters[index];
+            if (chapter == null || string.IsNullOrEmpty(chapter.Url))
+            {
+                return Array.Empty<ChapterImage>();
+            }
+
+            Debug.WriteLine($"Fetching chapter images: {chapter.Title} ({chapter.Url})");
+            try
+            {
+                var images = await _source.FetchChapterImages(chapter.Url, _cts.Token).ConfigureAwait(false);
+                return images?.ToList() ?? new List<ChapterImage>();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to fetch images for chapter {chapter.Title}: {ex.Message}");
+                _chapterImageCache.TryRemove(index, out _);
+                throw;
+            }
         }
     }
 }
