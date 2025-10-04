@@ -33,28 +33,19 @@ namespace MSCS.ViewModels
         {
             _navigation = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
 
-            AvailableSources = new ObservableCollection<string>
-            {
-                "mangaread",
-                "mangadex"
-            };
+            AvailableSources = new ObservableCollection<SourceDescriptor>(SourceRegistry.GetAllDescriptors());
 
             MangaResults = new ObservableCollection<Manga>();
 
             SearchCommand = new RelayCommand(async _ => await ExecuteSearchAsync(), _ => CanSearch());
             MangaSelectedCommand = new RelayCommand(OnMangaSelected);
 
-            if (!string.IsNullOrWhiteSpace(sourceKey) && !AvailableSources.Contains(sourceKey))
-            {
-                AvailableSources.Add(sourceKey);
-            }
-
-            SelectedSourceKey = string.IsNullOrWhiteSpace(sourceKey) ? AvailableSources[0] : sourceKey;
+            InitializeSelectedSource(sourceKey);
         }
 
         #region Public Properties
         public event EventHandler<Manga?>? MangaSelected;
-        public ObservableCollection<string> AvailableSources { get; }
+        public ObservableCollection<SourceDescriptor> AvailableSources { get; }
 
         public ObservableCollection<Manga> MangaResults { get; }
 
@@ -126,7 +117,35 @@ namespace MSCS.ViewModels
         #endregion
 
         #region Commands / Actions
+        private void InitializeSelectedSource(string sourceKey)
+        {
+            if (AvailableSources.Count == 0)
+            {
+                if (!string.IsNullOrWhiteSpace(sourceKey))
+                {
+                    var descriptor = new SourceDescriptor(sourceKey, sourceKey);
+                    AvailableSources.Add(descriptor);
+                    SelectedSourceKey = descriptor.Key;
+                }
 
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(sourceKey))
+            {
+                var descriptor = SourceRegistry.GetDescriptor(sourceKey) ?? new SourceDescriptor(sourceKey, sourceKey);
+                if (!AvailableSources.Any(source => source.Key.Equals(descriptor.Key, StringComparison.OrdinalIgnoreCase)))
+                {
+                    AvailableSources.Add(descriptor);
+                }
+
+                SelectedSourceKey = descriptor.Key;
+            }
+            else
+            {
+                SelectedSourceKey = AvailableSources[0].Key;
+            }
+        }
         private bool CanSearch()
         {
             return !_disposed &&

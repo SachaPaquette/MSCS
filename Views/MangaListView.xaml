@@ -35,7 +35,9 @@
                     <ComboBox Grid.Column="0"
                               Style="{StaticResource InputBase}"
                               ItemsSource="{Binding AvailableSources}"
-                              SelectedItem="{Binding SelectedSourceKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                              DisplayMemberPath="DisplayName"
+                              SelectedValuePath="Key"
+                              SelectedValue="{Binding SelectedSourceKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
                     <TextBox Grid.Column="2"
                              Style="{StaticResource InputBase}"
