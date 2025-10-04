@@ -12,6 +12,7 @@ namespace MSCS.Services
         private readonly ConcurrentDictionary<Type, BaseViewModel> _singletons = new();
         private readonly Stack<BaseViewModel> _backStack = new();
         private BaseViewModel _currentViewModel;
+        private BaseViewModel _rootViewModel;
         private bool _canGoBack;
         // Host (MainWindow/MainViewModel) sets this
         public Action<BaseViewModel> ApplyViewModel { get; set; } = _ => { };
@@ -33,6 +34,18 @@ namespace MSCS.Services
         {
             if (_singletons.TryGetValue(typeof(TViewModel), out var vm))
             {
+                if (ReferenceEquals(vm, _rootViewModel))
+                {
+                    if (!ReferenceEquals(_currentViewModel, vm) &&
+                        _currentViewModel is IDisposable disposable)
+                    {
+                        disposable.Dispose();
+                    }
+
+                    ShowViewModel(vm, addToHistory: false);
+                    return;
+                }
+
                 if (!ReferenceEquals(vm, _currentViewModel))
                 {
                     ShowViewModel(vm, addToHistory: true);
@@ -76,6 +89,7 @@ namespace MSCS.Services
         public void SetRootViewModel(BaseViewModel viewModel)
         {
             _currentViewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
+            _rootViewModel = _currentViewModel;
             _backStack.Clear();
             UpdateCanGoBack();
         }

@@ -8,7 +8,7 @@ namespace MSCS.Models
 {
     public class ChapterImage
     {
-        public string ImageUrl { get; set; }
-
+        public string ImageUrl { get; set; } = string.Empty;
+        public IDictionary<string, string>? Headers { get; set; }
     }
 }

@@ -193,7 +193,7 @@ namespace MSCS.ViewModels
                 WeakEventManager<INavigationService, EventArgs>.AddHandler(_navigationService, nameof(INavigationService.CanGoBackChanged), OnNavigationCanGoBackChanged);
             }
 
-            NextChapterCommand = new RelayCommand(async _ => await GoToNextChapterAsync(), _ => CanGoToNextChapter());
+            NextChapterCommand = new AsyncRelayCommand(_ => GoToNextChapterAsync(), _ => CanGoToNextChapter());
 
             OnPropertyChanged(nameof(GoBackCommand));
             OnPropertyChanged(nameof(GoHomeCommand));

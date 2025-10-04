@@ -1,16 +1,17 @@
-﻿using System;
+﻿using HtmlAgilityPack;
+using MSCS.Interfaces;
+using MSCS.Models;
+using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Security.Policy;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using HtmlAgilityPack;
-using MSCS.Interfaces;
-using MSCS.Models;
 
 namespace MSCS.Sources
 {
@@ -46,9 +47,9 @@ namespace MSCS.Sources
         {
             var url = new Uri(BaseUri, $"?s={Uri.EscapeDataString(query)}&post_type=wp-manga");
 
-            using var resp = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
+            using var resp = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
             resp.EnsureSuccessStatusCode();
-            var html = await resp.Content.ReadAsStringAsync(ct);
+            var html = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
 
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
@@ -71,9 +72,9 @@ namespace MSCS.Sources
         {
             var uri = ToAbsolute(mangaUrl);
 
-            using var resp = await Http.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, ct);
+            using var resp = await Http.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
             resp.EnsureSuccessStatusCode();
-            var html = await resp.Content.ReadAsStringAsync(ct);
+            var html = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
 
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
@@ -121,9 +122,9 @@ namespace MSCS.Sources
             };
 
             using var content = new FormUrlEncodedContent(values);
-            using var resp = await Http.PostAsync(url, content, ct);
+            using var resp = await Http.PostAsync(url, content, ct).ConfigureAwait(false);
             resp.EnsureSuccessStatusCode();
-            return await resp.Content.ReadAsStringAsync(ct);
+            return await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
         }
 
         public async Task<IReadOnlyList<ChapterImage>> FetchChapterImages(string chapterUrl, CancellationToken ct = default)
@@ -134,9 +135,9 @@ namespace MSCS.Sources
             // Many readers require referer on subsequent image requests; capture it at least for parity.
             req.Headers.Referrer = uri;
 
-            using var resp = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+            using var resp = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
             resp.EnsureSuccessStatusCode();
-            var html = await resp.Content.ReadAsStringAsync(ct);
+            var html = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
 
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
@@ -146,6 +147,9 @@ namespace MSCS.Sources
                 return Array.Empty<ChapterImage>();
 
             var list = new List<ChapterImage>(imageNodes.Count);
+            var referer = uri.ToString();
+            var cookieHeader = Handler.CookieContainer.GetCookieHeader(uri);
+
             foreach (var img in imageNodes)
             {
                 var raw = PickBestImage(img);
@@ -153,7 +157,21 @@ namespace MSCS.Sources
 
                 var abs = ToAbsolute(raw.Trim()).ToString();
 
-                list.Add(new ChapterImage { ImageUrl = abs });
+                var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["Referer"] = referer
+                };
+
+                if (!string.IsNullOrWhiteSpace(cookieHeader))
+                {
+                    headers["Cookie"] = cookieHeader;
+                }
+
+                list.Add(new ChapterImage
+                {
+                    ImageUrl = abs,
+                    Headers = headers
+                });
             }
 
             return list;
@@ -171,26 +189,103 @@ namespace MSCS.Sources
 
         private static string? PickBestImage(HtmlNode img)
         {
-            // Prefer largest from srcset
-            var srcset = img.GetAttributeValue("srcset", null);
-            if (!string.IsNullOrWhiteSpace(srcset))
+            var candidates = new List<(string Url, int Weight, int Order)>();
+            var order = 0;
+
+            void AddCandidate(string? value, int weight)
             {
-                var best = srcset
-                    .Split(',', StringSplitOptions.RemoveEmptyEntries)
-                    .Select(s => s.Trim().Split(' ')[0])
-                    .LastOrDefault(s => !string.IsNullOrWhiteSpace(s));
-                if (!string.IsNullOrWhiteSpace(best)) return best;
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    return;
+                }
+
+                candidates.Add((value.Trim(), weight, order++));
             }
 
-            // Fallback: src
-            var src = img.GetAttributeValue("src", null);
-            if (!string.IsNullOrWhiteSpace(src)) return src;
+            void AddSrcSetCandidates(string? srcset)
+            {
+                if (string.IsNullOrWhiteSpace(srcset))
+                {
+                    return;
+                }
 
-            // Lazy attributes
-            var lazy = img.GetAttributeValue("data-src", null)
-                   ?? img.GetAttributeValue("data-cfsrc", null)
-                   ?? img.GetAttributeValue("data-lazy-src", null);
-            return string.IsNullOrWhiteSpace(lazy) ? null : lazy;
+                foreach (var entry in srcset.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    var parts = entry.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length == 0)
+                    {
+                        continue;
+                    }
+
+                    var url = parts[0];
+                    var weight = 0;
+                    if (parts.Length > 1)
+                    {
+                        var descriptor = parts[1];
+                        if (descriptor.EndsWith("w", StringComparison.OrdinalIgnoreCase) &&
+                            int.TryParse(descriptor[..^1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var width))
+                        {
+                            weight = width;
+                        }
+                        else if (descriptor.EndsWith("x", StringComparison.OrdinalIgnoreCase) &&
+                                 double.TryParse(descriptor[..^1], NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var scale))
+                        {
+                            weight = (int)Math.Round(scale * 1000);
+                        }
+                    }
+
+                    AddCandidate(url, weight);
+                }
+            }
+
+            AddSrcSetCandidates(img.GetAttributeValue("srcset", null));
+            AddSrcSetCandidates(img.GetAttributeValue("data-srcset", null));
+
+            var pictureNode = FindPictureAncestor(img);
+            if (pictureNode != null)
+            {
+                foreach (var source in pictureNode.Elements("source"))
+                {
+                    AddSrcSetCandidates(source.GetAttributeValue("srcset", null));
+                    AddSrcSetCandidates(source.GetAttributeValue("data-srcset", null));
+                    AddCandidate(source.GetAttributeValue("src", null), 0);
+                    AddCandidate(source.GetAttributeValue("data-src", null), 0);
+                    AddCandidate(source.GetAttributeValue("data-original", null), 0);
+                }
+            }
+
+            AddCandidate(img.GetAttributeValue("src", null), 0);
+            AddCandidate(img.GetAttributeValue("data-src", null), -1);
+            AddCandidate(img.GetAttributeValue("data-cfsrc", null), -1);
+            AddCandidate(img.GetAttributeValue("data-lazy-src", null), -1);
+            AddCandidate(img.GetAttributeValue("data-original", null), -1);
+
+            if (candidates.Count == 0)
+            {
+                return null;
+            }
+
+            return candidates
+                .OrderByDescending(c => c.Weight)
+                .ThenBy(c => c.Order)
+                .Select(c => c.Url)
+                .FirstOrDefault();
+        }
+
+        private static HtmlNode? FindPictureAncestor(HtmlNode img)
+        {
+            var node = img.ParentNode;
+            while (node != null)
+            {
+                if (string.Equals(node.Name, "picture", StringComparison.OrdinalIgnoreCase))
+                {
+                    return node;
+                }
+
+                node = node.ParentNode;
+            }
+
+            return null;
         }
 
         private static void ExtractMangaFromDocument(HtmlDocument doc, List<Manga> results)

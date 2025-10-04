@@ -2,37 +2,44 @@
 using MSCS.Interfaces;
 using MSCS.Models;
 using MSCS.Sources;
+using MSCS.ViewModels;
 using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Input;
+using System.Windows.Threading;
 
 namespace MSCS.ViewModels
 {
-    public class MangaListViewModel : BaseViewModel
+    public class MangaListViewModel : BaseViewModel, IDisposable
     {
+        private readonly INavigationService _navigation;
+
         private IMangaSource _source;
-        private Manga _selectedManga;
+        private Manga? _selectedManga;
         private string _searchQuery = string.Empty;
         private string _activeQuery = string.Empty;
         private string _selectedSourceKey = string.Empty;
         private int _currentPage;
         private bool _canLoadMore = true;
         private bool _isLoading;
+        private CancellationTokenSource? _searchCts;
+        private bool _disposed;
 
         public MangaListViewModel(string sourceKey, INavigationService navigationService)
         {
-            if (navigationService == null)
-            {
-                throw new ArgumentNullException(nameof(navigationService));
-            }
+            _navigation = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
 
             AvailableSources = new ObservableCollection<string>
             {
                 "mangaread",
                 "mangadex"
             };
+
+            MangaResults = new ObservableCollection<Manga>();
 
             SearchCommand = new RelayCommand(async _ => await ExecuteSearchAsync(), _ => CanSearch());
             MangaSelectedCommand = new RelayCommand(OnMangaSelected);
@@ -45,25 +52,15 @@ namespace MSCS.ViewModels
             SelectedSourceKey = string.IsNullOrWhiteSpace(sourceKey) ? AvailableSources[0] : sourceKey;
         }
 
-        public ObservableCollection<Manga> MangaResults { get; } = new();
+        #region Public Properties
+        public event EventHandler<Manga?>? MangaSelected;
         public ObservableCollection<string> AvailableSources { get; }
 
-        public event EventHandler<Manga> MangaSelected;
+        public ObservableCollection<Manga> MangaResults { get; }
 
-        public ICommand MangaSelectedCommand { get; }
         public ICommand SearchCommand { get; }
 
-        public Manga SelectedManga
-        {
-            get => _selectedManga;
-            set
-            {
-                if (SetProperty(ref _selectedManga, value) && value != null)
-                {
-                    MangaSelected?.Invoke(this, value);
-                }
-            }
-        }
+        public ICommand MangaSelectedCommand { get; }
 
         public string SearchQuery
         {
@@ -85,7 +82,25 @@ namespace MSCS.ViewModels
                 if (SetProperty(ref _selectedSourceKey, value))
                 {
                     UpdateSourceFromKey(value);
+                    // reset paging state when source changes
+                    _activeQuery = string.Empty;
+                    _currentPage = 0;
+                    CanLoadMore = true;
+                    MangaResults.Clear();
+                    CancelActiveSearch(resetLoading: true);
                     CommandManager.InvalidateRequerySuggested();
+                }
+            }
+        }
+
+        public Manga? SelectedManga
+        {
+            get => _selectedManga;
+            set
+            {
+                if (SetProperty(ref _selectedManga, value))
+                {
+                    MangaSelected?.Invoke(this, value);
                 }
             }
         }
@@ -108,15 +123,21 @@ namespace MSCS.ViewModels
             private set => SetProperty(ref _canLoadMore, value);
         }
 
+        #endregion
+
+        #region Commands / Actions
+
         private bool CanSearch()
         {
-            return !IsLoading &&
+            return !_disposed &&
+                   !IsLoading &&
                    !string.IsNullOrWhiteSpace(SelectedSourceKey) &&
                    !string.IsNullOrWhiteSpace(SearchQuery);
         }
 
         private async Task ExecuteSearchAsync()
         {
+            ThrowIfDisposed();
             var query = SearchQuery?.Trim() ?? string.Empty;
             var sourceKey = SelectedSourceKey;
 
@@ -138,6 +159,8 @@ namespace MSCS.ViewModels
 
         public async Task SearchAsync(string query)
         {
+            ThrowIfDisposed();
+
             if (IsLoading)
             {
                 return;
@@ -149,62 +172,139 @@ namespace MSCS.ViewModels
                 return;
             }
 
+            if (_source == null)
+            {
+                Debug.WriteLine("Search aborted. No source configured.");
+                return;
+            }
+
             SearchQuery = sanitized;
             _activeQuery = sanitized;
 
             MangaResults.Clear();
             CanLoadMore = true;
             _currentPage = 0;
+
+            var cts = CreateSearchToken();
+
             IsLoading = true;
-
-            var firstPageResults = await _source.SearchMangaAsync(sanitized);
-            foreach (var manga in firstPageResults)
+            try
             {
-                MangaResults.Add(manga);
-            }
+                var firstPageResults = await _source.SearchMangaAsync(sanitized, cts.Token).ConfigureAwait(false);
 
-            IsLoading = false;
-            Debug.WriteLine($"Loaded {MangaResults.Count} manga for query: {sanitized}");
+                await RunOnUiThreadAsync(() =>
+                {
+                    foreach (var manga in firstPageResults)
+                    {
+                        MangaResults.Add(manga);
+                    }
+                }, cts.Token).ConfigureAwait(false);
+
+                Debug.WriteLine($"Loaded {MangaResults.Count} manga for query: {sanitized}");
+            }
+            catch (OperationCanceledException)
+            {
+                Debug.WriteLine($"Search cancelled for query: {sanitized}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Search failed for query {sanitized}: {ex}");
+                throw;
+            }
+            finally
+            {
+                if (ReferenceEquals(_searchCts, cts))
+                {
+                    IsLoading = false;
+                }
+            }
         }
 
         public async Task LoadMoreAsync()
         {
+            ThrowIfDisposed();
+
             if (!CanLoadMore || string.IsNullOrWhiteSpace(_activeQuery))
             {
                 return;
             }
 
-            IsLoading = true;
-            _currentPage++;
-
-            var moreHtml = await _source.LoadMoreSeriesHtmlAsync(_activeQuery, _currentPage);
-            Debug.WriteLine($"Loading more manga for page {_currentPage}: {_activeQuery}");
-            if (string.IsNullOrEmpty(moreHtml))
+            var tokenSource = _searchCts;
+            if (tokenSource == null || tokenSource.IsCancellationRequested)
             {
-                CanLoadMore = false;
-                IsLoading = false;
+                return;
+            }
+            if (_source == null)
+            {
+                Debug.WriteLine("Load more aborted. No source configured.");
                 return;
             }
 
-            var moreManga = _source.ParseMangaFromHtmlFragment(moreHtml);
-            if (moreManga.Count == 0)
-            {
-                CanLoadMore = false;
-            }
-            else
-            {
-                foreach (var manga in moreManga)
-                {
-                    MangaResults.Add(manga);
-                }
-            }
+            var nextPage = _currentPage + 1;
+            IsLoading = true;
 
-            IsLoading = false;
-            Debug.WriteLine($"Loaded {moreManga.Count} more manga, total: {MangaResults.Count}");
+            try
+            {
+                var moreHtml = await _source.LoadMoreSeriesHtmlAsync(_activeQuery, nextPage, tokenSource.Token).ConfigureAwait(false);
+                Debug.WriteLine($"Loading more manga for page {nextPage}: {_activeQuery}");
+                if (string.IsNullOrWhiteSpace(moreHtml))
+                {
+                    CanLoadMore = false;
+                    return;
+                }
+
+                var moreManga = await Task.Run(() => _source.ParseMangaFromHtmlFragment(moreHtml), tokenSource.Token).ConfigureAwait(false);
+                if (moreManga.Count == 0)
+                {
+                    CanLoadMore = false;
+                    return;
+                }
+
+                _currentPage = nextPage;
+
+                await RunOnUiThreadAsync(() =>
+                {
+                    foreach (var manga in moreManga)
+                    {
+                        MangaResults.Add(manga);
+                    }
+                }, tokenSource.Token).ConfigureAwait(false);
+
+                Debug.WriteLine($"Loaded {moreManga.Count} more manga, total: {MangaResults.Count}");
+            }
+            catch (OperationCanceledException)
+            {
+                Debug.WriteLine($"Load more cancelled for query {_activeQuery} page {nextPage}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Load more failed for query {_activeQuery} page {nextPage}: {ex}");
+                throw;
+            }
+            finally
+            {
+                IsLoading = false;
+            }
         }
+
+        public void OnMangaSelected(object obj)
+        {
+            ThrowIfDisposed();
+            if (obj is Manga selectedManga)
+            {
+                SelectedManga = selectedManga;
+                // Optionally navigate:
+                // _navigation.NavigateTo("MangaDetails", selectedManga);
+            }
+        }
+
+        #endregion
+
+        #region Source / Lifecycle
 
         public void SetSource(IMangaSource source)
         {
+            ThrowIfDisposed();
             if (source == null) throw new ArgumentNullException(nameof(source));
             if (ReferenceEquals(_source, source))
             {
@@ -214,20 +314,10 @@ namespace MSCS.ViewModels
             _source = source;
         }
 
-        public void OnMangaSelected(object obj)
-        {
-            if (obj is Manga selectedManga)
-            {
-                SelectedManga = selectedManga;
-            }
-        }
-
         private void UpdateSourceFromKey(string key)
         {
-            if (string.IsNullOrWhiteSpace(key))
-            {
-                return;
-            }
+            if (_disposed) return;
+            if (string.IsNullOrWhiteSpace(key)) return;
 
             var resolved = SourceRegistry.Resolve(key);
             if (resolved == null)
@@ -238,5 +328,95 @@ namespace MSCS.ViewModels
 
             SetSource(resolved);
         }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+
+            _disposed = true;
+            CancelActiveSearch(resetLoading: true);
+            GC.SuppressFinalize(this);
+        }
+
+        #endregion
+
+        #region Helpers
+
+        private CancellationTokenSource CreateSearchToken()
+        {
+            var next = new CancellationTokenSource();
+            var previous = Interlocked.Exchange(ref _searchCts, next);
+            if (previous != null)
+            {
+                try
+                {
+                    if (!previous.IsCancellationRequested)
+                    {
+                        previous.Cancel();
+                    }
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+                finally
+                {
+                    previous.Dispose();
+                }
+            }
+
+            return next;
+        }
+
+        private void CancelActiveSearch(bool resetLoading)
+        {
+            var current = Interlocked.Exchange(ref _searchCts, null);
+            if (current != null)
+            {
+                try
+                {
+                    if (!current.IsCancellationRequested)
+                    {
+                        current.Cancel();
+                    }
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+                finally
+                {
+                    current.Dispose();
+                }
+            }
+
+            if (resetLoading)
+            {
+                IsLoading = false;
+            }
+        }
+
+        private static Task RunOnUiThreadAsync(Action action, CancellationToken cancellationToken)
+        {
+            var dispatcher = Application.Current?.Dispatcher;
+
+            if (dispatcher == null || dispatcher.CheckAccess())
+            {
+                action();
+                return Task.CompletedTask;
+            }
+
+            // Note: not all frameworks have InvokeAsync(Action, DispatcherPriority, CancellationToken).
+            // Use the widely available overload and just ignore the token here.
+            return dispatcher.InvokeAsync(action, DispatcherPriority.DataBind).Task;
+        }
+
+        private void ThrowIfDisposed()
+        {
+            if (_disposed)
+            {
+                throw new ObjectDisposedException(nameof(MangaListViewModel));
+            }
+        }
+
+        #endregion
     }
 }
