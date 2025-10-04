@@ -22,6 +22,9 @@ namespace MSCS.ViewModels
         private int _loadedCount;
         private int _currentChapterIndex;
         public int RemainingImages => _allImages.Count - _loadedCount;
+        public int LoadedImages => _loadedCount;
+        public int TotalImages => _allImages.Count;
+        public double LoadingProgress => _allImages.Count == 0 ? 0d : (double)_loadedCount / _allImages.Count;
         private double _widthFactor = Constants.DefaultWidthFactor;
         public double WidthFactor
         {
@@ -34,6 +37,12 @@ namespace MSCS.ViewModels
         {
             get => _maxPageWidth;
             set => SetProperty(ref _maxPageWidth, Math.Max(400, value));
+        }
+        private double _scrollProgress;
+        public double ScrollProgress
+        {
+            get => _scrollProgress;
+            set => SetProperty(ref _scrollProgress, Math.Clamp(value, 0.0, 1.0));
         }
         private bool _isSidebarOpen;
         public bool IsSidebarOpen
@@ -135,6 +144,9 @@ namespace MSCS.ViewModels
             }
             _loadedCount += countToLoad;
             OnPropertyChanged(nameof(RemainingImages));
+            OnPropertyChanged(nameof(LoadedImages));
+            OnPropertyChanged(nameof(TotalImages));
+            OnPropertyChanged(nameof(LoadingProgress));
             Debug.WriteLine($"Loaded {_loadedCount} / {_allImages.Count} images");
         }
 
@@ -174,12 +186,13 @@ namespace MSCS.ViewModels
             _allImages.Clear();
             ImageUrls.Clear();
             _loadedCount = 0;
-
+            ScrollProgress = 0;
             foreach (var img in images)
             {
                 _allImages.Add(img);
             }
-
+            OnPropertyChanged(nameof(TotalImages));
+            OnPropertyChanged(nameof(LoadingProgress));
             LoadMoreImages();
         }
 
@@ -201,93 +214,93 @@ namespace MSCS.ViewModels
             await TryMoveToChapterAsync(_currentChapterIndex + 1);
         }
         private void ConfigureNavigationCommands()
-    {
-        if (_navigationService == null)
         {
-            GoBackCommand = new RelayCommand(_ => { }, _ => false);
-            GoHomeCommand = new RelayCommand(_ => { }, _ => false);
+            if (_navigationService == null)
+            {
+                GoBackCommand = new RelayCommand(_ => { }, _ => false);
+                GoHomeCommand = new RelayCommand(_ => { }, _ => false);
+            }
+            else
+            {
+                GoBackCommand = new RelayCommand(_ => _navigationService.GoBack(), _ => _navigationService.CanGoBack);
+                GoHomeCommand = new RelayCommand(_ => _navigationService.NavigateToSingleton<MangaListViewModel>());
+                WeakEventManager<INavigationService, EventArgs>.AddHandler(_navigationService, nameof(INavigationService.CanGoBackChanged), OnNavigationCanGoBackChanged);
+            }
+
+            NextChapterCommand = new AsyncRelayCommand(_ => GoToNextChapterAsync(), _ => CanGoToNextChapter());
+
+            OnPropertyChanged(nameof(GoBackCommand));
+            OnPropertyChanged(nameof(GoHomeCommand));
+            OnPropertyChanged(nameof(NextChapterCommand));
         }
-        else
-        {
-            GoBackCommand = new RelayCommand(_ => _navigationService.GoBack(), _ => _navigationService.CanGoBack);
-            GoHomeCommand = new RelayCommand(_ => _navigationService.NavigateToSingleton<MangaListViewModel>());
-            WeakEventManager<INavigationService, EventArgs>.AddHandler(_navigationService, nameof(INavigationService.CanGoBackChanged), OnNavigationCanGoBackChanged);
-        }
 
-        NextChapterCommand = new AsyncRelayCommand(_ => GoToNextChapterAsync(), _ => CanGoToNextChapter());
-
-        OnPropertyChanged(nameof(GoBackCommand));
-        OnPropertyChanged(nameof(GoHomeCommand));
-        OnPropertyChanged(nameof(NextChapterCommand));
-    }
-
-    private void OnNavigationCanGoBackChanged(object sender, EventArgs e)
+        private void OnNavigationCanGoBackChanged(object sender, EventArgs e)
     {
         CommandManager.InvalidateRequerySuggested();
     }
 
-    private async Task OnSelectedChapterChangedAsync(Chapter? chapter)
-    {
-        if (chapter == null || _chapterListViewModel == null)
+        private async Task OnSelectedChapterChangedAsync(Chapter? chapter)
         {
-            return;
-        }
-
-        try
-        {
-            int index = _chapterListViewModel.Chapters.IndexOf(chapter);
-            if (index < 0 || index == _currentChapterIndex)
+            if (chapter == null || _chapterListViewModel == null)
             {
                 return;
             }
 
-            await TryMoveToChapterAsync(index);
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Failed to change chapter from sidebar: {ex.Message}");
-        }
-    }
+            try
+            {
+                int index = _chapterListViewModel.Chapters.IndexOf(chapter);
+                if (index < 0 || index == _currentChapterIndex)
+                {
+                    return;
+                }
 
-    private void InitializeSelectedChapter()
-    {
-        if (_chapterListViewModel == null)
-        {
-            return;
-        }
-
-        if (_currentChapterIndex >= 0 && _currentChapterIndex < _chapterListViewModel.Chapters.Count)
-        {
-            _isUpdatingSelectedChapter = true;
-            SelectedChapter = _chapterListViewModel.Chapters[_currentChapterIndex];
-            ChapterTitle = SelectedChapter?.Title ?? ChapterTitle;
-            _isUpdatingSelectedChapter = false;
-        }
-    }
-
-    private void UpdateChapterSelection(int index)
-    {
-        if (_chapterListViewModel == null)
-        {
-            return;
+                await TryMoveToChapterAsync(index);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to change chapter from sidebar: {ex.Message}");
+            }
         }
 
-        if (index >= 0 && index < _chapterListViewModel.Chapters.Count)
+        private void InitializeSelectedChapter()
         {
-            _isUpdatingSelectedChapter = true;
-            SelectedChapter = _chapterListViewModel.Chapters[index];
-            ChapterTitle = SelectedChapter?.Title ?? ChapterTitle;
-            _isUpdatingSelectedChapter = false;
-        }
-    }
+            if (_chapterListViewModel == null)
+            {
+                return;
+            }
 
-    private void ChapterListViewModelOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(ChapterListViewModel.Chapters) && _chapterListViewModel != null)
+            if (_currentChapterIndex >= 0 && _currentChapterIndex < _chapterListViewModel.Chapters.Count)
+            {
+                _isUpdatingSelectedChapter = true;
+                SelectedChapter = _chapterListViewModel.Chapters[_currentChapterIndex];
+                ChapterTitle = SelectedChapter?.Title ?? ChapterTitle;
+                _isUpdatingSelectedChapter = false;
+            }
+        }
+
+        private void UpdateChapterSelection(int index)
         {
-            Chapters = _chapterListViewModel.Chapters;
-            InitializeSelectedChapter();
+            if (_chapterListViewModel == null)
+            {
+                return;
+            }
+
+            if (index >= 0 && index < _chapterListViewModel.Chapters.Count)
+            {
+                _isUpdatingSelectedChapter = true;
+                SelectedChapter = _chapterListViewModel.Chapters[index];
+                ChapterTitle = SelectedChapter?.Title ?? ChapterTitle;
+                _isUpdatingSelectedChapter = false;
+            }
+        }
+
+        private void ChapterListViewModelOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(ChapterListViewModel.Chapters) && _chapterListViewModel != null)
+            {
+                Chapters = _chapterListViewModel.Chapters;
+                InitializeSelectedChapter();
+            }
         }
     }
-    }
-    }
+}

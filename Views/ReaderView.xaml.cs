@@ -29,7 +29,19 @@ namespace MSCS.Views
             var scrollViewer = sender as ScrollViewer;
             if (scrollViewer == null)
                 return;
+            if (DataContext is ReaderViewModel readerViewModel)
+            {
+                double progress = 0;
+                if (scrollViewer.ExtentHeight > 0)
+                {
+                    progress = Math.Clamp(
+                        (scrollViewer.VerticalOffset + scrollViewer.ViewportHeight) / scrollViewer.ExtentHeight,
+                        0.0,
+                        1.0);
+                }
 
+                readerViewModel.ScrollProgress = progress;
+            }
             if (e.VerticalChange > 0 &&
                 scrollViewer.VerticalOffset + scrollViewer.ViewportHeight >= scrollViewer.ExtentHeight - 100)
             {
