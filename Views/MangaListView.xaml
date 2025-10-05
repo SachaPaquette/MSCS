@@ -5,11 +5,11 @@
              Height="Auto" Width="Auto">
 
     <UserControl.Resources>
-        <!-- Palette tailored for the manga browser -->
         <SolidColorBrush x:Key="PanelBackground" Color="#1A2130"/>
         <SolidColorBrush x:Key="PanelBorder" Color="#262F42"/>
         <SolidColorBrush x:Key="AccentBrush" Color="#7C9CFF"/>
         <SolidColorBrush x:Key="TextMuted" Color="#A8B3C5"/>
+        <SolidColorBrush x:Key="MangaHoverBrush" Color="#2A3750"/>
 
         <Style x:Key="CardBorderStyle" TargetType="Border">
             <Setter Property="Background" Value="{StaticResource PanelBackground}"/>

@@ -1,39 +1,122 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using MSCS.Interfaces;
 using MSCS.Models;
+using MSCS.Services;
 using MSCS.Sources;
 
 namespace MSCS.ViewModels
 {
     public class MainViewModel : BaseViewModel, IDisposable
     {
-        private BaseViewModel _currentViewModel;
         private readonly INavigationService _navigationService;
+        private readonly UserSettings _userSettings;
+        private readonly LocalLibraryService _localLibraryService;
+        private readonly LocalSource _LocalSource;
+        private readonly Dictionary<BaseViewModel, MainMenuTab> _tabLookup = new();
+        private BaseViewModel _currentViewModel;
         private ChapterListViewModel? _activeChapterViewModel;
+        private MainMenuTab? _selectedTab;
         private bool _disposed;
-
-        public MangaListViewModel MangaListVM { get; }
-
-        public BaseViewModel CurrentViewModel
-        {
-            get => _currentViewModel;
-            set => SetProperty(ref _currentViewModel, value);
-        }
+        private bool _suppressTabActivation;
 
         public MainViewModel(INavigationService navigationService)
         {
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
 
+            _userSettings = new UserSettings();
+            _localLibraryService = new LocalLibraryService(_userSettings);
+            _LocalSource = new LocalSource(_localLibraryService);
+
             MangaListVM = new MangaListViewModel("mangaread", _navigationService);
+            MangaListVM.MangaSelected += OnExternalMangaSelected;
             _navigationService.RegisterSingleton(MangaListVM);
 
-            CurrentViewModel = MangaListVM;
-            _navigationService.SetRootViewModel(MangaListVM);
-            MangaListVM.MangaSelected += OnMangaSelected;
+            LocalLibraryVM = new LocalLibraryViewModel(_localLibraryService);
+            LocalLibraryVM.MangaSelected += OnLocalMangaSelected;
+
+            SettingsVM = new SettingsViewModel(_localLibraryService);
+
+            Tabs = new ObservableCollection<MainMenuTab>
+            {
+                new("external", "External Sources", "\uE774", MangaListVM),
+                new("local", "Local Library", "\uE8D2", LocalLibraryVM),
+                new("settings", "Settings", "\uE713", SettingsVM)
+            };
+
+            foreach (var tab in Tabs)
+            {
+                _tabLookup[tab.ViewModel] = tab;
+            }
+
+            _suppressTabActivation = true;
+            SelectedTab = Tabs[0];
+            _suppressTabActivation = false;
+
+            CurrentViewModel = Tabs[0].ViewModel;
+            _navigationService.SetRootViewModel(CurrentViewModel);
         }
 
-        private void OnMangaSelected(object? sender, Manga? manga)
+        public MangaListViewModel MangaListVM { get; }
+        public LocalLibraryViewModel LocalLibraryVM { get; }
+        public SettingsViewModel SettingsVM { get; }
+
+        public ObservableCollection<MainMenuTab> Tabs { get; }
+
+        public BaseViewModel CurrentViewModel
+        {
+            get => _currentViewModel;
+            private set => SetProperty(ref _currentViewModel, value);
+        }
+
+        public MainMenuTab? SelectedTab
+        {
+            get => _selectedTab;
+            set
+            {
+                if (SetProperty(ref _selectedTab, value) && !_suppressTabActivation && value != null)
+                {
+                    ActivateTab(value);
+                }
+            }
+        }
+
+        private void ActivateTab(MainMenuTab tab)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            if (ReferenceEquals(CurrentViewModel, tab.ViewModel))
+            {
+                if (tab.ViewModel is LocalLibraryViewModel alreadyActiveLocal)
+                {
+                    alreadyActiveLocal.EnsureLibraryLoaded();
+                }
+
+                return;
+            }
+
+            DisposeActiveChapterViewModel();
+
+            if (tab.ViewModel is MangaListViewModel mangaListViewModel)
+            {
+                mangaListViewModel.SelectedManga = null;
+            }
+            else if (tab.ViewModel is LocalLibraryViewModel localLibraryViewModel)
+            {
+                localLibraryViewModel.SelectedManga = null;
+                localLibraryViewModel.EnsureLibraryLoaded();
+            }
+
+            CurrentViewModel = tab.ViewModel;
+            _navigationService.SetRootViewModel(tab.ViewModel);
+        }
+
+        private void OnExternalMangaSelected(object? sender, Manga? manga)
         {
             if (_disposed || manga == null)
             {
@@ -51,6 +134,21 @@ namespace MSCS.ViewModels
                 return;
             }
 
+            NavigateToChapterList(source, manga);
+        }
+
+        private void OnLocalMangaSelected(object? sender, Manga? manga)
+        {
+            if (_disposed || manga == null)
+            {
+                return;
+            }
+
+            NavigateToChapterList(_LocalSource, manga);
+        }
+
+        private void NavigateToChapterList(IMangaSource source, Manga manga)
+        {
             DisposeActiveChapterViewModel();
 
             var chapterViewModel = new ChapterListViewModel(source, _navigationService, manga);
@@ -87,10 +185,31 @@ namespace MSCS.ViewModels
 
             CurrentViewModel = viewModel;
 
-            if (ReferenceEquals(viewModel, MangaListVM))
+            if (_tabLookup.TryGetValue(viewModel, out var tab))
             {
-                MangaListVM.SelectedManga = null;
-                DisposeActiveChapterViewModel();
+                try
+                {
+                    _suppressTabActivation = true;
+                    SelectedTab = tab;
+                }
+                finally
+                {
+                    _suppressTabActivation = false;
+                }
+
+                if (viewModel is MangaListViewModel mangaListViewModel)
+                {
+                    mangaListViewModel.SelectedManga = null;
+                    DisposeActiveChapterViewModel();
+                }
+                else if (viewModel is LocalLibraryViewModel localLibraryViewModel)
+                {
+                    localLibraryViewModel.SelectedManga = null;
+                    localLibraryViewModel.EnsureLibraryLoaded();
+                    DisposeActiveChapterViewModel();
+                }
+
+                _navigationService.SetRootViewModel(viewModel);
             }
             else if (viewModel is ChapterListViewModel chapterViewModel)
             {
@@ -116,9 +235,13 @@ namespace MSCS.ViewModels
             }
 
             _disposed = true;
-            MangaListVM.MangaSelected -= OnMangaSelected;
+            MangaListVM.MangaSelected -= OnExternalMangaSelected;
+            LocalLibraryVM.MangaSelected -= OnLocalMangaSelected;
             DisposeActiveChapterViewModel();
             MangaListVM.Dispose();
+            LocalLibraryVM.Dispose();
+            SettingsVM.Dispose();
+            _localLibraryService.Dispose();
         }
     }
 }
