@@ -39,13 +39,8 @@ namespace MSCS.Services
 
         public async Task<bool> AuthenticateAsync(Window? owner)
         {
-            var clientId = _userSettings.AniListClientId;
-            if (string.IsNullOrWhiteSpace(clientId))
-            {
-                throw new InvalidOperationException("AniList client id is not configured. Set it in Settings before authenticating.");
-            }
 
-            var authWindow = new Views.AniListOAuthWindow(clientId);
+            var authWindow = new Views.AniListOAuthWindow();
             if (owner != null)
             {
                 authWindow.Owner = owner;

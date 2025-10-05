@@ -40,23 +40,6 @@ namespace MSCS.Services
             }
         }
 
-        public string? AniListClientId
-        {
-            get => _data.AniListClientId;
-            set
-            {
-                var sanitized = string.IsNullOrWhiteSpace(value) ? null : value?.Trim();
-                if (string.Equals(_data.AniListClientId, sanitized, StringComparison.Ordinal))
-                {
-                    return;
-                }
-
-                _data.AniListClientId = sanitized;
-                SaveInternal();
-                SettingsChanged?.Invoke(this, EventArgs.Empty);
-            }
-        }
-
         public string? AniListAccessToken
         {
             get => _data.AniListAccessToken;
@@ -205,7 +188,6 @@ namespace MSCS.Services
         private class SettingsData
         {
             public string? LocalLibraryPath { get; set; }
-            public string? AniListClientId { get; set; }
             public string? AniListAccessToken { get; set; }
             public DateTimeOffset? AniListAccessTokenExpiry { get; set; }
             public string? AniListUserName { get; set; }

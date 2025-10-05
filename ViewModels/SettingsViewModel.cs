@@ -18,7 +18,6 @@ namespace MSCS.ViewModels
         private bool _disposed;
         private string? _libraryPath;
         private bool _suppressUpdate;
-        private string? _aniListClientId;
         private bool _isAniListConnected;
         private string? _aniListUserName;
         private bool _suppressSettingsUpdate;
@@ -34,13 +33,12 @@ namespace MSCS.ViewModels
             _aniListService.AuthenticationChanged += OnAniListAuthenticationChanged;
 
             _libraryPath = _libraryService.LibraryPath;
-            _aniListClientId = _userSettings.AniListClientId;
             _isAniListConnected = _aniListService.IsAuthenticated;
             _aniListUserName = _aniListService.UserName;
 
             BrowseCommand = new RelayCommand(_ => BrowseForFolder());
             ClearCommand = new RelayCommand(_ => LibraryPath = null, _ => !string.IsNullOrWhiteSpace(LibraryPath));
-            AniListAuthenticateCommand = new AsyncRelayCommand(_ => AuthenticateAniListAsync(), _ => !string.IsNullOrWhiteSpace(AniListClientId));
+            AniListAuthenticateCommand = new AsyncRelayCommand(_ => AuthenticateAniListAsync());
         }
 
         public string? LibraryPath
@@ -70,28 +68,6 @@ namespace MSCS.ViewModels
         public ICommand BrowseCommand { get; }
         public ICommand ClearCommand { get; }
         public ICommand AniListAuthenticateCommand { get; }
-
-        public string? AniListClientId
-        {
-            get => _aniListClientId;
-            set
-            {
-                if (_suppressSettingsUpdate)
-                {
-                    if (SetProperty(ref _aniListClientId, value, nameof(AniListClientId)))
-                    {
-                        CommandManager.InvalidateRequerySuggested();
-                    }
-                    return;
-                }
-
-                if (SetProperty(ref _aniListClientId, value, nameof(AniListClientId)))
-                {
-                    _userSettings.AniListClientId = value;
-                    CommandManager.InvalidateRequerySuggested();
-                }
-            }
-        }
 
         public bool IsAniListConnected
         {
@@ -195,7 +171,6 @@ namespace MSCS.ViewModels
             try
             {
                 _suppressSettingsUpdate = true;
-                AniListClientId = _userSettings.AniListClientId;
             }
             finally
             {

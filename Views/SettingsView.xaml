@@ -131,14 +131,6 @@
                                TextWrapping="Wrap"
                                Margin="0,0,0,12" />
 
-                    <TextBlock Text="Client ID"
-                               Foreground="#A9B4C7"
-                               FontWeight="SemiBold"
-                               Margin="0,0,0,6" />
-                    <TextBox Text="{Binding AniListClientId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                             Style="{StaticResource SettingsTextBox}"
-                             Margin="0,0,0,12" />
-
                     <StackPanel Orientation="Horizontal">
                         <Button Content="Connect AniList"
                                 Padding="20,8"

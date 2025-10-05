@@ -14,5 +14,6 @@ namespace MSCS.Helpers
         public const double DefaultClickScrollValue = 150; // default scroll value on image click
         public const int DefaultSmoothScrollDuration = 250; // default duration for smooth scroll in ms
         public const double DefaultSmoothScrollPageFraction = 0.85; // factor for smooth scroll
+        public const string ClientID = "30966";
     }
 }

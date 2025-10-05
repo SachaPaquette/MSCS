@@ -10,19 +10,11 @@ namespace MSCS.Views
         private static readonly TimeSpan DefaultTokenLifetime = TimeSpan.FromDays(365);
         private readonly Uri _authorizationUri;
 
-        public AniListOAuthWindow(string clientId)
+        public AniListOAuthWindow()
         {
-            if (string.IsNullOrWhiteSpace(clientId))
-            {
-                throw new ArgumentException("Client id is required", nameof(clientId));
-            }
-
             InitializeComponent();
-
-            var encodedClientId = Uri.EscapeDataString(clientId);
-            var redirectUri = Uri.EscapeDataString("https://anilist.co/api/v2/oauth/pin");
-            _authorizationUri = new Uri($"https://anilist.co/api/v2/oauth/authorize?client_id={encodedClientId}&redirect_uri={redirectUri}&response_type=token");
-
+            _authorizationUri = new Uri(
+                $"https://anilist.co/api/v2/oauth/authorize?client_id={Helpers.Constants.ClientID}&response_type=token");
             Loaded += OnLoaded;
         }
 
