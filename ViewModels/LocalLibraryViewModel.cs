@@ -21,7 +21,7 @@ namespace MSCS.ViewModels
         private string _searchQuery = string.Empty;
         private string _selectedGroup = "All";
         private LocalMangaEntry? _selectedManga;
-
+        private bool _isLibraryLoaded;
         private const int MangaDisplayBatchSize = 60;
         private readonly ObservableCollection<LocalMangaEntry> _visibleEntries = new();
         private readonly ReadOnlyObservableCollection<LocalMangaEntry> _readOnlyVisibleEntries;
@@ -134,7 +134,15 @@ namespace MSCS.ViewModels
 
         public void EnsureLibraryLoaded()
         {
-            ReloadLibrary();
+            if (_disposed)
+            {
+                return;
+            }
+
+            if (!_isLibraryLoaded && !_isLoading)
+            {
+                ReloadLibrary();
+            }
         }
 
         public void Dispose()
@@ -156,6 +164,8 @@ namespace MSCS.ViewModels
             }
 
             IsLoading = true;
+            _isLibraryLoaded = false;
+            var loadSucceeded = false;
             try
             {
                 HasLibraryPath = _libraryService.LibraryPathExists();
@@ -167,6 +177,7 @@ namespace MSCS.ViewModels
                 UpdateGroups(entries);
                 ApplyFilters(resetCursor: true);
                 OnPropertyChanged(nameof(LibraryPath));
+                loadSucceeded = true;
             }
             catch (Exception ex)
             {
@@ -175,6 +186,7 @@ namespace MSCS.ViewModels
             finally
             {
                 IsLoading = false;
+                _isLibraryLoaded = loadSucceeded;
             }
         }
 
@@ -233,6 +245,7 @@ namespace MSCS.ViewModels
 
         private void OnLibraryPathChanged(object? sender, EventArgs e)
         {
+            _isLibraryLoaded = false;
             ReloadLibrary();
         }
 
