@@ -30,6 +30,7 @@ namespace MSCS.ViewModels
         private readonly ObservableCollection<string> _groupFilters = new();
         private int _visibleEntryCursor;
         private bool _hasMoreResults;
+        private CancellationTokenSource? _reloadCancellationTokenSource;
 
         public LocalLibraryViewModel(LocalLibraryService libraryService)
         {
@@ -38,11 +39,11 @@ namespace MSCS.ViewModels
             _readOnlyVisibleEntries = new ReadOnlyObservableCollection<LocalMangaEntry>(_visibleEntries);
 
 
-            RefreshCommand = new RelayCommand(_ => ReloadLibrary(), _ => !_isLoading);
+            RefreshCommand = new AsyncRelayCommand(ReloadLibraryAsync, () => !_isLoading);
             OpenLibraryFolderCommand = new RelayCommand(_ => OpenLibraryFolder(), _ => HasLibraryPath);
             LoadMoreMangaCommand = new RelayCommand(_ => LoadMoreVisibleManga(), _ => HasMoreResults);
             InitializeGroups();
-            ReloadLibrary();
+            _ = ReloadLibraryAsync();
         }
 
         public event EventHandler<Manga?>? MangaSelected;
@@ -141,7 +142,7 @@ namespace MSCS.ViewModels
 
             if (!_isLibraryLoaded && !_isLoading)
             {
-                ReloadLibrary();
+                _ = ReloadLibraryAsync();
             }
         }
 
@@ -156,20 +157,28 @@ namespace MSCS.ViewModels
             _libraryService.LibraryPathChanged -= OnLibraryPathChanged;
         }
 
-        private void ReloadLibrary()
+        private async Task ReloadLibraryAsync()
         {
             if (_disposed)
             {
                 return;
             }
+            _reloadCancellationTokenSource?.Cancel();
 
+            var currentCts = new CancellationTokenSource();
+            _reloadCancellationTokenSource = currentCts;
             IsLoading = true;
             _isLibraryLoaded = false;
             var loadSucceeded = false;
             try
             {
                 HasLibraryPath = _libraryService.LibraryPathExists();
-                var entries = _libraryService.GetMangaEntries();
+                IReadOnlyList<LocalMangaEntry> entries = Array.Empty<LocalMangaEntry>();
+
+                if (HasLibraryPath)
+                {
+                    entries = await _libraryService.GetMangaEntriesAsync(currentCts.Token).ConfigureAwait(true);
+                }
 
                 _allEntries.Clear();
                 _allEntries.AddRange(entries);
@@ -179,14 +188,24 @@ namespace MSCS.ViewModels
                 OnPropertyChanged(nameof(LibraryPath));
                 loadSucceeded = true;
             }
+            catch (OperationCanceledException) when (currentCts.IsCancellationRequested)
+            {
+                // Ignore cancellations triggered by a subsequent reload.
+            }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Failed to load local library: {ex.Message}");
             }
             finally
             {
-                IsLoading = false;
-                _isLibraryLoaded = loadSucceeded;
+                if (ReferenceEquals(_reloadCancellationTokenSource, currentCts))
+                {
+                    _reloadCancellationTokenSource = null;
+                    IsLoading = false;
+                    _isLibraryLoaded = loadSucceeded;
+                }
+
+                currentCts.Dispose();
             }
         }
 
@@ -246,7 +265,7 @@ namespace MSCS.ViewModels
         private void OnLibraryPathChanged(object? sender, EventArgs e)
         {
             _isLibraryLoaded = false;
-            ReloadLibrary();
+            _ = ReloadLibraryAsync();
         }
 
         private void ApplyFilters(bool resetCursor)
