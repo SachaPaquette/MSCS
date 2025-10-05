@@ -8,7 +8,7 @@ using MSCS.ViewModels;
 
 namespace MSCS.Views
 {
-    public partial class MangaListView : UserControl
+    public partial class MangaListView : System.Windows.Controls.UserControl
     {
         public MangaListView()
         {

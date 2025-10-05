@@ -3,7 +3,7 @@ using System.IO;
 using System.Windows.Input;
 using MSCS.Commands;
 using MSCS.Services;
-using System.Windows.Forms;
+using Forms = System.Windows.Forms;
 
 namespace MSCS.ViewModels
 {
@@ -65,14 +65,14 @@ namespace MSCS.ViewModels
 
         private void BrowseForFolder()
         {
-            using var dialog = new FolderBrowserDialog
+            using var dialog = new Forms.FolderBrowserDialog
             {
                 Description = "Select the folder that contains your manga library.",
                 SelectedPath = LibraryPathExists ? LibraryPath : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
                 ShowNewFolderButton = false
             };
 
-            if (dialog.ShowDialog() == DialogResult.OK)
+            if (dialog.ShowDialog() == Forms.DialogResult.OK)
             {
                 LibraryPath = dialog.SelectedPath;
             }

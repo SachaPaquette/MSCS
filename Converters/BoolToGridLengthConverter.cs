@@ -12,6 +12,6 @@ namespace MSCS.Converters
             => (value is bool b && b) ? new GridLength(OpenWidth) : new GridLength(0);
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-            => Binding.DoNothing;
+            => System.Windows.Data.Binding.DoNothing;
     }
 }

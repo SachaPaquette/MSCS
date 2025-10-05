@@ -18,7 +18,7 @@ namespace MSCS.Views.Controls
     /// <summary>
     /// Interaction logic for ShellMenu.xaml
     /// </summary>
-    public partial class ShellMenu : UserControl
+    public partial class ShellMenu : System.Windows.Controls.UserControl
     {
         public ShellMenu()
         {

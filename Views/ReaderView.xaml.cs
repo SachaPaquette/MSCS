@@ -18,7 +18,7 @@ using System.Windows.Media.Animation;
 using System.Reflection;
 namespace MSCS.Views
 {
-    public partial class ReaderView : UserControl
+    public partial class ReaderView : System.Windows.Controls.UserControl
     {
         public ReaderView()
         {
@@ -58,7 +58,7 @@ namespace MSCS.Views
         }
         private void ScrollEventHandler(object sender, MouseButtonEventArgs e)
         {
-            if (sender is Image image && ScrollView != null)
+            if (sender is System.Windows.Controls.Image image && ScrollView != null)
             {
                 // Get mouse position relative to the ScrollView
                 var pos = e.GetPosition(ScrollView);

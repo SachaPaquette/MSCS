@@ -1,4 +1,5 @@
 ﻿using HtmlAgilityPack;
+using HtmlDocument = HtmlAgilityPack.HtmlDocument;
 using MSCS.Interfaces;
 using MSCS.Models;
 using System;

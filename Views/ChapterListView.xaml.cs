@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -18,7 +17,7 @@ namespace MSCS.Views
     /// <summary>
     /// Interaction logic for ChapterListView.xaml
     /// </summary>
-    public partial class ChapterListView : UserControl
+    public partial class ChapterListView : System.Windows.Controls.UserControl
     {
         public ChapterListView()
         {

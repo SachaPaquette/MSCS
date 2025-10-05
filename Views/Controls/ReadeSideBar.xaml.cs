@@ -6,7 +6,7 @@ using System.Windows.Data;
 
 namespace MSCS.Views
 {
-    public partial class ReaderSidebar : UserControl
+    public partial class ReaderSidebar : System.Windows.Controls.UserControl
     {
         public ReaderSidebar() => InitializeComponent();
 

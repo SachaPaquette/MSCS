@@ -20,9 +20,9 @@ namespace MSCS.ViewModels
         private bool _isLoading;
         private string _searchQuery = string.Empty;
         private string _selectedGroup = "All";
-        private LocalLibraryService.LocalMangaEntry? _selectedManga;
+        private LocalMangaEntry? _selectedManga;
 
-        private readonly ObservableCollection<LocalLibraryService.LocalMangaEntry> _entries = new();
+        private readonly ObservableCollection<LocalMangaEntry> _entries = new();
         private readonly ObservableCollection<string> _groupFilters = new();
         private readonly ICollectionView _collectionView;
 
@@ -33,7 +33,7 @@ namespace MSCS.ViewModels
 
             _collectionView = CollectionViewSource.GetDefaultView(_entries);
             _collectionView.Filter = FilterManga;
-            _collectionView.SortDescriptions.Add(new SortDescription(nameof(LocalLibraryService.LocalMangaEntry.Title), ListSortDirection.Ascending));
+            _collectionView.SortDescriptions.Add(new SortDescription(nameof(LocalMangaEntry.Title), ListSortDirection.Ascending));
 
             RefreshCommand = new RelayCommand(_ => ReloadLibrary(), _ => !_isLoading);
             OpenLibraryFolderCommand = new RelayCommand(_ => OpenLibraryFolder(), _ => HasLibraryPath);
@@ -100,7 +100,7 @@ namespace MSCS.ViewModels
             }
         }
 
-        public LocalLibraryService.LocalMangaEntry? SelectedManga
+        public LocalMangaEntry? SelectedManga
         {
             get => _selectedManga;
             set
@@ -133,9 +133,9 @@ namespace MSCS.ViewModels
             _libraryService.LibraryPathChanged -= OnLibraryPathChanged;
         }
 
-        private bool FilterManga(object obj)
+        private bool FilterManga(object obj)    
         {
-            if (obj is not LocalLibraryService.LocalMangaEntry entry)
+            if (obj is not LocalMangaEntry entry)
             {
                 return false;
             }
@@ -200,7 +200,7 @@ namespace MSCS.ViewModels
             }
         }
 
-        private void UpdateGroups(IReadOnlyCollection<LocalLibraryService.LocalMangaEntry> entries)
+        private void UpdateGroups(IReadOnlyCollection<LocalMangaEntry> entries)
         {
             var previouslySelected = SelectedGroup;
 
