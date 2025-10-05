@@ -12,7 +12,7 @@ jobs:
 
     env:
       Solution_Name: MSCS.sln                       
-      Project_Path: MSCS.App\MSCS.App.csproj    
+      Project_Path: ${{ github.workspace }}\src\MSCS.App\MSCS.App.csproj  
       Framework: net8.0-windows                     
       Runtime: win-x64                              
       Configuration: Release
