@@ -223,7 +223,9 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="8"/>
-                            <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="12"/>
+                        <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
                         <!-- Home -->
@@ -237,6 +239,7 @@
                                 <TextBlock Text="Home"/>
                             </StackPanel>
                         </Button>
+
 
                     <!-- Manga info + tracking -->
                     <Grid Grid.Row="2">
@@ -258,6 +261,7 @@
                                     Content="{Binding AniListButtonText}"
                                     Style="{StaticResource AccentButton}"
                                     Command="{Binding AniListTrackCommand}"
+                                    Visibility="{Binding IsAniListAvailable, Converter={StaticResource BooleanToVisibilityConverter}}"
                                     ToolTip="Track this series on AniList" />
                     </Grid>
 

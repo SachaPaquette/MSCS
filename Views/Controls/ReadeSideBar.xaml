@@ -43,7 +43,13 @@
                            FontWeight="SemiBold"/>
             </DockPanel>
 
-            <!-- Search -->
+            <Button Content="{Binding AniListButtonText}"
+                        Margin="0,12,0,0"
+                        HorizontalAlignment="Right"
+                        Style="{StaticResource AccentButton}"
+                        Command="{Binding AniListTrackCommand}"
+                        Visibility="{Binding IsAniListAvailable, Converter={StaticResource BooleanToVisibilityConverter}}"
+                        ToolTip="Track this series on AniList"/>
 
             <!-- List -->
             <ListBox Grid.Row="4"

@@ -80,7 +80,7 @@ namespace MSCS.ViewModels
                 }
             }
         }
-
+        public bool IsAniListAvailable => _aniListService != null;
         public bool IsAniListTracked => TrackingInfo != null;
         public string AniListButtonText => IsAniListTracked ? "Tracked" : "Track";
         public ICommand AniListTrackCommand { get; private set; } = new RelayCommand(_ => { });
@@ -354,7 +354,7 @@ namespace MSCS.ViewModels
         {
             AniListTrackCommand = new AsyncRelayCommand(TrackWithAniListAsync, () => _aniListService != null);
             OnPropertyChanged(nameof(AniListTrackCommand));
-
+            OnPropertyChanged(nameof(IsAniListAvailable));
             if (_aniListService != null && !string.IsNullOrWhiteSpace(MangaTitle))
             {
                 WeakEventManager<IAniListService, EventArgs>.AddHandler(_aniListService, nameof(IAniListService.TrackingChanged), OnAniListTrackingChanged);
