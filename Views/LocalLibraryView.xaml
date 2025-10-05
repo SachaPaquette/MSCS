@@ -153,7 +153,13 @@
             </StackPanel>
 
             <Grid Grid.Row="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
                 <ListView x:Name="LibraryList"
+                          Grid.Row="0"
                           ItemsSource="{Binding MangaEntries}"
                           SelectedItem="{Binding SelectedManga, Mode=TwoWay}"
                           Background="Transparent"
@@ -269,6 +275,31 @@
                         </Style>
                     </TextBlock.Style>
                 </TextBlock>
+                <Button Grid.Row="1"
+                        Content="Load more manga"
+                        Command="{Binding LoadMoreMangaCommand}"
+                        Margin="0,12,0,0"
+                        Padding="18,8"
+                        HorizontalAlignment="Left"
+                        Background="#7C9CFF"
+                        Foreground="White"
+                        BorderBrush="{x:Null}"
+                        FontWeight="SemiBold"
+                        Cursor="Hand">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasMoreResults}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.5"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
             </Grid>
         </Grid>
     </Grid>

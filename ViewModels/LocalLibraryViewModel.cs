@@ -22,29 +22,32 @@ namespace MSCS.ViewModels
         private string _selectedGroup = "All";
         private LocalMangaEntry? _selectedManga;
 
-        private readonly ObservableCollection<LocalMangaEntry> _entries = new();
+        private const int MangaDisplayBatchSize = 60;
+        private readonly ObservableCollection<LocalMangaEntry> _visibleEntries = new();
+        private readonly ReadOnlyObservableCollection<LocalMangaEntry> _readOnlyVisibleEntries;
+        private readonly List<LocalMangaEntry> _allEntries = new();
+        private readonly List<LocalMangaEntry> _filteredEntries = new();
         private readonly ObservableCollection<string> _groupFilters = new();
-        private readonly ICollectionView _collectionView;
+        private int _visibleEntryCursor;
+        private bool _hasMoreResults;
 
         public LocalLibraryViewModel(LocalLibraryService libraryService)
         {
             _libraryService = libraryService ?? throw new ArgumentNullException(nameof(libraryService));
             _libraryService.LibraryPathChanged += OnLibraryPathChanged;
+            _readOnlyVisibleEntries = new ReadOnlyObservableCollection<LocalMangaEntry>(_visibleEntries);
 
-            _collectionView = CollectionViewSource.GetDefaultView(_entries);
-            _collectionView.Filter = FilterManga;
-            _collectionView.SortDescriptions.Add(new SortDescription(nameof(LocalMangaEntry.Title), ListSortDirection.Ascending));
 
             RefreshCommand = new RelayCommand(_ => ReloadLibrary(), _ => !_isLoading);
             OpenLibraryFolderCommand = new RelayCommand(_ => OpenLibraryFolder(), _ => HasLibraryPath);
-
+            LoadMoreMangaCommand = new RelayCommand(_ => LoadMoreVisibleManga(), _ => HasMoreResults);
             InitializeGroups();
             ReloadLibrary();
         }
 
         public event EventHandler<Manga?>? MangaSelected;
 
-        public ICollectionView MangaEntries => _collectionView;
+        public ReadOnlyObservableCollection<LocalMangaEntry> MangaEntries => _readOnlyVisibleEntries;
 
         public ObservableCollection<string> GroupFilters => _groupFilters;
 
@@ -83,7 +86,7 @@ namespace MSCS.ViewModels
             {
                 if (SetProperty(ref _searchQuery, value))
                 {
-                    _collectionView.Refresh();
+                    ApplyFilters(resetCursor: true);
                 }
             }
         }
@@ -95,7 +98,7 @@ namespace MSCS.ViewModels
             {
                 if (SetProperty(ref _selectedGroup, value))
                 {
-                    _collectionView.Refresh();
+                    ApplyFilters(resetCursor: true);
                 }
             }
         }
@@ -114,8 +117,20 @@ namespace MSCS.ViewModels
 
         public ICommand RefreshCommand { get; }
         public ICommand OpenLibraryFolderCommand { get; }
+        public ICommand LoadMoreMangaCommand { get; }
 
-        public bool IsLibraryEmpty => HasLibraryPath && _entries.Count == 0 && !IsLoading;
+        public bool HasMoreResults
+        {
+            get => _hasMoreResults;
+            private set
+            {
+                if (SetProperty(ref _hasMoreResults, value))
+                {
+                    CommandManager.InvalidateRequerySuggested();
+                }
+            }
+        }
+        public bool IsLibraryEmpty => HasLibraryPath && !IsLoading && _filteredEntries.Count == 0;
 
         public void EnsureLibraryLoaded()
         {
@@ -133,37 +148,6 @@ namespace MSCS.ViewModels
             _libraryService.LibraryPathChanged -= OnLibraryPathChanged;
         }
 
-        private bool FilterManga(object obj)    
-        {
-            if (obj is not LocalMangaEntry entry)
-            {
-                return false;
-            }
-
-            if (!string.IsNullOrWhiteSpace(SearchQuery) &&
-                entry.Title.IndexOf(SearchQuery, StringComparison.OrdinalIgnoreCase) < 0)
-            {
-                return false;
-            }
-
-            if (!string.Equals(SelectedGroup, "All", StringComparison.OrdinalIgnoreCase))
-            {
-                if (SelectedGroup == "#")
-                {
-                    if (!string.Equals(entry.GroupKey, "#", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return false;
-                    }
-                }
-                else if (!string.Equals(entry.GroupKey, SelectedGroup, StringComparison.OrdinalIgnoreCase))
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
         private void ReloadLibrary()
         {
             if (_disposed)
@@ -174,20 +158,14 @@ namespace MSCS.ViewModels
             IsLoading = true;
             try
             {
-                var entries = _libraryService.GetMangaEntries();
-                SelectedManga = null;
-                _entries.Clear();
-
                 HasLibraryPath = _libraryService.LibraryPathExists();
+                var entries = _libraryService.GetMangaEntries();
 
-                foreach (var entry in entries)
-                {
-                    _entries.Add(entry);
-                }
+                _allEntries.Clear();
+                _allEntries.AddRange(entries);
 
                 UpdateGroups(entries);
-                _collectionView.Refresh();
-                OnPropertyChanged(nameof(IsLibraryEmpty));
+                ApplyFilters(resetCursor: true);
                 OnPropertyChanged(nameof(LibraryPath));
             }
             catch (Exception ex)
@@ -256,6 +234,98 @@ namespace MSCS.ViewModels
         private void OnLibraryPathChanged(object? sender, EventArgs e)
         {
             ReloadLibrary();
+        }
+
+        private void ApplyFilters(bool resetCursor)
+        {
+            _filteredEntries.Clear();
+
+            foreach (var entry in _allEntries)
+            {
+                if (MatchesFilters(entry))
+                {
+                    _filteredEntries.Add(entry);
+                }
+            }
+
+            if (resetCursor)
+            {
+                SelectedManga = null;
+                ResetVisibleManga();
+            }
+            else
+            {
+                TrimVisibleManga();
+            }
+
+            OnPropertyChanged(nameof(IsLibraryEmpty));
+        }
+
+        private bool MatchesFilters(LocalMangaEntry entry)
+        {
+            if (!string.IsNullOrWhiteSpace(SearchQuery) &&
+                entry.Title.IndexOf(SearchQuery, StringComparison.OrdinalIgnoreCase) < 0)
+            {
+                return false;
+            }
+
+            if (string.Equals(SelectedGroup, "All", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (string.Equals(SelectedGroup, "#", StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Equals(entry.GroupKey, "#", StringComparison.OrdinalIgnoreCase);
+            }
+
+            return string.Equals(entry.GroupKey, SelectedGroup, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void ResetVisibleManga()
+        {
+            _visibleEntryCursor = 0;
+            _visibleEntries.Clear();
+            LoadMoreVisibleManga();
+        }
+
+        private void TrimVisibleManga()
+        {
+            var requiredCount = Math.Min(_filteredEntries.Count, _visibleEntryCursor);
+
+            while (_visibleEntries.Count > requiredCount)
+            {
+                _visibleEntries.RemoveAt(_visibleEntries.Count - 1);
+            }
+
+            if (_visibleEntries.Count < requiredCount)
+            {
+                for (var i = _visibleEntries.Count; i < requiredCount; i++)
+                {
+                    _visibleEntries.Add(_filteredEntries[i]);
+                }
+            }
+
+            HasMoreResults = _visibleEntryCursor < _filteredEntries.Count;
+        }
+
+        private void LoadMoreVisibleManga()
+        {
+            if (_filteredEntries.Count == 0)
+            {
+                HasMoreResults = false;
+                return;
+            }
+
+            var target = Math.Min(_filteredEntries.Count, _visibleEntryCursor + MangaDisplayBatchSize);
+
+            while (_visibleEntryCursor < target)
+            {
+                _visibleEntries.Add(_filteredEntries[_visibleEntryCursor]);
+                _visibleEntryCursor++;
+            }
+
+            HasMoreResults = _visibleEntryCursor < _filteredEntries.Count;
         }
     }
 }
