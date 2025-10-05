@@ -17,21 +17,18 @@ namespace MSCS.Sources
             _libraryService = libraryService ?? throw new ArgumentNullException(nameof(libraryService));
         }
 
-        public Task<List<Manga>> SearchMangaAsync(string query, CancellationToken ct = default)
+        public async Task<List<Manga>> SearchMangaAsync(string query, CancellationToken ct = default)
         {
-            var entries = _libraryService.GetMangaEntries();
+            var entries = await _libraryService.GetMangaEntriesAsync(ct).ConfigureAwait(false);
             var results = new List<Manga>();
             if (entries.Count == 0)
             {
-                return Task.FromResult(results);
+                return results;
             }
 
             foreach (var entry in entries)
             {
-                if (ct.IsCancellationRequested)
-                {
-                    break;
-                }
+                ct.ThrowIfCancellationRequested();
 
                 if (string.IsNullOrWhiteSpace(query) ||
                     entry.Title.Contains(query, StringComparison.OrdinalIgnoreCase))
@@ -40,19 +37,19 @@ namespace MSCS.Sources
                 }
             }
 
-            return Task.FromResult(results);
+            return results;
         }
 
-        public Task<List<Chapter>> GetChaptersAsync(string mangaUrl, CancellationToken ct = default)
+        public async Task<List<Chapter>> GetChaptersAsync(string mangaUrl, CancellationToken ct = default)
         {
-            var chapters = _libraryService.GetChapters(mangaUrl);
-            return Task.FromResult(new List<Chapter>(chapters));
+            var chapters = await _libraryService.GetChaptersAsync(mangaUrl, ct).ConfigureAwait(false);
+            return new List<Chapter>(chapters);
         }
 
-        public Task<IReadOnlyList<ChapterImage>> FetchChapterImages(string chapterUrl, CancellationToken ct = default)
+        public async Task<IReadOnlyList<ChapterImage>> FetchChapterImages(string chapterUrl, CancellationToken ct = default)
         {
-            var images = _libraryService.GetChapterImages(chapterUrl);
-            return Task.FromResult((IReadOnlyList<ChapterImage>)images);
+            var images = await _libraryService.GetChapterImagesAsync(chapterUrl, ct).ConfigureAwait(false);
+            return images;
         }
 
         public Task<string> LoadMoreSeriesHtmlAsync(string query, int page, CancellationToken ct = default)

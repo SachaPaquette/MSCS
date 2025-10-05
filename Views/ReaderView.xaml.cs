@@ -1,5 +1,4 @@
-﻿using MSCS.Helpers;
-using MSCS.ViewModels;
+﻿using MSCS.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,6 +15,7 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Windows.Media.Animation;
 using System.Reflection;
+using MSCS.Helpers;
 namespace MSCS.Views
 {
     public partial class ReaderView : System.Windows.Controls.UserControl
@@ -24,7 +24,7 @@ namespace MSCS.Views
         {
             InitializeComponent();
         }
-        private void ScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        private async void ScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
             var scrollViewer = sender as ScrollViewer;
             if (scrollViewer == null)
@@ -47,10 +47,10 @@ namespace MSCS.Views
             {
                 if (DataContext is ReaderViewModel viewModel)
                 {
-                    viewModel.LoadMoreImages();
+                    await viewModel.LoadMoreImagesAsync();
                     if (viewModel.RemainingImages == 0)
                     {
-                        GoToNextChapter(viewModel);
+                        await GoToNextChapter(viewModel);
                     }
                 }
 

@@ -2,6 +2,7 @@
 using MSCS.Helpers;
 using MSCS.Interfaces;
 using MSCS.Models;
+using MSCS.ViewModels;
 using MSCS.Views;
 using System;
 using System.Collections.Generic;
@@ -9,9 +10,11 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Threading;
 
 namespace MSCS.ViewModels
 {
@@ -21,6 +24,8 @@ namespace MSCS.ViewModels
         private readonly ChapterListViewModel? _chapterListViewModel;
         private readonly INavigationService? _navigationService;
         private readonly IAniListService? _aniListService;
+        private readonly SemaphoreSlim _imageLoadSemaphore = new(1, 1);
+        private CancellationTokenSource _imageLoadCts = new();
         private int _loadedCount;
         private int _currentChapterIndex;
         public int RemainingImages => _allImages.Count - _loadedCount;
@@ -59,32 +64,12 @@ namespace MSCS.ViewModels
             get => _chapterTitle;
             private set => SetProperty(ref _chapterTitle, value);
         }
-
         private string _mangaTitle = string.Empty;
         public string MangaTitle
         {
             get => _mangaTitle;
             private set => SetProperty(ref _mangaTitle, value);
         }
-
-        private AniListTrackingInfo? _trackingInfo;
-        public AniListTrackingInfo? TrackingInfo
-        {
-            get => _trackingInfo;
-            private set
-            {
-                if (SetProperty(ref _trackingInfo, value))
-                {
-                    OnPropertyChanged(nameof(IsAniListTracked));
-                    OnPropertyChanged(nameof(AniListButtonText));
-                }
-            }
-        }
-        public bool IsAniListAvailable => _aniListService != null;
-        public bool IsAniListTracked => TrackingInfo != null;
-        public string AniListButtonText => IsAniListTracked ? "Tracked" : "Track";
-        public ICommand AniListTrackCommand { get; private set; } = new RelayCommand(_ => { });
-
         private ObservableCollection<Chapter> _chapters = new();
         public ObservableCollection<Chapter> Chapters
         {
@@ -101,28 +86,42 @@ namespace MSCS.ViewModels
             {
                 if (SetProperty(ref _selectedChapter, value) && !_isUpdatingSelectedChapter)
                 {
-                    _ = HandleSelectedChapterChangedAsync(value);
+                    _ = OnSelectedChapterChangedAsync(value);
                 }
             }
         }
-
+        private AniListTrackingInfo? _trackingInfo;
+        public AniListTrackingInfo? TrackingInfo
+        {
+            get => _trackingInfo;
+            private set
+            {
+                if (SetProperty(ref _trackingInfo, value))
+                {
+                    OnPropertyChanged(nameof(IsAniListTracked));
+                    OnPropertyChanged(nameof(AniListButtonText));
+                }
+            }
+        }
         public ObservableCollection<ChapterImage> ImageUrls { get; }
         public ICommand GoBackCommand { get; private set; }
         public ICommand GoHomeCommand { get; private set; }
         public ICommand NextChapterCommand { get; private set; }
+        public ICommand AniListTrackCommand { get; private set; } = new RelayCommand(_ => { });
+
+        public bool IsAniListAvailable => _aniListService != null;
+        public bool IsAniListTracked => TrackingInfo != null;
+        public string AniListButtonText => IsAniListTracked ? "Tracked" : "Track";
 
         public ReaderViewModel()
         {
             Debug.WriteLine("ReaderViewModel initialized with no images");
             _navigationService = null;
             _chapterListViewModel = null;
-            _aniListService = null;
             _allImages = new List<ChapterImage>();
             ImageUrls = new ObservableCollection<ChapterImage>();
             Chapters = new ObservableCollection<Chapter>();
-            MangaTitle = string.Empty;
-            InitializeNavigationCommands();
-            InitializeAniListIntegration();
+            ConfigureNavigationCommands();
         }
 
         public ReaderViewModel(
@@ -153,90 +152,140 @@ namespace MSCS.ViewModels
                 Chapters = _chapterListViewModel.Chapters;
                 PropertyChangedEventManager.AddHandler(_chapterListViewModel, ChapterListViewModelOnPropertyChanged, string.Empty);
                 SelectInitialChapter();
-            }
+}
             else
-            {
-                Chapters = new ObservableCollection<Chapter>();
-            }
+{
+    Chapters = new ObservableCollection<Chapter>();
+}
 
-            InitializeNavigationCommands();
-            InitializeAniListIntegration();
+InitializeNavigationCommands();
+InitializeAniListIntegration();
 
-            Debug.WriteLine($"ReaderViewModel initialized with {_allImages.Count} images");
-            Debug.WriteLine($"Current chapter index {_currentChapterIndex}");
+Debug.WriteLine($"ReaderViewModel initialized with {_allImages.Count} images");
+Debug.WriteLine($"Current chapter index {_currentChapterIndex}");
 
-            LoadMoreImages();  // initial batch
-            _ = _chapterListViewModel?.PrefetchChapterAsync(_currentChapterIndex + 1);
-            _ = UpdateAniListProgressAsync();
+_ = LoadMoreImagesAsync();  // initial batch
+_ = _chapterListViewModel?.PrefetchChapterAsync(_currentChapterIndex + 1);
+_ = UpdateAniListProgressAsync();
         }
 
 
-        public void LoadMoreImages()
-        {
-            int remaining = _allImages.Count - _loadedCount;
-            if (remaining <= 0) return;
+        public async Task LoadMoreImagesAsync(CancellationToken cancellationToken = default)
+{
+    if (_allImages.Count - _loadedCount <= 0)
+    {
+        return;
+    }
 
-            int countToLoad = Math.Min(Constants.DefaultLoadedBatchSize, remaining);
-            for (int i = 0; i < countToLoad; i++)
+    using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_imageLoadCts.Token, cancellationToken);
+    var token = linkedCts.Token;
+    bool acquired = false;
+    try
+    {
+        await _imageLoadSemaphore.WaitAsync(token).ConfigureAwait(false);
+        acquired = true;
+
+        int remaining = _allImages.Count - _loadedCount;
+        if (remaining <= 0)
+        {
+            return;
+        }
+
+        int countToLoad = Math.Min(Constants.DefaultLoadedBatchSize, remaining);
+        var batch = new List<ChapterImage>(countToLoad);
+        for (int i = 0; i < countToLoad; i++)
+        {
+            token.ThrowIfCancellationRequested();
+            batch.Add(_allImages[_loadedCount + i]);
+        }
+
+        var dispatcher = System.Windows.Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
+        await dispatcher.InvokeAsync(() =>
+        {
+            foreach (var image in batch)
             {
-                ImageUrls.Add(_allImages[_loadedCount + i]);
+                ImageUrls.Add(image);
             }
-            _loadedCount += countToLoad;
+
+            _loadedCount += batch.Count;
             OnPropertyChanged(nameof(RemainingImages));
             OnPropertyChanged(nameof(LoadedImages));
             OnPropertyChanged(nameof(TotalImages));
             OnPropertyChanged(nameof(LoadingProgress));
-            Debug.WriteLine($"Loaded {_loadedCount} / {_allImages.Count} images");
-        }
+        });
 
-
-        private async Task<bool> TryMoveToChapterAsync(int newIndex)
+        Debug.WriteLine($"Loaded {_loadedCount} / {_allImages.Count} images");
+    }
+    catch (OperationCanceledException)
+    {
+        Debug.WriteLine("Image loading cancelled.");
+    }
+    finally
+    {
+        if (acquired)
         {
-            if (_chapterListViewModel == null)
-            {
-                Debug.WriteLine("Chapter list view model is unavailable for navigation.");
-                return false;
-            }
-
-            if (newIndex < 0 || newIndex >= _chapterListViewModel.Chapters.Count)
-            {
-                Debug.WriteLine($"Requested chapter index {newIndex} is out of range.");
-                return false;
-            }
-
-            var images = await _chapterListViewModel.GetChapterImagesAsync(newIndex);
-            if (images == null || images.Count == 0)
-            {
-                Debug.WriteLine($"No images returned for chapter at index {newIndex}.");
-                return false;
-            }
-
-            _currentChapterIndex = newIndex;
-            ResetImages(images);
-            _ = _chapterListViewModel.PrefetchChapterAsync(newIndex + 1);
-            Debug.WriteLine($"Navigated to chapter {newIndex} with {images.Count} images.");
-            CommandManager.InvalidateRequerySuggested();
-            UpdateSelectedChapter(newIndex);
-            _ = UpdateAniListProgressAsync();
-            return true;
+            _imageLoadSemaphore.Release();
         }
+    }
+}
 
-        private void ResetImages(IEnumerable<ChapterImage> images)
-        {
-            _allImages.Clear();
-            ImageUrls.Clear();
-            _loadedCount = 0;
-            ScrollProgress = 0;
-            foreach (var img in images)
-            {
-                _allImages.Add(img);
-            }
-            OnPropertyChanged(nameof(TotalImages));
-            OnPropertyChanged(nameof(LoadingProgress));
-            LoadMoreImages();
-        }
 
-        private bool CanGoToNextChapter()
+private async Task<bool> TryMoveToChapterAsync(int newIndex)
+{
+    if (_chapterListViewModel == null)
+    {
+        Debug.WriteLine("Chapter list view model is unavailable for navigation.");
+        return false;
+    }
+
+    if (newIndex < 0 || newIndex >= _chapterListViewModel.Chapters.Count)
+    {
+        Debug.WriteLine($"Requested chapter index {newIndex} is out of range.");
+        return false;
+    }
+
+    var images = await _chapterListViewModel.GetChapterImagesAsync(newIndex);
+    if (images == null || images.Count == 0)
+    {
+        Debug.WriteLine($"No images returned for chapter at index {newIndex}.");
+        return false;
+    }
+
+    _currentChapterIndex = newIndex;
+    ResetImages(images);
+    _ = _chapterListViewModel.PrefetchChapterAsync(newIndex + 1);
+    Debug.WriteLine($"Navigated to chapter {newIndex} with {images.Count} images.");
+    CommandManager.InvalidateRequerySuggested();
+    UpdateSelectedChapter(newIndex);
+    _ = UpdateAniListProgressAsync();
+    return true;
+}
+
+private void ResetImages(IEnumerable<ChapterImage> images)
+{
+    _imageLoadCts.Cancel();
+    _imageLoadCts.Dispose();
+    _imageLoadCts = new CancellationTokenSource();
+
+    _allImages.Clear();
+    ImageUrls.Clear();
+    _loadedCount = 0;
+    ScrollProgress = 0;
+    foreach (var img in images)
+    {
+        _allImages.Add(img);
+    }
+
+    OnPropertyChanged(nameof(TotalImages));
+    OnPropertyChanged(nameof(LoadedImages));
+    OnPropertyChanged(nameof(RemainingImages));
+    OnPropertyChanged(nameof(LoadingProgress));
+
+    _ = LoadMoreImagesAsync();
+}
+
+
+private bool CanGoToNextChapter()
         {
             if (_chapterListViewModel == null)
             {

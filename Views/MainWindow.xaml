@@ -8,76 +8,14 @@
         WindowStartupLocation="CenterScreen"
         Background="{x:Null}">
 
-    <!-- ===== Theme ===== -->
     <Window.Resources>
-        <!-- Palette -->
-        <LinearGradientBrush x:Key="AppBackground" StartPoint="0,0" EndPoint="1,1">
-            <GradientStop Color="#0E1117" Offset="0"/>
-            <GradientStop Color="#141A24" Offset="1"/>
-        </LinearGradientBrush>
-        <SolidColorBrush x:Key="Surface"   Color="#1B2230"/>
-        <SolidColorBrush x:Key="SurfaceAlt" Color="#222A3A"/>
-        <SolidColorBrush x:Key="Card"      Color="#202737"/>
-        <SolidColorBrush x:Key="Accent"    Color="#7C9CFF"/>
-        <SolidColorBrush x:Key="Fg"        Color="#E9EEF7"/>
-        <SolidColorBrush x:Key="FgMuted"   Color="#9AA5B1"/>
-
-        <!-- Card -->
-        <Style x:Key="CardStyle" TargetType="Border">
-            <Setter Property="Background" Value="{StaticResource Card}"/>
-            <Setter Property="CornerRadius" Value="14"/>
-            <Setter Property="Padding" Value="16"/>
-            <Setter Property="SnapsToDevicePixels" Value="True"/>
-            <Setter Property="Effect">
-                <Setter.Value>
-                    <DropShadowEffect BlurRadius="20" ShadowDepth="0" Opacity="0.22"/>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- Icon button (MDL2) -->
-        <Style x:Key="IconBtn" TargetType="Button">
-            <Setter Property="Foreground" Value="{StaticResource Fg}"/>
-            <Setter Property="Background" Value="{x:Null}"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="8"/>
-            <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="bg" Background="{TemplateBinding Background}" CornerRadius="8">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bg" Property="Background" Value="#2A3347"/>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="bg" Property="Background" Value="#3A465F"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- VM → View mapping -->
-        <DataTemplate DataType="{x:Type vm:MangaListViewModel}">
-            <views:MangaListView/>
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:ChapterListViewModel}">
-            <views:ChapterListView/>
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:ReaderViewModel}">
-            <views:ReaderView/>
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:LocalLibraryViewModel}">
-            <views:LocalLibraryView/>
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
-            <views:SettingsView/>
-        </DataTemplate>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/Ressources/Styles/Palette.xaml"/>
+                <ResourceDictionary Source="pack://application:,,,/Ressources/Styles/Controls.xaml"/>
+                <ResourceDictionary Source="/Ressources/DataTemplates/ViewTemplate.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            
 
         <!-- Main tabs -->
         <Style x:Key="MainTabItemStyle" TargetType="ListBoxItem">
@@ -125,6 +63,7 @@
                            Foreground="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=Foreground}"/>
             </StackPanel>
         </DataTemplate>
+        </ResourceDictionary>
     </Window.Resources>
 
     <!-- ===== Layout ===== -->
