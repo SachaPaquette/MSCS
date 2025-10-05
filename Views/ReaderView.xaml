@@ -133,28 +133,31 @@
               HorizontalAlignment="Left"
               VerticalAlignment="Stretch"
               Margin="4,0,0,0"
-              Panel.ZIndex="10">
+              Panel.ZIndex="10"
+              Background="Transparent">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                <StackPanel>
-                    <Button Style="{StaticResource IconBtn}"
+            <StackPanel Grid.Column="0"
+                        VerticalAlignment="Top">
+                <Button Style="{StaticResource IconBtn}"
                         Command="{Binding GoBackCommand}"
                         ToolTip="Back"
-                        Margin="0,0,0,6">
-                        <TextBlock Text="&#xE72B;" FontSize="16"/>
-                    </Button>
+                        Margin="0,0,0,16">
+                    <TextBlock Text="&#xE72B;" FontSize="16"/>
+                </Button>
 
-                    <Button x:Name="PinBtn" Style="{StaticResource IconBtn}" ToolTip="Chapters / Home">
-                        <TextBlock Text="&#xE718;" FontSize="16"/>
-                    </Button>
-                </StackPanel>
+                <Button x:Name="PinBtn"
+                        Style="{StaticResource IconBtn}"
+                        ToolTip="Chapters / Home"
+                        Margin="0,0,0,8">
+                    <TextBlock Text="&#xE718;" FontSize="16"/>
+                </Button>
+            </StackPanel>
 
-
-                <Border x:Name="ChapterSidebar"
+            <Border x:Name="ChapterSidebar"
                     Grid.Column="1"
                     Margin="8,4,0,4"
                     HorizontalAlignment="Left"
@@ -254,7 +257,6 @@
                         </Border>
                     </Grid>
                 </Border>
-            </StackPanel>
         </Grid>
     </Grid>
 </UserControl>
