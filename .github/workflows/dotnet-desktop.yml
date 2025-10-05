@@ -53,7 +53,6 @@ jobs:
           dotnet publish "$env:Project_Path"
           -c "$env:Configuration"
           -r "$env:Runtime"
-          -f "$env:Framework"
           /p:PublishSingleFile=$env:PublishSingleFile
           /p:SelfContained=$env:SelfContained
           /p:IncludeNativeLibrariesForSelfExtract=$env:IncludeNativeLibrariesForSelfExtract
