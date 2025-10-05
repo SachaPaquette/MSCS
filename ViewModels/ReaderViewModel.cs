@@ -2,6 +2,7 @@
 using MSCS.Helpers;
 using MSCS.Interfaces;
 using MSCS.Models;
+using MSCS.Views;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -19,6 +20,7 @@ namespace MSCS.ViewModels
         private readonly List<ChapterImage> _allImages;
         private readonly ChapterListViewModel? _chapterListViewModel;
         private readonly INavigationService? _navigationService;
+        private readonly IAniListService? _aniListService;
         private int _loadedCount;
         private int _currentChapterIndex;
         public int RemainingImages => _allImages.Count - _loadedCount;
@@ -58,6 +60,31 @@ namespace MSCS.ViewModels
             private set => SetProperty(ref _chapterTitle, value);
         }
 
+        private string _mangaTitle = string.Empty;
+        public string MangaTitle
+        {
+            get => _mangaTitle;
+            private set => SetProperty(ref _mangaTitle, value);
+        }
+
+        private AniListTrackingInfo? _trackingInfo;
+        public AniListTrackingInfo? TrackingInfo
+        {
+            get => _trackingInfo;
+            private set
+            {
+                if (SetProperty(ref _trackingInfo, value))
+                {
+                    OnPropertyChanged(nameof(IsAniListTracked));
+                    OnPropertyChanged(nameof(AniListButtonText));
+                }
+            }
+        }
+
+        public bool IsAniListTracked => TrackingInfo != null;
+        public string AniListButtonText => IsAniListTracked ? "Tracked" : "Track";
+        public ICommand AniListTrackCommand { get; private set; } = new RelayCommand(_ => { });
+
         private ObservableCollection<Chapter> _chapters = new();
         public ObservableCollection<Chapter> Chapters
         {
@@ -74,7 +101,7 @@ namespace MSCS.ViewModels
             {
                 if (SetProperty(ref _selectedChapter, value) && !_isUpdatingSelectedChapter)
                 {
-                    _ = OnSelectedChapterChangedAsync(value);
+                    _ = HandleSelectedChapterChangedAsync(value);
                 }
             }
         }
@@ -89,10 +116,13 @@ namespace MSCS.ViewModels
             Debug.WriteLine("ReaderViewModel initialized with no images");
             _navigationService = null;
             _chapterListViewModel = null;
+            _aniListService = null;
             _allImages = new List<ChapterImage>();
             ImageUrls = new ObservableCollection<ChapterImage>();
             Chapters = new ObservableCollection<Chapter>();
-            ConfigureNavigationCommands();
+            MangaTitle = string.Empty;
+            InitializeNavigationCommands();
+            InitializeAniListIntegration();
         }
 
         public ReaderViewModel(
@@ -100,35 +130,44 @@ namespace MSCS.ViewModels
             string title,
             INavigationService navigationService,
             ChapterListViewModel chapterListViewModel,
-            int currentChapterIndex)
+            int currentChapterIndex,
+            IAniListService? aniListService)
         {
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
             _chapterListViewModel = chapterListViewModel ?? throw new ArgumentNullException(nameof(chapterListViewModel));
             _currentChapterIndex = currentChapterIndex;
+            _aniListService = aniListService;
 
             _allImages = imageUrls?.ToList() ?? new List<ChapterImage>();
             ImageUrls = new ObservableCollection<ChapterImage>();
             ChapterTitle = title ?? string.Empty;
             _loadedCount = 0;
+            MangaTitle = _chapterListViewModel?.Manga?.Title ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(MangaTitle))
+            {
+                MangaTitle = title ?? string.Empty;
+            }
 
             if (_chapterListViewModel != null)
             {
                 Chapters = _chapterListViewModel.Chapters;
                 PropertyChangedEventManager.AddHandler(_chapterListViewModel, ChapterListViewModelOnPropertyChanged, string.Empty);
-                InitializeSelectedChapter();
+                SelectInitialChapter();
             }
             else
             {
                 Chapters = new ObservableCollection<Chapter>();
             }
 
-            ConfigureNavigationCommands();
+            InitializeNavigationCommands();
+            InitializeAniListIntegration();
 
             Debug.WriteLine($"ReaderViewModel initialized with {_allImages.Count} images");
             Debug.WriteLine($"Current chapter index {_currentChapterIndex}");
 
             LoadMoreImages();  // initial batch
-            _ = _chapterListViewModel.PrefetchChapterAsync(_currentChapterIndex + 1);
+            _ = _chapterListViewModel?.PrefetchChapterAsync(_currentChapterIndex + 1);
+            _ = UpdateAniListProgressAsync();
         }
 
 
@@ -177,7 +216,8 @@ namespace MSCS.ViewModels
             _ = _chapterListViewModel.PrefetchChapterAsync(newIndex + 1);
             Debug.WriteLine($"Navigated to chapter {newIndex} with {images.Count} images.");
             CommandManager.InvalidateRequerySuggested();
-            UpdateChapterSelection(newIndex);
+            UpdateSelectedChapter(newIndex);
+            _ = UpdateAniListProgressAsync();
             return true;
         }
 
@@ -213,7 +253,7 @@ namespace MSCS.ViewModels
             }
             await TryMoveToChapterAsync(_currentChapterIndex + 1);
         }
-        private void ConfigureNavigationCommands()
+        private void InitializeNavigationCommands()
         {
             if (_navigationService == null)
             {
@@ -235,11 +275,11 @@ namespace MSCS.ViewModels
         }
 
         private void OnNavigationCanGoBackChanged(object sender, EventArgs e)
-    {
-        CommandManager.InvalidateRequerySuggested();
-    }
+        {
+            CommandManager.InvalidateRequerySuggested();
+        }
 
-        private async Task OnSelectedChapterChangedAsync(Chapter? chapter)
+        private async Task HandleSelectedChapterChangedAsync(Chapter? chapter)
         {
             if (chapter == null || _chapterListViewModel == null)
             {
@@ -262,7 +302,7 @@ namespace MSCS.ViewModels
             }
         }
 
-        private void InitializeSelectedChapter()
+        private void SelectInitialChapter()
         {
             if (_chapterListViewModel == null)
             {
@@ -278,7 +318,7 @@ namespace MSCS.ViewModels
             }
         }
 
-        private void UpdateChapterSelection(int index)
+        private void UpdateSelectedChapter(int index)
         {
             if (_chapterListViewModel == null)
             {
@@ -291,16 +331,134 @@ namespace MSCS.ViewModels
                 SelectedChapter = _chapterListViewModel.Chapters[index];
                 ChapterTitle = SelectedChapter?.Title ?? ChapterTitle;
                 _isUpdatingSelectedChapter = false;
+                _ = UpdateAniListProgressAsync();
             }
         }
+
+        // Legacy wrappers kept for compatibility with older partial classes or bindings that still
+        // reference the previous helper names. They now forward to the renamed implementations.
+        private void ConfigureNavigationCommands() => InitializeNavigationCommands();
+        private void InitializeSelectedChapter() => SelectInitialChapter();
+        private Task OnSelectedChapterChangedAsync(Chapter? chapter) => HandleSelectedChapterChangedAsync(chapter);
 
         private void ChapterListViewModelOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName == nameof(ChapterListViewModel.Chapters) && _chapterListViewModel != null)
             {
                 Chapters = _chapterListViewModel.Chapters;
-                InitializeSelectedChapter();
+                SelectInitialChapter();
             }
+        }
+
+        private void InitializeAniListIntegration()
+        {
+            AniListTrackCommand = new AsyncRelayCommand(TrackWithAniListAsync, () => _aniListService != null);
+            OnPropertyChanged(nameof(AniListTrackCommand));
+
+            if (_aniListService != null && !string.IsNullOrWhiteSpace(MangaTitle))
+            {
+                WeakEventManager<IAniListService, EventArgs>.AddHandler(_aniListService, nameof(IAniListService.TrackingChanged), OnAniListTrackingChanged);
+                if (_aniListService.TryGetTracking(MangaTitle, out var info))
+                {
+                    TrackingInfo = info;
+                }
+            }
+        }
+
+        private void OnAniListTrackingChanged(object? sender, EventArgs e)
+        {
+            if (_aniListService == null || string.IsNullOrWhiteSpace(MangaTitle))
+            {
+                return;
+            }
+
+            if (_aniListService.TryGetTracking(MangaTitle, out var info))
+            {
+                TrackingInfo = info;
+            }
+        }
+
+        private async Task TrackWithAniListAsync()
+        {
+            if (_aniListService == null)
+            {
+                System.Windows.MessageBox.Show("AniList service is not available.", "AniList", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(MangaTitle))
+            {
+                System.Windows.MessageBox.Show("Unable to determine the manga title for tracking.", "AniList", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (!_aniListService.IsAuthenticated)
+            {
+                System.Windows.MessageBox.Show("Connect your AniList account from the Settings tab before tracking a series.", "AniList", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var trackingViewModel = new AniListTrackingViewModel(_aniListService, MangaTitle, MangaTitle);
+            var dialog = new AniListTrackingWindow(trackingViewModel);
+            if (System.Windows.Application.Current?.MainWindow != null)
+            {
+                dialog.Owner = System.Windows.Application.Current.MainWindow;
+            }
+
+            var result = dialog.ShowDialog();
+            if (result == true && trackingViewModel.TrackingInfo != null)
+            {
+                TrackingInfo = trackingViewModel.TrackingInfo;
+                await UpdateAniListProgressAsync().ConfigureAwait(true);
+            }
+        }
+
+        private async Task UpdateAniListProgressAsync()
+        {
+            if (_aniListService == null || TrackingInfo == null || string.IsNullOrWhiteSpace(MangaTitle))
+            {
+                return;
+            }
+
+            var progress = GetProgressForChapter(SelectedChapter);
+            if (progress <= 0)
+            {
+                return;
+            }
+
+            try
+            {
+                await _aniListService.UpdateProgressAsync(MangaTitle, progress).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to update AniList progress: {ex.Message}");
+            }
+        }
+
+        private int GetProgressForChapter(Chapter? chapter)
+        {
+            if (chapter == null)
+            {
+                return 0;
+            }
+
+            if (chapter.Number > 0)
+            {
+                var rounded = (int)Math.Round(chapter.Number, MidpointRounding.AwayFromZero);
+                return Math.Max(1, rounded);
+            }
+
+            if (_chapterListViewModel != null)
+            {
+                var idx = _chapterListViewModel.Chapters.IndexOf(chapter);
+                if (idx >= 0)
+                {
+                    return idx + 1;
+                }
+            }
+
+            return _currentChapterIndex + 1;
         }
     }
 }

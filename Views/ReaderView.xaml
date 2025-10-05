@@ -36,6 +36,39 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style x:Key="AccentButton" TargetType="Button">
+            <Setter Property="Background" Value="#7C9CFF" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Padding" Value="14,6" />
+            <Setter Property="BorderBrush" Value="{x:Null}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Border"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="#91ACFF" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="#6987F7" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Border" Property="Opacity" Value="0.5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </UserControl.Resources>
 
     <Grid>
@@ -205,8 +238,31 @@
                             </StackPanel>
                         </Button>
 
-                        <!-- Chapter list -->
-                        <Border Grid.Row="2"
+                    <!-- Manga info + tracking -->
+                    <Grid Grid.Row="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Orientation="Vertical" Margin="0,0,12,0">
+                            <TextBlock Text="{Binding MangaTitle}"
+                                           Foreground="#E9EEF7"
+                                           FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding ChapterTitle}"
+                                           Foreground="#8F9BB4"
+                                           FontSize="12"
+                                           TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                        <Button Grid.Column="1"
+                                    Content="{Binding AniListButtonText}"
+                                    Style="{StaticResource AccentButton}"
+                                    Command="{Binding AniListTrackCommand}"
+                                    ToolTip="Track this series on AniList" />
+                    </Grid>
+
+                    <!-- Chapter list -->
+                    <Border Grid.Row="4"
                             Background="#1A2230"
                             CornerRadius="6"
                             Padding="2"

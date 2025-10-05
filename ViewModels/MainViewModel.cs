@@ -14,6 +14,7 @@ namespace MSCS.ViewModels
         private readonly INavigationService _navigationService;
         private readonly UserSettings _userSettings;
         private readonly LocalLibraryService _localLibraryService;
+        private readonly AniListService _aniListService;
         private readonly LocalSource _LocalSource;
         private readonly Dictionary<BaseViewModel, MainMenuTab> _tabLookup = new();
         private BaseViewModel _currentViewModel;
@@ -28,6 +29,7 @@ namespace MSCS.ViewModels
 
             _userSettings = new UserSettings();
             _localLibraryService = new LocalLibraryService(_userSettings);
+            _aniListService = new AniListService(_userSettings);
             _LocalSource = new LocalSource(_localLibraryService);
 
             MangaListVM = new MangaListViewModel("mangaread", _navigationService);
@@ -37,7 +39,8 @@ namespace MSCS.ViewModels
             LocalLibraryVM = new LocalLibraryViewModel(_localLibraryService);
             LocalLibraryVM.MangaSelected += OnLocalMangaSelected;
 
-            SettingsVM = new SettingsViewModel(_localLibraryService);
+            SettingsVM = new SettingsViewModel(_localLibraryService, _userSettings, _aniListService);
+
 
             Tabs = new ObservableCollection<MainMenuTab>
             {
@@ -151,7 +154,7 @@ namespace MSCS.ViewModels
         {
             DisposeActiveChapterViewModel();
 
-            var chapterViewModel = new ChapterListViewModel(source, _navigationService, manga);
+            var chapterViewModel = new ChapterListViewModel(source, _navigationService, manga, _aniListService);
             _activeChapterViewModel = chapterViewModel;
             _navigationService.NavigateToViewModel(chapterViewModel);
         }

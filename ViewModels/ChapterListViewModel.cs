@@ -1,17 +1,17 @@
 ﻿using MSCS.Commands;
-using MSCS.Models;
 using MSCS.Interfaces;
+using MSCS.Models;
 using MSCS.Sources;
+using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
-using System.Diagnostics;
-using System;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Threading;
-using System.Collections.Generic;
 
 namespace MSCS.ViewModels
 {
@@ -25,6 +25,7 @@ namespace MSCS.ViewModels
         private readonly Dictionary<int, LinkedListNode<int>> _cacheNodes = new();
         private readonly object _cacheLock = new();
         private bool _disposed;
+        private readonly IAniListService? _aniListService;
 
         private const int MaxCachedChapters = 4;
 
@@ -56,202 +57,210 @@ namespace MSCS.ViewModels
             }
         }
 
-    public ICommand OpenChapterCommand { get; }
-    public ICommand BackCommand { get; }
+        public ICommand OpenChapterCommand { get; }
+        public ICommand BackCommand { get; }
 
-    public ChapterListViewModel(IMangaSource source, INavigationService navigationService, Manga manga)
-    {
-        _source = source;
-        _navigationService = navigationService;
-        Manga = manga;
-
-        OpenChapterCommand = new RelayCommand(_ => OpenChapter(), _ => SelectedChapter != null);
-        BackCommand = new RelayCommand(_ => _navigationService.GoBack(), _ => _navigationService.CanGoBack);
-        WeakEventManager<INavigationService, EventArgs>.AddHandler(_navigationService, nameof(INavigationService.CanGoBackChanged), OnNavigationStateChanged);
-
-        _ = LoadChaptersAsync();
-    }
-
-    public ChapterListViewModel() { }
-
-    private async Task LoadChaptersAsync()
-    {
-        if (string.IsNullOrEmpty(Manga?.Url)) return;
-
-        try
+        public ChapterListViewModel(IMangaSource source, INavigationService navigationService, Manga manga, IAniListService? aniListService)
         {
-            var chapters = await _source.GetChaptersAsync(Manga.Url, _cts.Token);
-            ClearChapterCache();
-            Chapters = new ObservableCollection<Chapter>(chapters);
-            Debug.WriteLine($"Loaded {Chapters.Count} chapters for {Manga.Title}");
-        }
-        catch (OperationCanceledException)
-        {
-            Debug.WriteLine($"Chapter load cancelled for {Manga?.Title}");
-        }
-    }
+            _source = source;
+            _navigationService = navigationService;
+            Manga = manga;
+            _aniListService = aniListService;
 
-    private async void OpenChapter()
-    {
-        if (SelectedChapter == null || string.IsNullOrEmpty(SelectedChapter.Url)) return;
+            OpenChapterCommand = new RelayCommand(_ => OpenChapter(), _ => SelectedChapter != null);
+            BackCommand = new RelayCommand(_ => _navigationService.GoBack(), _ => _navigationService.CanGoBack);
+            WeakEventManager<INavigationService, EventArgs>.AddHandler(_navigationService, nameof(INavigationService.CanGoBackChanged), OnNavigationStateChanged);
 
-        Debug.WriteLine($"Opening chapter: {SelectedChapter.Title} ({SelectedChapter.Url})");
-        int index = Chapters.IndexOf(SelectedChapter);
-
-        var images = await GetChapterImagesAsync(index);
-        if (images != null && images.Any())
-        {
-            var readerVM = new ReaderViewModel(
-                images,
-                SelectedChapter.Title,
-                _navigationService,
-                this,
-                index);
-
-            _navigationService.NavigateToViewModel(readerVM);
-            Debug.WriteLine("Navigating to ReaderViewModel with images loaded.");
-            _ = PrefetchChapterAsync(index + 1);
-        }
-    }
-
-    private void OnNavigationStateChanged(object sender, EventArgs e)
-    {
-        CommandManager.InvalidateRequerySuggested();
-    }
-
-    public Task<IReadOnlyList<ChapterImage>> GetChapterImagesAsync(int index)
-    {
-        if (index < 0 || index >= Chapters.Count)
-        {
-            return Task.FromResult<IReadOnlyList<ChapterImage>>(Array.Empty<ChapterImage>());
+            _ = LoadChaptersAsync();
         }
 
-        var lazy = _chapterImageCache.GetOrAdd(index, CreateCacheEntry);
-        TouchCache(index);
-        return lazy.Value;
-    }
+        public ChapterListViewModel() { }
 
-    public async Task PrefetchChapterAsync(int index)
-    {
-        if (index < 0 || index >= Chapters.Count)
+        private async Task LoadChaptersAsync()
         {
-            return;
-        }
-
-        try
-        {
-            await GetChapterImagesAsync(index).ConfigureAwait(false);
-            Debug.WriteLine($"Prefetched chapter at index {index}");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Failed to prefetch chapter at index {index}: {ex.Message}");
-        }
-    }
-
-    private async Task<IReadOnlyList<ChapterImage>> FetchChapterImagesInternalAsync(int index)
-    {
-        if (index < 0 || index >= Chapters.Count)
-        {
-            return Array.Empty<ChapterImage>();
-        }
-
-        var chapter = Chapters[index];
-        if (chapter == null || string.IsNullOrEmpty(chapter.Url))
-        {
-            return Array.Empty<ChapterImage>();
-        }
-
-        Debug.WriteLine($"Fetching chapter images: {chapter.Title} ({chapter.Url})");
-        try
-        {
-            var images = await _source.FetchChapterImages(chapter.Url, _cts.Token).ConfigureAwait(false);
-            return images?.ToList() ?? new List<ChapterImage>();
-        }
-        catch (OperationCanceledException)
-        {
-            RemoveFromCache(index);
-            Debug.WriteLine($"Fetching images cancelled for chapter {chapter.Title}");
-            throw;
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Failed to fetch images for chapter {chapter.Title}: {ex.Message}");
-            RemoveFromCache(index);
-            throw;
-        }
-    }
-
-    public void Dispose()
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        _disposed = true;
-        WeakEventManager<INavigationService, EventArgs>.RemoveHandler(_navigationService, nameof(INavigationService.CanGoBackChanged), OnNavigationStateChanged);
-        _cts.Cancel();
-        _cts.Dispose();
-        ClearChapterCache();
-    }
-
-    private Lazy<Task<IReadOnlyList<ChapterImage>>> CreateCacheEntry(int index)
-    {
-        return new Lazy<Task<IReadOnlyList<ChapterImage>>>(() => FetchChapterImagesInternalAsync(index), LazyThreadSafetyMode.ExecutionAndPublication);
-    }
-
-    private void TouchCache(int index)
-    {
-        lock (_cacheLock)
-        {
-            if (_cacheNodes.TryGetValue(index, out var node))
+            if (string.IsNullOrEmpty(Manga?.Url))
             {
-                _cacheOrder.Remove(node);
-                _cacheOrder.AddFirst(node);
+                return;
             }
-            else
+
+            try
             {
-                var newNode = _cacheOrder.AddFirst(index);
-                _cacheNodes[index] = newNode;
+                var chapters = await _source.GetChaptersAsync(Manga.Url, _cts.Token);
+                ClearChapterCache();
+                Chapters = new ObservableCollection<Chapter>(chapters);
+                Debug.WriteLine($"Loaded {Chapters.Count} chapters for {Manga.Title}");
+            }
+            catch (OperationCanceledException)
+            {
+                Debug.WriteLine($"Chapter load cancelled for {Manga?.Title}");
+            }
+        }
 
-                while (_cacheOrder.Count > MaxCachedChapters)
+        private async void OpenChapter()
+        {
+            if (SelectedChapter == null || string.IsNullOrEmpty(SelectedChapter.Url))
+            {
+                return;
+            }
+
+            Debug.WriteLine($"Opening chapter: {SelectedChapter.Title} ({SelectedChapter.Url})");
+            int index = Chapters.IndexOf(SelectedChapter);
+
+            var images = await GetChapterImagesAsync(index);
+            if (images != null && images.Any())
+            {
+                var readerVM = new ReaderViewModel(
+                    images,
+                    SelectedChapter.Title,
+                    _navigationService,
+                    this,
+                    index,
+                    _aniListService);
+
+                _navigationService.NavigateToViewModel(readerVM);
+                Debug.WriteLine("Navigating to ReaderViewModel with images loaded.");
+                _ = PrefetchChapterAsync(index + 1);
+            }
+        }
+
+        private void OnNavigationStateChanged(object sender, EventArgs e)
+        {
+            CommandManager.InvalidateRequerySuggested();
+        }
+
+        public Task<IReadOnlyList<ChapterImage>> GetChapterImagesAsync(int index)
+        {
+            if (index < 0 || index >= Chapters.Count)
+            {
+                return Task.FromResult<IReadOnlyList<ChapterImage>>(Array.Empty<ChapterImage>());
+            }
+
+            var lazy = _chapterImageCache.GetOrAdd(index, CreateCacheEntry);
+            TouchCache(index);
+            return lazy.Value;
+        }
+
+        public async Task PrefetchChapterAsync(int index)
+        {
+            if (index < 0 || index >= Chapters.Count)
+            {
+                return;
+            }
+
+            try
+            {
+                await GetChapterImagesAsync(index).ConfigureAwait(false);
+                Debug.WriteLine($"Prefetched chapter at index {index}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to prefetch chapter at index {index}: {ex.Message}");
+            }
+        }
+
+        private async Task<IReadOnlyList<ChapterImage>> FetchChapterImagesInternalAsync(int index)
+        {
+            if (index < 0 || index >= Chapters.Count)
+            {
+                return Array.Empty<ChapterImage>();
+            }
+
+            var chapter = Chapters[index];
+            if (chapter == null || string.IsNullOrEmpty(chapter.Url))
+            {
+                return Array.Empty<ChapterImage>();
+            }
+
+            Debug.WriteLine($"Fetching chapter images: {chapter.Title} ({chapter.Url})");
+            try
+            {
+                var images = await _source.FetchChapterImages(chapter.Url, _cts.Token).ConfigureAwait(false);
+                return images?.ToList() ?? new List<ChapterImage>();
+            }
+            catch (OperationCanceledException)
+            {
+                RemoveFromCache(index);
+                Debug.WriteLine($"Fetching images cancelled for chapter {chapter.Title}");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to fetch images for chapter {chapter.Title}: {ex.Message}");
+                RemoveFromCache(index);
+                throw;
+            }
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            WeakEventManager<INavigationService, EventArgs>.RemoveHandler(_navigationService, nameof(INavigationService.CanGoBackChanged), OnNavigationStateChanged);
+            _cts.Cancel();
+            _cts.Dispose();
+            ClearChapterCache();
+        }
+
+        private Lazy<Task<IReadOnlyList<ChapterImage>>> CreateCacheEntry(int index)
+        {
+            return new Lazy<Task<IReadOnlyList<ChapterImage>>>(() => FetchChapterImagesInternalAsync(index), LazyThreadSafetyMode.ExecutionAndPublication);
+        }
+
+        private void TouchCache(int index)
+        {
+            lock (_cacheLock)
+            {
+                if (_cacheNodes.TryGetValue(index, out var node))
                 {
-                    var tail = _cacheOrder.Last;
-                    if (tail == null)
-                    {
-                        break;
-                    }
+                    _cacheOrder.Remove(node);
+                    _cacheOrder.AddFirst(node);
+                }
+                else
+                {
+                    var newNode = _cacheOrder.AddFirst(index);
+                    _cacheNodes[index] = newNode;
 
-                    _cacheOrder.RemoveLast();
-                    _cacheNodes.Remove(tail.Value);
-                    _chapterImageCache.TryRemove(tail.Value, out _);
+                    while (_cacheOrder.Count > MaxCachedChapters)
+                    {
+                        var tail = _cacheOrder.Last;
+                        if (tail == null)
+                        {
+                            break;
+                        }
+
+                        _cacheOrder.RemoveLast();
+                        _cacheNodes.Remove(tail.Value);
+                        _chapterImageCache.TryRemove(tail.Value, out _);
+                    }
                 }
             }
         }
-    }
 
-    private void RemoveFromCache(int index)
-    {
-        _chapterImageCache.TryRemove(index, out _);
-        lock (_cacheLock)
+        private void RemoveFromCache(int index)
         {
-            if (_cacheNodes.TryGetValue(index, out var node))
+            _chapterImageCache.TryRemove(index, out _);
+            lock (_cacheLock)
             {
-                _cacheOrder.Remove(node);
-                _cacheNodes.Remove(index);
+                if (_cacheNodes.TryGetValue(index, out var node))
+                {
+                    _cacheOrder.Remove(node);
+                    _cacheNodes.Remove(index);
+                }
+            }
+        }
+
+        private void ClearChapterCache()
+        {
+            _chapterImageCache.Clear();
+            lock (_cacheLock)
+            {
+                _cacheOrder.Clear();
+                _cacheNodes.Clear();
             }
         }
     }
-
-    private void ClearChapterCache()
-    {
-        _chapterImageCache.Clear();
-        lock (_cacheLock)
-        {
-            _cacheOrder.Clear();
-            _cacheNodes.Clear();
-        }
-    }
-}
 }

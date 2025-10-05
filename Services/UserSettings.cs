@@ -1,6 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using MSCS.Models;
 
 namespace MSCS.Services
 {
@@ -37,6 +40,121 @@ namespace MSCS.Services
             }
         }
 
+        public string? AniListClientId
+        {
+            get => _data.AniListClientId;
+            set
+            {
+                var sanitized = string.IsNullOrWhiteSpace(value) ? null : value?.Trim();
+                if (string.Equals(_data.AniListClientId, sanitized, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                _data.AniListClientId = sanitized;
+                SaveInternal();
+                SettingsChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        public string? AniListAccessToken
+        {
+            get => _data.AniListAccessToken;
+            set
+            {
+                if (string.Equals(_data.AniListAccessToken, value, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                _data.AniListAccessToken = value;
+                SaveInternal();
+                SettingsChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        public DateTimeOffset? AniListAccessTokenExpiry
+        {
+            get => _data.AniListAccessTokenExpiry;
+            set
+            {
+                if (_data.AniListAccessTokenExpiry == value)
+                {
+                    return;
+                }
+
+                _data.AniListAccessTokenExpiry = value;
+                SaveInternal();
+                SettingsChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        public string? AniListUserName
+        {
+            get => _data.AniListUserName;
+            set
+            {
+                if (string.Equals(_data.AniListUserName, value, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                _data.AniListUserName = value;
+                SaveInternal();
+                SettingsChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        public bool TryGetAniListTracking(string mangaTitle, out AniListTrackingInfo? trackingInfo)
+        {
+            trackingInfo = null;
+            if (string.IsNullOrWhiteSpace(mangaTitle))
+            {
+                return false;
+            }
+
+            if (_data.AniListTrackedSeries != null &&
+                _data.AniListTrackedSeries.TryGetValue(mangaTitle, out var stored))
+            {
+                trackingInfo = new AniListTrackingInfo(stored.MediaId, stored.Title ?? mangaTitle, stored.CoverImageUrl);
+                return true;
+            }
+
+            return false;
+        }
+
+        public void SetAniListTracking(string mangaTitle, AniListTrackingInfo info)
+        {
+            if (string.IsNullOrWhiteSpace(mangaTitle) || info == null)
+            {
+                return;
+            }
+
+            _data.AniListTrackedSeries[mangaTitle] = new TrackedSeriesData
+            {
+                MediaId = info.MediaId,
+                Title = info.Title,
+                CoverImageUrl = info.CoverImageUrl
+            };
+
+            SaveInternal();
+            SettingsChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void RemoveAniListTracking(string mangaTitle)
+        {
+            if (string.IsNullOrWhiteSpace(mangaTitle))
+            {
+                return;
+            }
+
+            if (_data.AniListTrackedSeries.Remove(mangaTitle))
+            {
+                SaveInternal();
+                SettingsChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
         private SettingsData LoadInternal()
         {
             try
@@ -47,8 +165,9 @@ namespace MSCS.Services
                 }
 
                 var json = File.ReadAllText(_settingsPath);
-                var data = JsonSerializer.Deserialize<SettingsData>(json);
-                return data ?? new SettingsData();
+                var data = JsonSerializer.Deserialize<SettingsData>(json) ?? new SettingsData();
+                data.AniListTrackedSeries ??= new Dictionary<string, TrackedSeriesData>();
+                return data;
             }
             catch
             {
@@ -68,7 +187,8 @@ namespace MSCS.Services
 
                 var json = JsonSerializer.Serialize(_data, new JsonSerializerOptions
                 {
-                    WriteIndented = true
+                    WriteIndented = true,
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
                 });
 
                 lock (_syncLock)
@@ -85,6 +205,18 @@ namespace MSCS.Services
         private class SettingsData
         {
             public string? LocalLibraryPath { get; set; }
+            public string? AniListClientId { get; set; }
+            public string? AniListAccessToken { get; set; }
+            public DateTimeOffset? AniListAccessTokenExpiry { get; set; }
+            public string? AniListUserName { get; set; }
+            public Dictionary<string, TrackedSeriesData> AniListTrackedSeries { get; set; } = new();
+        }
+
+        private class TrackedSeriesData
+        {
+            public int MediaId { get; set; }
+            public string? Title { get; set; }
+            public string? CoverImageUrl { get; set; }
         }
     }
 }
