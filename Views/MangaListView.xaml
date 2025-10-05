@@ -4,33 +4,79 @@
              xmlns:local="clr-namespace:MSCS.Models"
              Height="Auto" Width="Auto">
 
+    <UserControl.Resources>
+        <!-- Palette tailored for the manga browser -->
+        <SolidColorBrush x:Key="PanelBackground" Color="#1A2130"/>
+        <SolidColorBrush x:Key="PanelBorder" Color="#262F42"/>
+        <SolidColorBrush x:Key="AccentBrush" Color="#7C9CFF"/>
+        <SolidColorBrush x:Key="TextMuted" Color="#A8B3C5"/>
+
+        <Style x:Key="CardBorderStyle" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource PanelBackground}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource PanelBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect BlurRadius="18" ShadowDepth="0" Opacity="0.18"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="AccentButton" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="{x:Null}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="18,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="background"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="8"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="background" Property="Background" Value="#91ACFF"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="background" Property="Background" Value="#6987F7"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="background" Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="InputBase" TargetType="Control">
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0"/>
+        </Style>
+    </UserControl.Resources>
+
     <DockPanel Margin="0,0,0,0">
         <!-- Search Bar -->
-        <DockPanel DockPanel.Dock="Top" LastChildFill="False" Margin="0,0,0,12" HorizontalAlignment="Center">
-            <Border Background="#202737" CornerRadius="10" Padding="12" SnapsToDevicePixels="True">
+        <DockPanel DockPanel.Dock="Top" LastChildFill="False" Margin="0,0,0,16" HorizontalAlignment="Center">
+            <Border Style="{StaticResource CardBorderStyle}">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="200"/>
-                        <!-- source combo -->
+                        <ColumnDefinition Width="220"/>
                         <ColumnDefinition Width="12"/>
-                        <!-- gap -->
                         <ColumnDefinition Width="*"/>
-                        <!-- query box -->
                         <ColumnDefinition Width="12"/>
-                        <!-- gap -->
-                        <ColumnDefinition Width="140"/>
-                        <!-- button -->
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-
-                    <!-- shared look for inputs -->
-                    <Grid.Resources>
-                        <Style x:Key="InputBase" TargetType="Control">
-                            <Setter Property="Height" Value="34"/>
-                            <Setter Property="FontSize" Value="14"/>
-                            <Setter Property="VerticalContentAlignment" Value="Center"/>
-                            <Setter Property="Margin" Value="0"/>
-                        </Style>
-                    </Grid.Resources>
 
                     <ComboBox Grid.Column="0"
                               Style="{StaticResource InputBase}"
@@ -41,74 +87,106 @@
 
                     <TextBox Grid.Column="2"
                              Style="{StaticResource InputBase}"
-                             Padding="10,0"
-                             MinWidth="200"
-                             Text="{Binding SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                             Padding="12,0"
+                             MinWidth="240"
+                             Text="{Binding SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Search by manga title"/>
 
                     <Button Grid.Column="4"
                             Content="Search Manga"
-                            Style="{StaticResource InputBase}"
-                            Padding="16,0"
+                            Style="{StaticResource AccentButton}"
+                            MinWidth="140"
+                            Height="38"
                             Command="{Binding SearchCommand}"/>
                 </Grid>
             </Border>
         </DockPanel>
         <!-- Manga Results List -->
-        <ListView x:Name="ResultList"
-          BorderThickness="0"
-          ScrollViewer.VerticalScrollBarVisibility="Auto"
-          Background="Transparent"
-          ItemsSource="{Binding MangaResults}"
-          SelectedItem="{Binding SelectedManga, Mode=TwoWay}"
-          SelectionChanged="ResultList_SelectionChanged">
-            <ListView.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <VirtualizingStackPanel />
-                </ItemsPanelTemplate>
-            </ListView.ItemsPanel>
+        <Grid>
+            <ListView x:Name="ResultList"
+                      BorderThickness="0"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto"
+                      Background="Transparent"
+                      ItemsSource="{Binding MangaResults}"
+                      SelectedItem="{Binding SelectedManga, Mode=TwoWay}"
+                      SelectionChanged="ResultList_SelectionChanged">
+                <ListView.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel />
+                    </ItemsPanelTemplate>
+                </ListView.ItemsPanel>
 
-            <ListView.ItemContainerStyle>
-                <Style TargetType="ListViewItem">
-                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                </Style>
-            </ListView.ItemContainerStyle>
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                        <Setter Property="Padding" Value="0"/>
+                        <Setter Property="Margin" Value="0,0,0,10"/>
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListViewItem">
+                                    <Border x:Name="ItemBorder"
+                                            Background="Transparent"
+                                            CornerRadius="12">
+                                        <ContentPresenter Margin="0"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="ItemBorder" Property="Background" Value="#1F283C"/>
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="ItemBorder" Property="Background" Value="#252F46"/>
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ListView.ItemContainerStyle>
 
-            <ListView.ItemTemplate>
-                <DataTemplate DataType="{x:Type local:Manga}">
-                    <Border Margin="8"
-                            Padding="8"
-                            CornerRadius="8"
-                            Background="#FFF"
-                            BorderBrush="#DDD"
-                            BorderThickness="1">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
+                <ListView.ItemTemplate>
+                    <DataTemplate DataType="{x:Type local:Manga}">
+                        <Border Style="{StaticResource CardBorderStyle}" Padding="12">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="16"/>
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
 
-                            <Image Grid.Column="0"
-                                   Width="80"
-                                   Height="110"
-                                   Margin="0,0,10,0"
-                                   Source="{Binding CoverImageUrl}"
-                                   Stretch="UniformToFill"/>
+                                <Border Width="86" Height="120" CornerRadius="10" ClipToBounds="True">
+                                    <Image Source="{Binding CoverImageUrl}"
+                                           Stretch="UniformToFill"
+                                           SnapsToDevicePixels="True"/>
+                                </Border>
 
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding Title}"
-                                           FontWeight="SemiBold"
-                                           FontSize="15"
-                                           TextWrapping="Wrap"/>
-                                <TextBlock Text="{Binding Url}"
-                                           FontSize="12"
-                                           Foreground="#666"
-                                           TextWrapping="Wrap"
-                                           Margin="0,5,0,0"/>
-                            </StackPanel>
-                        </Grid>
-                    </Border>
-                </DataTemplate>
-            </ListView.ItemTemplate>
-        </ListView>
+                                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Title}"
+                                               FontWeight="SemiBold"
+                                               FontSize="16"
+                                               TextWrapping="Wrap"
+                                               Foreground="White"/>
+                                    <TextBlock Text="{Binding Url}"
+                                               FontSize="12"
+                                               Foreground="{StaticResource TextMuted}"
+                                               TextWrapping="Wrap"
+                                               Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <TextBlock Text="Start searching to discover new manga."
+                       Foreground="{StaticResource TextMuted}"
+                       FontSize="14"
+                       FontStyle="Italic"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Visibility="{Binding ElementName=ResultList, Path=Items.IsEmpty, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+        </Grid>
     </DockPanel>
 </UserControl>
