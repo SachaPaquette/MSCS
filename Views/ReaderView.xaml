@@ -72,7 +72,7 @@
                 <ItemsControl.ItemContainerStyle>
                     <Style TargetType="ContentPresenter">
                         <Setter Property="HorizontalAlignment" Value="Center"/>
-                        <Setter Property="Margin" Value="0,8,0,8"/>
+                        <Setter Property="Margin" Value="0,0,0,0"/>
                     </Style>
                 </ItemsControl.ItemContainerStyle>
 
