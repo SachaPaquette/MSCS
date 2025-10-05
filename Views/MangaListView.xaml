@@ -23,6 +23,11 @@
                     <DropShadowEffect BlurRadius="18" ShadowDepth="0" Opacity="0.18"/>
                 </Setter.Value>
             </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource MangaHoverBrush}"/>
+                </Trigger>
+            </Style.Triggers>
         </Style>
 
         <Style x:Key="AccentButton" TargetType="Button">
@@ -133,7 +138,7 @@
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="ItemBorder" Property="Background" Value="#1F283C"/>
+                                            <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource MangaHoverBrush}"/>
                                         </Trigger>
                                         <Trigger Property="IsSelected" Value="True">
                                             <Setter TargetName="ItemBorder" Property="Background" Value="#252F46"/>
