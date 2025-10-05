@@ -4,7 +4,8 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
-using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Text;
 using MSCS.Models;
 
@@ -29,7 +30,11 @@ namespace MSCS.Services
 
         private readonly UserSettings _settings;
         private bool _disposed;
-
+        private static readonly object ExtractionCleanupLock = new();
+        private static DateTime _lastCleanup = DateTime.MinValue;
+        private static readonly TimeSpan CleanupInterval = TimeSpan.FromMinutes(15);
+        private static readonly TimeSpan ExtractionLifetime = TimeSpan.FromHours(6);
+        private const int MaxExtractionDirectories = 32;
         public LocalLibraryService(UserSettings settings)
         {
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
@@ -45,7 +50,184 @@ namespace MSCS.Services
             _settings.LocalLibraryPath = path;
         }
 
+        [Obsolete("Use GetMangaEntriesAsync to avoid blocking the UI thread.")]
         public IReadOnlyList<LocalMangaEntry> GetMangaEntries()
+        {
+            return GetMangaEntriesAsync().GetAwaiter().GetResult();
+        }
+
+        public Task<IReadOnlyList<LocalMangaEntry>> GetMangaEntriesAsync(CancellationToken ct = default)
+        {
+            return Task.Run(() => GetMangaEntriesInternal(ct), ct);
+        }
+
+        [Obsolete("Use GetChaptersAsync to avoid blocking the UI thread.")]
+        public IReadOnlyList<Chapter> GetChapters(string mangaPath)
+        {
+            return GetChaptersAsync(mangaPath).GetAwaiter().GetResult();
+        }
+
+        public Task<IReadOnlyList<Chapter>> GetChaptersAsync(string mangaPath, CancellationToken ct = default)
+        {
+            return Task.Run(() => GetChaptersInternal(mangaPath, ct), ct);
+        }
+
+        [Obsolete("Use GetChapterImagesAsync to avoid blocking the UI thread.")]
+        public IReadOnlyList<ChapterImage> GetChapterImages(string chapterPath)
+        {
+            return GetChapterImagesAsync(chapterPath).GetAwaiter().GetResult();
+        }
+
+        public Task<IReadOnlyList<ChapterImage>> GetChapterImagesAsync(string chapterPath, CancellationToken ct = default)
+        {
+            return Task.Run(() => GetChapterImagesInternal(chapterPath, ct), ct);
+        }
+
+        public bool LibraryPathExists()
+        {
+            var path = LibraryPath;
+            return !string.IsNullOrWhiteSpace(path) && Directory.Exists(path);
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            _settings.SettingsChanged -= OnSettingsChanged;
+        }
+
+        private void OnSettingsChanged(object? sender, EventArgs e)
+        {
+            LibraryPathChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        private static IEnumerable<string> EnumerateImageFiles(string directory)
+        {
+            try
+            {
+                return Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly)
+                    .Where(IsImageFile)
+                    .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to enumerate images in '{directory}': {ex.Message}");
+                return Array.Empty<string>();
+            }
+        }
+        private static bool ContainsChapterContent(DirectoryInfo directory)
+        {
+            try
+            {
+                if (EnumerateArchiveFiles(directory.FullName).Any())
+                {
+                    return true;
+                }
+
+                if (EnumerateImageFiles(directory.FullName).Any())
+                {
+                    return true;
+                }
+
+                return directory.GetDirectories()
+                    .Any(sub => EnumerateImageFiles(sub.FullName).Any());
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to inspect directory '{directory.FullName}': {ex.Message}");
+                return false;
+            }
+        }
+        private static IEnumerable<string> EnumerateArchiveFiles(string directory)
+        {
+            try
+            {
+                return Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly)
+                    .Where(IsArchive)
+                    .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to enumerate archives in '{directory}': {ex.Message}");
+                return Array.Empty<string>();
+            }
+        }
+
+
+        private static int CountChapters(DirectoryInfo info)
+        {
+            try
+            {
+                var archives = EnumerateArchiveFiles(info.FullName).ToList();
+                if (archives.Count > 0)
+                {
+                    return archives.Count;
+                }
+
+                var subDirs = info.GetDirectories();
+                if (subDirs.Length > 0)
+                {
+                    var chapterDirectories = 0;
+                    foreach (var dir in subDirs)
+                    {
+                        if (EnumerateArchiveFiles(dir.FullName).Any() || EnumerateImageFiles(dir.FullName).Any())
+                        {
+                            chapterDirectories++;
+                        }
+                    }
+
+                    if (chapterDirectories > 0)
+                    {
+                        return chapterDirectories;
+                    }
+
+                    return subDirs.Length;
+                }
+
+                return EnumerateImageFiles(info.FullName).Any() ? 1 : 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+        private static LocalMangaEntry CreateEntry(DirectoryInfo info)
+        {
+            var chapters = CountChapters(info);
+            return new LocalMangaEntry(info.Name, info.FullName, chapters, info.LastWriteTimeUtc);
+        }
+        private static IEnumerable<DirectoryInfo> SafeEnumerateDirectories(DirectoryInfo root)
+        {
+            try
+            {
+                return root.EnumerateDirectories();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to enumerate directories in '{root.FullName}': {ex.Message}");
+                return Array.Empty<DirectoryInfo>();
+            }
+        }
+
+        private static bool IsImageFile(string path)
+        {
+            var extension = Path.GetExtension(path);
+            return !string.IsNullOrWhiteSpace(extension) && ImageExtensions.Contains(extension);
+        }
+
+        private static bool IsArchive(string path)
+        {
+            var extension = Path.GetExtension(path);
+            return !string.IsNullOrWhiteSpace(extension) && ArchiveExtensions.Contains(extension);
+        }
+
+        private IReadOnlyList<LocalMangaEntry> GetMangaEntriesInternal(CancellationToken ct)
         {
             var root = LibraryPath;
             if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
@@ -60,6 +242,8 @@ namespace MSCS.Services
 
                 foreach (var directory in SafeEnumerateDirectories(rootInfo))
                 {
+                    ct.ThrowIfCancellationRequested();
+
                     if (ContainsChapterContent(directory))
                     {
                         results.Add(CreateEntry(directory));
@@ -68,6 +252,7 @@ namespace MSCS.Services
 
                     foreach (var subDirectory in SafeEnumerateDirectories(directory))
                     {
+                        ct.ThrowIfCancellationRequested();
                         if (ContainsChapterContent(subDirectory))
                         {
                             results.Add(CreateEntry(subDirectory));
@@ -84,6 +269,10 @@ namespace MSCS.Services
                     .OrderBy(entry => entry.Title, StringComparer.OrdinalIgnoreCase)
                     .ToList();
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Failed to enumerate local manga entries: {ex.Message}");
@@ -91,7 +280,7 @@ namespace MSCS.Services
             }
         }
 
-        public IReadOnlyList<Chapter> GetChapters(string mangaPath)
+        private IReadOnlyList<Chapter> GetChaptersInternal(string mangaPath, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(mangaPath) || !Directory.Exists(mangaPath))
             {
@@ -100,6 +289,7 @@ namespace MSCS.Services
 
             try
             {
+                ct.ThrowIfCancellationRequested();
                 var directory = new DirectoryInfo(mangaPath);
                 var archives = EnumerateArchiveFiles(directory.FullName)
                     .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
@@ -147,6 +337,10 @@ namespace MSCS.Services
                     };
                 }
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Failed to enumerate chapters for '{mangaPath}': {ex.Message}");
@@ -155,7 +349,7 @@ namespace MSCS.Services
             return Array.Empty<Chapter>();
         }
 
-        public IReadOnlyList<ChapterImage> GetChapterImages(string chapterPath)
+        private IReadOnlyList<ChapterImage> GetChapterImagesInternal(string chapterPath, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(chapterPath))
             {
@@ -164,6 +358,8 @@ namespace MSCS.Services
 
             try
             {
+                ct.ThrowIfCancellationRequested();
+
                 if (File.Exists(chapterPath) && IsArchive(chapterPath))
                 {
                     return ExtractArchiveImages(chapterPath);
@@ -178,6 +374,10 @@ namespace MSCS.Services
                     .Select(path => new ChapterImage { ImageUrl = path })
                     .ToList();
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Failed to enumerate chapter images for '{chapterPath}': {ex.Message}");
@@ -185,154 +385,7 @@ namespace MSCS.Services
             }
         }
 
-        public bool LibraryPathExists()
-        {
-            var path = LibraryPath;
-            return !string.IsNullOrWhiteSpace(path) && Directory.Exists(path);
-        }
-
-        public void Dispose()
-        {
-            if (_disposed)
-            {
-                return;
-            }
-
-            _disposed = true;
-            _settings.SettingsChanged -= OnSettingsChanged;
-        }
-
-        private void OnSettingsChanged(object? sender, EventArgs e)
-        {
-            LibraryPathChanged?.Invoke(this, EventArgs.Empty);
-        }
-
-        private static IEnumerable<string> EnumerateImageFiles(string directory)
-        {
-            try
-            {
-                return Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly)
-                    .Where(IsImageFile)
-                    .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Failed to enumerate images in '{directory}': {ex.Message}");
-                return Array.Empty<string>();
-            }
-        }
-
-        private static IEnumerable<string> EnumerateArchiveFiles(string directory)
-        {
-            try
-            {
-                return Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly)
-                    .Where(IsArchive)
-                    .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Failed to enumerate archives in '{directory}': {ex.Message}");
-                return Array.Empty<string>();
-            }
-        }
-
-        private static int CountChapters(DirectoryInfo info)
-        {
-            try
-            {
-                var archives = EnumerateArchiveFiles(info.FullName).ToList();
-                if (archives.Count > 0)
-                {
-                    return archives.Count;
-                }
-
-                var subDirs = info.GetDirectories();
-                if (subDirs.Length > 0)
-                {
-                    var chapterDirectories = 0;
-                    foreach (var dir in subDirs)
-                    {
-                        if (EnumerateArchiveFiles(dir.FullName).Any() || EnumerateImageFiles(dir.FullName).Any())
-                        {
-                            chapterDirectories++;
-                        }
-                    }
-
-                    if (chapterDirectories > 0)
-                    {
-                        return chapterDirectories;
-                    }
-
-                    return subDirs.Length;
-                }
-
-                return EnumerateImageFiles(info.FullName).Any() ? 1 : 0;
-            }
-            catch
-            {
-                return 0;
-            }
-        }
-
-        private static bool ContainsChapterContent(DirectoryInfo directory)
-        {
-            try
-            {
-                if (EnumerateArchiveFiles(directory.FullName).Any())
-                {
-                    return true;
-                }
-
-                if (EnumerateImageFiles(directory.FullName).Any())
-                {
-                    return true;
-                }
-
-                return directory.GetDirectories()
-                    .Any(sub => EnumerateImageFiles(sub.FullName).Any());
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Failed to inspect directory '{directory.FullName}': {ex.Message}");
-                return false;
-            }
-        }
-
-        private static LocalMangaEntry CreateEntry(DirectoryInfo info)
-        {
-            var chapters = CountChapters(info);
-            return new LocalMangaEntry(info.Name, info.FullName, chapters, info.LastWriteTimeUtc);
-        }
-
-        private static IEnumerable<DirectoryInfo> SafeEnumerateDirectories(DirectoryInfo root)
-        {
-            try
-            {
-                return root.EnumerateDirectories();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Failed to enumerate directories in '{root.FullName}': {ex.Message}");
-                return Array.Empty<DirectoryInfo>();
-            }
-        }
-
-        private static bool IsImageFile(string path)
-        {
-            var extension = Path.GetExtension(path);
-            return !string.IsNullOrWhiteSpace(extension) && ImageExtensions.Contains(extension);
-        }
-
-        private static bool IsArchive(string path)
-        {
-            var extension = Path.GetExtension(path);
-            return !string.IsNullOrWhiteSpace(extension) && ArchiveExtensions.Contains(extension);
-        }
-
-        private static IReadOnlyList<ChapterImage> ExtractArchiveImages(string archivePath)
+        private IReadOnlyList<ChapterImage> ExtractArchiveImages(string archivePath)
         {
             try
             {
@@ -382,7 +435,7 @@ namespace MSCS.Services
             }
         }
 
-        private static string EnsureExtractionDirectory(string archivePath)
+        private string EnsureExtractionDirectory(string archivePath)
         {
             var fileInfo = new FileInfo(archivePath);
             var safeName = SanitizeFileName(Path.GetFileNameWithoutExtension(fileInfo.Name));
@@ -391,7 +444,66 @@ namespace MSCS.Services
             Directory.CreateDirectory(tempRoot);
             var extractionRoot = Path.Combine(tempRoot, $"{safeName}_{suffix}");
             Directory.CreateDirectory(extractionRoot);
+            ScheduleExtractionCleanup(tempRoot);
             return extractionRoot;
+        }
+
+        private static void ScheduleExtractionCleanup(string cacheRoot)
+        {
+            lock (ExtractionCleanupLock)
+            {
+                if (DateTime.UtcNow - _lastCleanup < CleanupInterval)
+                {
+                    return;
+                }
+
+                _lastCleanup = DateTime.UtcNow;
+            }
+
+            Task.Run(() => CleanupExtractionCache(cacheRoot));
+        }
+
+        private static void CleanupExtractionCache(string cacheRoot)
+        {
+            try
+            {
+                if (!Directory.Exists(cacheRoot))
+                {
+                    return;
+                }
+
+                var expiration = DateTime.UtcNow - ExtractionLifetime;
+                var directories = Directory.EnumerateDirectories(cacheRoot)
+                    .Select(path => new DirectoryInfo(path))
+                    .OrderByDescending(dir => dir.LastWriteTimeUtc)
+                    .ToList();
+
+                var retained = 0;
+                foreach (var directory in directories)
+                {
+                    var shouldDelete = directory.LastWriteTimeUtc < expiration || retained >= MaxExtractionDirectories;
+
+                    if (shouldDelete)
+                    {
+                        try
+                        {
+                            directory.Delete(true);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Failed to clean cache directory '{directory.FullName}': {ex.Message}");
+                        }
+                    }
+                    else
+                    {
+                        retained++;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to clean extraction cache '{cacheRoot}': {ex.Message}");
+            }
         }
 
         private static string? BuildExtractionPath(string root, string entryPath)
