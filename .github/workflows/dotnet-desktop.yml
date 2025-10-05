@@ -1,0 +1,71 @@
+name: Publish WPF EXE
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    env:
+      Solution_Name: MSCS.sln                       
+      Project_Path: src\MSCS.App\MSCS.App.csproj    
+      Framework: net8.0-windows                     
+      Runtime: win-x64                              
+      Configuration: Release
+
+      # Publish options (single-file EXE)
+      PublishSingleFile: true
+      SelfContained: true
+      IncludeNativeLibrariesForSelfExtract: true
+      PublishTrimmed: false                         
+      ReadyToRun: true                              
+      SIGNED_EXE_NAME: MSCS.exe                     
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.sln', '**/*.csproj', '**/packages.lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore
+        run: dotnet restore "$env:Solution_Name"
+        
+      - name: Publish single-file EXE
+        run: >
+          dotnet publish "$env:Project_Path"
+          -c "$env:Configuration"
+          -r "$env:Runtime"
+          -f "$env:Framework"
+          /p:PublishSingleFile=$env:PublishSingleFile
+          /p:SelfContained=$env:SelfContained
+          /p:IncludeNativeLibrariesForSelfExtract=$env:IncludeNativeLibrariesForSelfExtract
+          /p:PublishTrimmed=$env:PublishTrimmed
+          /p:ReadyToRun=$env:ReadyToRun
+          /p:DebugType=None
+          /p:DebugSymbols=false
+          /p:EnableWindowsTargeting=true
+
+      - name: Compute publish directory
+        shell: pwsh
+        run: |
+          $pub = Join-Path (Split-Path "$env:Project_Path") "bin\$env:Configuration\$env:Framework\$env:Runtime\publish"
+          echo "PUBLISH_DIR=$pub" >> $env:GITHUB_ENV
+          Write-Host "Publish dir: $pub"
