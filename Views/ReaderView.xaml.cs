@@ -23,6 +23,7 @@ namespace MSCS.Views
         public ReaderView()
         {
             InitializeComponent();
+            DataContextChanged += OnDataContextChanged;
         }
         private async void ScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
@@ -43,6 +44,7 @@ namespace MSCS.Views
                 readerViewModel.ScrollProgress = progress;
             }
             if (e.VerticalChange > 0 &&
+                scrollViewer.VerticalOffset > 0 &&
                 scrollViewer.VerticalOffset + scrollViewer.ViewportHeight >= scrollViewer.ExtentHeight - 100)
             {
                 if (DataContext is ReaderViewModel viewModel)
@@ -92,6 +94,31 @@ namespace MSCS.Views
             ScrollView.ScrollToTop();
         }
 
+        private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            if (e.OldValue is ReaderViewModel oldViewModel)
+            {
+                oldViewModel.ChapterChanged -= OnChapterChanged;
+            }
+
+            if (e.NewValue is ReaderViewModel newViewModel)
+            {
+                newViewModel.ChapterChanged += OnChapterChanged;
+            }
+        }
+
+        private void OnChapterChanged(object? sender, EventArgs e)
+        {
+            if (ScrollView == null)
+            {
+                return;
+            }
+
+            ScrollView.Dispatcher.InvokeAsync(() =>
+            {
+                ScrollView.ScrollToTop();
+            }, System.Windows.Threading.DispatcherPriority.Background);
+        }
 
 
 

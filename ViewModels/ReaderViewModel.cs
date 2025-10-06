@@ -26,6 +26,8 @@ namespace MSCS.ViewModels
         private readonly IAniListService? _aniListService;
         private readonly SemaphoreSlim _imageLoadSemaphore = new(1, 1);
         private CancellationTokenSource _imageLoadCts = new();
+        private bool _isChapterNavigationInProgress;
+        public event EventHandler? ChapterChanged;
         private int _loadedCount;
         private int _currentChapterIndex;
         public int RemainingImages => _allImages.Count - _loadedCount;
@@ -230,38 +232,53 @@ _ = UpdateAniListProgressAsync();
 }
 
 
-private async Task<bool> TryMoveToChapterAsync(int newIndex)
-{
-    if (_chapterListViewModel == null)
-    {
-        Debug.WriteLine("Chapter list view model is unavailable for navigation.");
-        return false;
-    }
+        private async Task<bool> TryMoveToChapterAsync(int newIndex)
+        {
+            if (_chapterListViewModel == null)
+            {
+                Debug.WriteLine("Chapter list view model is unavailable for navigation.");
+                return false;
+            }
 
-    if (newIndex < 0 || newIndex >= _chapterListViewModel.Chapters.Count)
-    {
-        Debug.WriteLine($"Requested chapter index {newIndex} is out of range.");
-        return false;
-    }
+            if (newIndex < 0 || newIndex >= _chapterListViewModel.Chapters.Count)
+            {
+                Debug.WriteLine($"Requested chapter index {newIndex} is out of range.");
+                return false;
+            }
 
-    var images = await _chapterListViewModel.GetChapterImagesAsync(newIndex);
-    if (images == null || images.Count == 0)
-    {
-        Debug.WriteLine($"No images returned for chapter at index {newIndex}.");
-        return false;
-    }
+            if (_isChapterNavigationInProgress)
+            {
+                Debug.WriteLine("A chapter navigation is already in progress.");
+                return false;
+            }
 
-    _currentChapterIndex = newIndex;
-    ResetImages(images);
-    _ = _chapterListViewModel.PrefetchChapterAsync(newIndex + 1);
-    Debug.WriteLine($"Navigated to chapter {newIndex} with {images.Count} images.");
-    CommandManager.InvalidateRequerySuggested();
-    UpdateSelectedChapter(newIndex);
-    _ = UpdateAniListProgressAsync();
-    return true;
-}
+            _isChapterNavigationInProgress = true;
 
-private void ResetImages(IEnumerable<ChapterImage> images)
+            try
+            {
+                var images = await _chapterListViewModel.GetChapterImagesAsync(newIndex);
+                if (images == null || images.Count == 0)
+                {
+                    Debug.WriteLine($"No images returned for chapter at index {newIndex}.");
+                    return false;
+                }
+
+                _currentChapterIndex = newIndex;
+                ResetImages(images);
+                _ = _chapterListViewModel.PrefetchChapterAsync(newIndex + 1);
+                Debug.WriteLine($"Navigated to chapter {newIndex} with {images.Count} images.");
+                CommandManager.InvalidateRequerySuggested();
+                UpdateSelectedChapter(newIndex);
+                _ = UpdateAniListProgressAsync();
+                return true;
+            }
+            finally
+            {
+                _isChapterNavigationInProgress = false;
+            }
+        }
+
+        private void ResetImages(IEnumerable<ChapterImage> images)
 {
     _imageLoadCts.Cancel();
     _imageLoadCts.Dispose();
@@ -283,9 +300,12 @@ private void ResetImages(IEnumerable<ChapterImage> images)
 
     _ = LoadMoreImagesAsync();
 }
+        private void OnChapterChanged()
+        {
+            ChapterChanged?.Invoke(this, EventArgs.Empty);
+        }
 
-
-private bool CanGoToNextChapter()
+        private bool CanGoToNextChapter()
         {
             if (_chapterListViewModel == null)
             {
@@ -331,6 +351,12 @@ private bool CanGoToNextChapter()
         private async Task HandleSelectedChapterChangedAsync(Chapter? chapter)
         {
             if (chapter == null || _chapterListViewModel == null)
+            {
+                return;
+            }
+
+            // Prevent double navigation if already in progress
+            if (_isChapterNavigationInProgress)
             {
                 return;
             }
