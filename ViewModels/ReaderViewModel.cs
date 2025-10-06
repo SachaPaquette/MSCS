@@ -2,6 +2,7 @@
 using MSCS.Helpers;
 using MSCS.Interfaces;
 using MSCS.Models;
+using MSCS.Services;
 using MSCS.ViewModels;
 using MSCS.Views;
 using System;
@@ -24,10 +25,12 @@ namespace MSCS.ViewModels
         private readonly ChapterListViewModel? _chapterListViewModel;
         private readonly INavigationService? _navigationService;
         private readonly IAniListService? _aniListService;
+        private readonly UserSettings? _userSettings;
         private readonly SemaphoreSlim _imageLoadSemaphore = new(1, 1);
         private CancellationTokenSource _imageLoadCts = new();
         private bool _isChapterNavigationInProgress;
         public event EventHandler? ChapterChanged;
+        public event EventHandler<double>? ScrollToProgressRequested;
         private int _loadedCount;
         private int _currentChapterIndex;
         public int RemainingImages => _allImages.Count - _loadedCount;
@@ -35,6 +38,10 @@ namespace MSCS.ViewModels
         public int TotalImages => _allImages.Count;
         public double LoadingProgress => _allImages.Count == 0 ? 0d : (double)_loadedCount / _allImages.Count;
         private double _widthFactor = Constants.DefaultWidthFactor;
+        private double _lastPersistedScrollProgress = double.NaN;
+        private DateTime _lastProgressSaveUtc = DateTime.MinValue;
+        private bool _isRestoringProgress;
+        private bool _hasRestoredInitialProgress;
         public double WidthFactor
         {
             get => _widthFactor;
@@ -51,7 +58,14 @@ namespace MSCS.ViewModels
         public double ScrollProgress
         {
             get => _scrollProgress;
-            set => SetProperty(ref _scrollProgress, Math.Clamp(value, 0.0, 1.0));
+            set
+            {
+                var clamped = Math.Clamp(value, 0.0, 1.0);
+                if (SetProperty(ref _scrollProgress, clamped) && !_isRestoringProgress)
+                {
+                    PersistReadingProgress();
+                }
+            }
         }
         private bool _isSidebarOpen;
         public bool IsSidebarOpen
@@ -88,7 +102,7 @@ namespace MSCS.ViewModels
             {
                 if (SetProperty(ref _selectedChapter, value) && !_isUpdatingSelectedChapter)
                 {
-                    _ = OnSelectedChapterChangedAsync(value);
+                    _ = HandleSelectedChapterChangedAsync(value);
                 }
             }
         }
@@ -106,9 +120,9 @@ namespace MSCS.ViewModels
             }
         }
         public ObservableCollection<ChapterImage> ImageUrls { get; }
-        public ICommand GoBackCommand { get; private set; }
-        public ICommand GoHomeCommand { get; private set; }
-        public ICommand NextChapterCommand { get; private set; }
+        public ICommand GoBackCommand { get; private set; } = new RelayCommand(_ => { }, _ => false);
+        public ICommand GoHomeCommand { get; private set; } = new RelayCommand(_ => { }, _ => false);
+        public ICommand NextChapterCommand { get; private set; } = new AsyncRelayCommand(_ => Task.CompletedTask, _ => false);
         public ICommand AniListTrackCommand { get; private set; } = new RelayCommand(_ => { });
 
         public bool IsAniListAvailable => _aniListService != null;
@@ -120,10 +134,11 @@ namespace MSCS.ViewModels
             Debug.WriteLine("ReaderViewModel initialized with no images");
             _navigationService = null;
             _chapterListViewModel = null;
+            _userSettings = null;
             _allImages = new List<ChapterImage>();
             ImageUrls = new ObservableCollection<ChapterImage>();
             Chapters = new ObservableCollection<Chapter>();
-            ConfigureNavigationCommands();
+            InitializeNavigationCommands();
         }
 
         public ReaderViewModel(
@@ -132,12 +147,14 @@ namespace MSCS.ViewModels
             INavigationService navigationService,
             ChapterListViewModel chapterListViewModel,
             int currentChapterIndex,
-            IAniListService? aniListService)
+            IAniListService? aniListService,
+            UserSettings? userSettings = null)
         {
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
             _chapterListViewModel = chapterListViewModel ?? throw new ArgumentNullException(nameof(chapterListViewModel));
             _currentChapterIndex = currentChapterIndex;
             _aniListService = aniListService;
+            _userSettings = userSettings;
 
             _allImages = imageUrls?.ToList() ?? new List<ChapterImage>();
             ImageUrls = new ObservableCollection<ChapterImage>();
@@ -154,83 +171,83 @@ namespace MSCS.ViewModels
                 Chapters = _chapterListViewModel.Chapters;
                 PropertyChangedEventManager.AddHandler(_chapterListViewModel, ChapterListViewModelOnPropertyChanged, string.Empty);
                 SelectInitialChapter();
-}
+            }
             else
-{
-    Chapters = new ObservableCollection<Chapter>();
-}
+            {
+                Chapters = new ObservableCollection<Chapter>();
+            }
 
-InitializeNavigationCommands();
-InitializeAniListIntegration();
+            InitializeNavigationCommands();
+            InitializeAniListIntegration();
 
-Debug.WriteLine($"ReaderViewModel initialized with {_allImages.Count} images");
-Debug.WriteLine($"Current chapter index {_currentChapterIndex}");
+            Debug.WriteLine($"ReaderViewModel initialized with {_allImages.Count} images");
+            Debug.WriteLine($"Current chapter index {_currentChapterIndex}");
 
-_ = LoadMoreImagesAsync();  // initial batch
-_ = _chapterListViewModel?.PrefetchChapterAsync(_currentChapterIndex + 1);
-_ = UpdateAniListProgressAsync();
+            _ = LoadMoreImagesAsync(); 
+            _ = _chapterListViewModel?.PrefetchChapterAsync(_currentChapterIndex + 1);
+            _ = UpdateAniListProgressAsync();
+            RestoreReadingProgress();
         }
 
 
         public async Task LoadMoreImagesAsync(CancellationToken cancellationToken = default)
-{
-    if (_allImages.Count - _loadedCount <= 0)
-    {
-        return;
-    }
-
-    using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_imageLoadCts.Token, cancellationToken);
-    var token = linkedCts.Token;
-    bool acquired = false;
-    try
-    {
-        await _imageLoadSemaphore.WaitAsync(token).ConfigureAwait(false);
-        acquired = true;
-
-        int remaining = _allImages.Count - _loadedCount;
-        if (remaining <= 0)
         {
-            return;
-        }
-
-        int countToLoad = Math.Min(Constants.DefaultLoadedBatchSize, remaining);
-        var batch = new List<ChapterImage>(countToLoad);
-        for (int i = 0; i < countToLoad; i++)
-        {
-            token.ThrowIfCancellationRequested();
-            batch.Add(_allImages[_loadedCount + i]);
-        }
-
-        var dispatcher = System.Windows.Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
-        await dispatcher.InvokeAsync(() =>
-        {
-            foreach (var image in batch)
+            if (_allImages.Count - _loadedCount <= 0)
             {
-                ImageUrls.Add(image);
+                return;
             }
 
-            _loadedCount += batch.Count;
-            OnPropertyChanged(nameof(RemainingImages));
-            OnPropertyChanged(nameof(LoadedImages));
-            OnPropertyChanged(nameof(TotalImages));
-            OnPropertyChanged(nameof(LoadingProgress));
-        });
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_imageLoadCts.Token, cancellationToken);
+            var token = linkedCts.Token;
+            bool acquired = false;
+            try
+            {
+                await _imageLoadSemaphore.WaitAsync(token).ConfigureAwait(false);
+                acquired = true;
 
-        Debug.WriteLine($"Loaded {_loadedCount} / {_allImages.Count} images");
-    }
-    catch (OperationCanceledException)
-    {
-        Debug.WriteLine("Image loading cancelled.");
-    }
-    finally
-    {
-        if (acquired)
-        {
-            _imageLoadSemaphore.Release();
+                int remaining = _allImages.Count - _loadedCount;
+                if (remaining <= 0)
+                {
+                    return;
+                }
+
+                int countToLoad = Math.Min(Constants.DefaultLoadedBatchSize, remaining);
+                var batch = new List<ChapterImage>(countToLoad);
+                for (int i = 0; i < countToLoad; i++)
+                {
+                    token.ThrowIfCancellationRequested();
+                    batch.Add(_allImages[_loadedCount + i]);
+                }
+
+                var dispatcher = System.Windows.Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
+                await dispatcher.InvokeAsync(() =>
+                {
+                    foreach (var image in batch)
+                    {
+                        ImageUrls.Add(image);
+                    }
+
+                    _loadedCount += batch.Count;
+                    OnPropertyChanged(nameof(RemainingImages));
+                    OnPropertyChanged(nameof(LoadedImages));
+                    OnPropertyChanged(nameof(TotalImages));
+                    OnPropertyChanged(nameof(LoadingProgress));
+                });
+
+                Debug.WriteLine($"Loaded {_loadedCount} / {_allImages.Count} images");
+            }
+            catch (OperationCanceledException)
+            {
+                Debug.WriteLine("Image loading cancelled.");
+            }
+            finally
+            {
+                if (acquired)
+                {
+                    _imageLoadSemaphore.Release();
+                }
+            }
         }
-    }
-}
-
 
         private async Task<bool> TryMoveToChapterAsync(int newIndex)
         {
@@ -246,16 +263,26 @@ _ = UpdateAniListProgressAsync();
                 return false;
             }
 
-            if (_isChapterNavigationInProgress)
-            {
-                Debug.WriteLine("A chapter navigation is already in progress.");
-                return false;
-            }
-
-            _isChapterNavigationInProgress = true;
-
+            var acquired = false;
             try
             {
+                await _chapterNavigationSemaphore.WaitAsync();
+                acquired = true;
+
+                if (_isChapterNavigationInProgress)
+                {
+                    Debug.WriteLine("A chapter navigation is already in progress.");
+                    return false;
+                }
+
+                _isChapterNavigationInProgress = true;
+
+                // Update AniList progress only when moving to the next chapter (i.e., after completing the current)
+                if (newIndex == _currentChapterIndex + 1)
+                {
+                    await UpdateAniListProgressAsync().ConfigureAwait(false);
+                }
+
                 var images = await _chapterListViewModel.GetChapterImagesAsync(newIndex);
                 if (images == null || images.Count == 0)
                 {
@@ -269,40 +296,49 @@ _ = UpdateAniListProgressAsync();
                 Debug.WriteLine($"Navigated to chapter {newIndex} with {images.Count} images.");
                 CommandManager.InvalidateRequerySuggested();
                 UpdateSelectedChapter(newIndex);
-                _ = UpdateAniListProgressAsync();
+                if (!_isRestoringProgress)
+                {
+                    PersistReadingProgress(force: true);
+                    ChapterChanged?.Invoke(this, EventArgs.Empty);
+                }
                 return true;
             }
             finally
             {
                 _isChapterNavigationInProgress = false;
+                if (acquired)
+                {
+                    _chapterNavigationSemaphore.Release();
+                }
             }
         }
 
         private void ResetImages(IEnumerable<ChapterImage> images)
-{
-    _imageLoadCts.Cancel();
-    _imageLoadCts.Dispose();
-    _imageLoadCts = new CancellationTokenSource();
-
-    _allImages.Clear();
-    ImageUrls.Clear();
-    _loadedCount = 0;
-    ScrollProgress = 0;
-    foreach (var img in images)
-    {
-        _allImages.Add(img);
-    }
-
-    OnPropertyChanged(nameof(TotalImages));
-    OnPropertyChanged(nameof(LoadedImages));
-    OnPropertyChanged(nameof(RemainingImages));
-    OnPropertyChanged(nameof(LoadingProgress));
-
-    _ = LoadMoreImagesAsync();
-}
-        private void OnChapterChanged()
         {
-            ChapterChanged?.Invoke(this, EventArgs.Empty);
+            _imageLoadCts.Cancel();
+            _imageLoadCts.Dispose();
+            _imageLoadCts = new CancellationTokenSource();
+
+            var dispatcher = System.Windows.Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
+
+            dispatcher.Invoke(() =>
+            {
+                _allImages.Clear();
+                ImageUrls.Clear();
+                _loadedCount = 0;
+                ScrollProgress = 0;
+                foreach (var img in images)
+                {
+                    _allImages.Add(img);
+                }
+
+                OnPropertyChanged(nameof(TotalImages));
+                OnPropertyChanged(nameof(LoadedImages));
+                OnPropertyChanged(nameof(RemainingImages));
+                OnPropertyChanged(nameof(LoadingProgress));
+            });
+
+            _ = LoadMoreImagesAsync();
         }
 
         private bool CanGoToNextChapter()
@@ -322,6 +358,7 @@ _ = UpdateAniListProgressAsync();
             }
             await TryMoveToChapterAsync(_currentChapterIndex + 1);
         }
+
         private void InitializeNavigationCommands()
         {
             if (_navigationService == null)
@@ -333,7 +370,7 @@ _ = UpdateAniListProgressAsync();
             {
                 GoBackCommand = new RelayCommand(_ => _navigationService.GoBack(), _ => _navigationService.CanGoBack);
                 GoHomeCommand = new RelayCommand(_ => _navigationService.NavigateToSingleton<MangaListViewModel>());
-                WeakEventManager<INavigationService, EventArgs>.AddHandler(_navigationService, nameof(INavigationService.CanGoBackChanged), OnNavigationCanGoBackChanged);
+                WeakEventManager<INavigationService, EventArgs>.AddHandler(_navigationService, nameof(INavigationService.CanGoBackChanged), OnNavigationCanGoBackChanged!);
             }
 
             NextChapterCommand = new AsyncRelayCommand(_ => GoToNextChapterAsync(), _ => CanGoToNextChapter());
@@ -343,7 +380,7 @@ _ = UpdateAniListProgressAsync();
             OnPropertyChanged(nameof(NextChapterCommand));
         }
 
-        private void OnNavigationCanGoBackChanged(object sender, EventArgs e)
+        private void OnNavigationCanGoBackChanged(object? sender, EventArgs e)
         {
             CommandManager.InvalidateRequerySuggested();
         }
@@ -351,12 +388,6 @@ _ = UpdateAniListProgressAsync();
         private async Task HandleSelectedChapterChangedAsync(Chapter? chapter)
         {
             if (chapter == null || _chapterListViewModel == null)
-            {
-                return;
-            }
-
-            // Prevent double navigation if already in progress
-            if (_isChapterNavigationInProgress)
             {
                 return;
             }
@@ -406,15 +437,8 @@ _ = UpdateAniListProgressAsync();
                 SelectedChapter = _chapterListViewModel.Chapters[index];
                 ChapterTitle = SelectedChapter?.Title ?? ChapterTitle;
                 _isUpdatingSelectedChapter = false;
-                _ = UpdateAniListProgressAsync();
             }
         }
-
-        // Legacy wrappers kept for compatibility with older partial classes or bindings that still
-        // reference the previous helper names. They now forward to the renamed implementations.
-        private void ConfigureNavigationCommands() => InitializeNavigationCommands();
-        private void InitializeSelectedChapter() => SelectInitialChapter();
-        private Task OnSelectedChapterChangedAsync(Chapter? chapter) => HandleSelectedChapterChangedAsync(chapter);
 
         private void ChapterListViewModelOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
@@ -422,6 +446,7 @@ _ = UpdateAniListProgressAsync();
             {
                 Chapters = _chapterListViewModel.Chapters;
                 SelectInitialChapter();
+                RestoreReadingProgress();
             }
         }
 
@@ -534,6 +559,117 @@ _ = UpdateAniListProgressAsync();
             }
 
             return _currentChapterIndex + 1;
+        }
+    
+        // Add a SemaphoreSlim for chapter navigation
+        private readonly SemaphoreSlim _chapterNavigationSemaphore = new(1, 1);
+
+        private void PersistReadingProgress(bool force = false)
+        {
+            if (_isRestoringProgress || _userSettings == null || string.IsNullOrWhiteSpace(MangaTitle))
+            {
+                return;
+            }
+
+            var normalizedProgress = Math.Clamp(_scrollProgress, 0.0, 1.0);
+            var now = DateTime.UtcNow;
+            var difference = double.IsNaN(_lastPersistedScrollProgress)
+                ? double.MaxValue
+                : Math.Abs(normalizedProgress - _lastPersistedScrollProgress);
+
+            if (!force && difference < 0.02 && (now - _lastProgressSaveUtc) < TimeSpan.FromSeconds(2))
+            {
+                return;
+            }
+
+            Chapter? currentChapter = null;
+            if (_chapterListViewModel != null &&
+                _currentChapterIndex >= 0 &&
+                _currentChapterIndex < _chapterListViewModel.Chapters.Count)
+            {
+                currentChapter = _chapterListViewModel.Chapters[_currentChapterIndex];
+            }
+            else if (SelectedChapter != null)
+            {
+                currentChapter = SelectedChapter;
+            }
+
+            var title = currentChapter?.Title ?? ChapterTitle ?? string.Empty;
+            var mangaUrl = _chapterListViewModel?.Manga?.Url;
+            var sourceKey = _chapterListViewModel?.SourceKey;
+            var coverImageUrl = _chapterListViewModel?.Manga?.CoverImageUrl;
+
+            var progress = new MangaReadingProgress(
+                _currentChapterIndex,
+                title,
+                normalizedProgress,
+                DateTimeOffset.UtcNow,
+                string.IsNullOrWhiteSpace(mangaUrl) ? null : mangaUrl,
+                string.IsNullOrWhiteSpace(sourceKey) ? null : sourceKey,
+                string.IsNullOrWhiteSpace(coverImageUrl) ? null : coverImageUrl);
+            _userSettings.SetReadingProgress(MangaTitle, progress);
+            _lastPersistedScrollProgress = normalizedProgress;
+            _lastProgressSaveUtc = now;
+        }
+
+        private void RestoreReadingProgress()
+        {
+            if (_hasRestoredInitialProgress || _userSettings == null || string.IsNullOrWhiteSpace(MangaTitle))
+            {
+                return;
+            }
+
+            if (_userSettings.TryGetReadingProgress(MangaTitle, out var progress) && progress != null)
+            {
+                _hasRestoredInitialProgress = true;
+                _ = RestoreReadingProgressAsync(progress);
+            }
+            else if (_chapterListViewModel != null)
+            {
+                _hasRestoredInitialProgress = true;
+                PersistReadingProgress(force: true);
+            }
+        }
+
+
+        private async Task RestoreReadingProgressAsync(MangaReadingProgress progress)
+        {
+            if (progress == null)
+            {
+                return;
+            }
+
+            try
+            {
+                _isRestoringProgress = true;
+                if (_chapterListViewModel != null && _chapterListViewModel.Chapters.Count > 0)
+                {
+                    var targetIndex = Math.Clamp(progress.ChapterIndex, 0, _chapterListViewModel.Chapters.Count - 1);
+                    if (targetIndex != _currentChapterIndex)
+                    {
+                        await TryMoveToChapterAsync(targetIndex).ConfigureAwait(false);
+                    }
+                }
+
+                var clamped = Math.Clamp(progress.ScrollProgress, 0.0, 1.0);
+                _scrollProgress = clamped;
+                OnPropertyChanged(nameof(ScrollProgress));
+                _lastPersistedScrollProgress = clamped;
+                RequestScrollRestore(clamped);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to restore reading progress: {ex.Message}");
+            }
+            finally
+            {
+                _isRestoringProgress = false;
+            }
+        }
+
+        private void RequestScrollRestore(double progress)
+        {
+            ScrollToProgressRequested?.Invoke(this, progress);
         }
     }
 }

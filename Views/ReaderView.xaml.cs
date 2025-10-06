@@ -82,6 +82,8 @@ namespace MSCS.Views
                 }
             }
         }
+
+
         private void Image_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             ScrollEventHandler(sender, e);
@@ -99,11 +101,13 @@ namespace MSCS.Views
             if (e.OldValue is ReaderViewModel oldViewModel)
             {
                 oldViewModel.ChapterChanged -= OnChapterChanged;
+                oldViewModel.ScrollToProgressRequested -= OnScrollToProgressRequested;
             }
 
             if (e.NewValue is ReaderViewModel newViewModel)
             {
                 newViewModel.ChapterChanged += OnChapterChanged;
+                newViewModel.ScrollToProgressRequested += OnScrollToProgressRequested;
             }
         }
 
@@ -120,8 +124,32 @@ namespace MSCS.Views
             }, System.Windows.Threading.DispatcherPriority.Background);
         }
 
+        private void OnScrollToProgressRequested(object? sender, double progress)
+        {
+            if (ScrollView == null)
+            {
+                return;
+            }
 
+            var clamped = Math.Clamp(progress, 0.0, 1.0);
+            ScrollView.Dispatcher.InvokeAsync(() =>
+            {
+                if (ScrollView == null)
+                {
+                    return;
+                }
 
+                ScrollView.UpdateLayout();
+                var available = ScrollView.ExtentHeight - ScrollView.ViewportHeight;
+                if (available <= 0)
+                {
+                    ScrollView.ScrollToTop();
+                    return;
+                }
 
+                var targetOffset = clamped * available;
+                ScrollView.ScrollToVerticalOffset(Math.Max(0, targetOffset));
+            }, System.Windows.Threading.DispatcherPriority.Background);
+        }
     }
 }

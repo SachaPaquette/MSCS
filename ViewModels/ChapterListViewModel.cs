@@ -1,6 +1,7 @@
 ﻿using MSCS.Commands;
 using MSCS.Interfaces;
 using MSCS.Models;
+using MSCS.Services;
 using MSCS.Sources;
 using System;
 using System.Collections.Concurrent;
@@ -26,12 +27,13 @@ namespace MSCS.ViewModels
         private readonly object _cacheLock = new();
         private bool _disposed;
         private readonly IAniListService? _aniListService;
-
+        private readonly UserSettings? _userSettings;
         private const int MaxCachedChapters = 4;
-
+        private readonly bool _autoOpenOnLoad;
+        private bool _hasAutoOpened;
         private Manga _manga;
         private ObservableCollection<Chapter> _chapters = new();
-        private Chapter _selectedChapter;
+        private Chapter? _selectedChapter;
 
         public Manga Manga
         {
@@ -45,7 +47,7 @@ namespace MSCS.ViewModels
             set => SetProperty(ref _chapters, value);
         }
 
-        public Chapter SelectedChapter
+        public Chapter? SelectedChapter
         {
             get => _selectedChapter;
             set
@@ -60,12 +62,24 @@ namespace MSCS.ViewModels
         public ICommand OpenChapterCommand { get; }
         public ICommand BackCommand { get; }
 
-        public ChapterListViewModel(IMangaSource source, INavigationService navigationService, Manga manga, IAniListService? aniListService)
+        public string SourceKey { get; }
+
+        public ChapterListViewModel(
+            IMangaSource source,
+            INavigationService navigationService,
+            Manga manga,
+            IAniListService? aniListService,
+            UserSettings userSettings,
+            string? sourceKey = null,
+            bool autoOpenOnLoad = false)
         {
             _source = source;
             _navigationService = navigationService;
             Manga = manga;
             _aniListService = aniListService;
+            _userSettings = userSettings;
+            SourceKey = sourceKey ?? string.Empty;
+            _autoOpenOnLoad = autoOpenOnLoad;
 
             OpenChapterCommand = new RelayCommand(_ => OpenChapter(), _ => SelectedChapter != null);
             BackCommand = new RelayCommand(_ => _navigationService.GoBack(), _ => _navigationService.CanGoBack);
@@ -74,7 +88,9 @@ namespace MSCS.ViewModels
             _ = LoadChaptersAsync();
         }
 
-        public ChapterListViewModel() { }
+        public ChapterListViewModel() {
+            SourceKey = string.Empty;
+        }
 
         private async Task LoadChaptersAsync()
         {
@@ -89,37 +105,102 @@ namespace MSCS.ViewModels
                 ClearChapterCache();
                 Chapters = new ObservableCollection<Chapter>(chapters);
                 Debug.WriteLine($"Loaded {Chapters.Count} chapters for {Manga.Title}");
+                RestoreLastReadChapter();
+                MaybeAutoOpenChapter();
             }
             catch (OperationCanceledException)
             {
                 Debug.WriteLine($"Chapter load cancelled for {Manga?.Title}");
             }
         }
-
-        private async void OpenChapter()
+        private void MaybeAutoOpenChapter()
         {
-            if (SelectedChapter == null || string.IsNullOrEmpty(SelectedChapter.Url))
+            if (!_autoOpenOnLoad || _hasAutoOpened)
             {
                 return;
             }
 
-            Debug.WriteLine($"Opening chapter: {SelectedChapter.Title} ({SelectedChapter.Url})");
-            int index = Chapters.IndexOf(SelectedChapter);
+            var targetChapter = EnsureSelectedChapter();
+            if (targetChapter == null)
+            {
+                return;
+            }
+
+            _hasAutoOpened = true;
+            OpenChapter();
+        }
+
+        private async void OpenChapter()
+        {
+            var chapterToOpen = EnsureSelectedChapter();
+            if (chapterToOpen == null || string.IsNullOrEmpty(chapterToOpen.Url))
+            {
+                return;
+            }
+
+            Debug.WriteLine($"Opening chapter: {chapterToOpen.Title} ({chapterToOpen.Url})");
+            int index = Chapters.IndexOf(chapterToOpen);
 
             var images = await GetChapterImagesAsync(index);
             if (images != null && images.Any())
             {
                 var readerVM = new ReaderViewModel(
                     images,
-                    SelectedChapter.Title,
+                    chapterToOpen.Title,
                     _navigationService,
                     this,
                     index,
-                    _aniListService);
+                    _aniListService,
+                    _userSettings);
 
                 _navigationService.NavigateToViewModel(readerVM);
                 Debug.WriteLine("Navigating to ReaderViewModel with images loaded.");
                 _ = PrefetchChapterAsync(index + 1);
+            }
+        }
+
+        private Chapter? EnsureSelectedChapter()
+        {
+            if (SelectedChapter != null)
+            {
+                return SelectedChapter;
+            }
+
+            var lastRead = GetLastReadChapter();
+            if (lastRead != null)
+            {
+                SelectedChapter = lastRead;
+                return lastRead;
+            }
+
+            return null;
+        }
+
+        private Chapter? GetLastReadChapter()
+        {
+            if (_userSettings == null || string.IsNullOrWhiteSpace(Manga?.Title))
+            {
+                return null;
+            }
+
+            if (_userSettings.TryGetReadingProgress(Manga.Title, out var progress))
+            {
+                var index = progress.ChapterIndex;
+                if (index >= 0 && index < Chapters.Count)
+                {
+                    return Chapters[index];
+                }
+            }
+
+            return null;
+        }
+
+        private void RestoreLastReadChapter()
+        {
+            var lastRead = GetLastReadChapter();
+            if (lastRead != null)
+            {
+                SelectedChapter = lastRead;
             }
         }
 

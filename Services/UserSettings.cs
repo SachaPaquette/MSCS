@@ -14,6 +14,7 @@ namespace MSCS.Services
         private SettingsData _data;
 
         public event EventHandler? SettingsChanged;
+        public event EventHandler? ReadingProgressChanged;
 
         public UserSettings()
         {
@@ -138,6 +139,92 @@ namespace MSCS.Services
             }
         }
 
+        public bool TryGetReadingProgress(string mangaTitle, out MangaReadingProgress? progress)
+        {
+            progress = null;
+            if (string.IsNullOrWhiteSpace(mangaTitle))
+            {
+                return false;
+            }
+
+            if (_data.ReadingProgress != null &&
+                _data.ReadingProgress.TryGetValue(mangaTitle, out var stored))
+            {
+                progress = new MangaReadingProgress(
+                    stored.ChapterIndex,
+                    stored.ChapterTitle,
+                    stored.ScrollProgress,
+                    stored.LastUpdatedUtc,
+                    stored.MangaUrl,
+                    stored.SourceKey,
+                    stored.CoverImageUrl);
+                return true;
+            }
+
+            return false;
+        }
+
+        public void SetReadingProgress(string mangaTitle, MangaReadingProgress progress)
+        {
+            if (string.IsNullOrWhiteSpace(mangaTitle) || progress == null)
+            {
+                return;
+            }
+
+            _data.ReadingProgress[mangaTitle] = new ReadingProgressData
+            {
+                ChapterIndex = progress.ChapterIndex,
+                ChapterTitle = progress.ChapterTitle,
+                ScrollProgress = Math.Clamp(progress.ScrollProgress, 0.0, 1.0),
+                LastUpdatedUtc = progress.LastUpdatedUtc,
+                MangaUrl = string.IsNullOrWhiteSpace(progress.MangaUrl) ? null : progress.MangaUrl,
+                SourceKey = string.IsNullOrWhiteSpace(progress.SourceKey) ? null : progress.SourceKey,
+                CoverImageUrl = string.IsNullOrWhiteSpace(progress.CoverImageUrl) ? null : progress.CoverImageUrl
+            };
+
+            SaveInternal();
+            ReadingProgressChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void ClearReadingProgress(string mangaTitle)
+        {
+            if (string.IsNullOrWhiteSpace(mangaTitle))
+            {
+                return;
+            }
+
+            if (_data.ReadingProgress.Remove(mangaTitle))
+            {
+                SaveInternal();
+                ReadingProgressChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        public IReadOnlyList<KeyValuePair<string, MangaReadingProgress>> GetAllReadingProgress()
+        {
+            if (_data.ReadingProgress == null || _data.ReadingProgress.Count == 0)
+            {
+                return Array.Empty<KeyValuePair<string, MangaReadingProgress>>();
+            }
+
+            var results = new List<KeyValuePair<string, MangaReadingProgress>>(_data.ReadingProgress.Count);
+            foreach (var entry in _data.ReadingProgress)
+            {
+                var stored = entry.Value;
+                var record = new MangaReadingProgress(
+                    stored.ChapterIndex,
+                    stored.ChapterTitle,
+                    stored.ScrollProgress,
+                    stored.LastUpdatedUtc,
+                    stored.MangaUrl,
+                    stored.SourceKey,
+                    stored.CoverImageUrl);
+                results.Add(new KeyValuePair<string, MangaReadingProgress>(entry.Key, record));
+            }
+
+            return results;
+        }
+
         private SettingsData LoadInternal()
         {
             try
@@ -150,6 +237,7 @@ namespace MSCS.Services
                 var json = File.ReadAllText(_settingsPath);
                 var data = JsonSerializer.Deserialize<SettingsData>(json) ?? new SettingsData();
                 data.AniListTrackedSeries ??= new Dictionary<string, TrackedSeriesData>();
+                data.ReadingProgress ??= new Dictionary<string, ReadingProgressData>();
                 return data;
             }
             catch
@@ -192,12 +280,24 @@ namespace MSCS.Services
             public DateTimeOffset? AniListAccessTokenExpiry { get; set; }
             public string? AniListUserName { get; set; }
             public Dictionary<string, TrackedSeriesData> AniListTrackedSeries { get; set; } = new();
+            public Dictionary<string, ReadingProgressData> ReadingProgress { get; set; } = new();
         }
 
         private class TrackedSeriesData
         {
             public int MediaId { get; set; }
             public string? Title { get; set; }
+            public string? CoverImageUrl { get; set; }
+        }
+
+        private class ReadingProgressData
+        {
+            public int ChapterIndex { get; set; }
+            public string? ChapterTitle { get; set; }
+            public double ScrollProgress { get; set; }
+            public DateTimeOffset LastUpdatedUtc { get; set; }
+            public string? MangaUrl { get; set; }
+            public string? SourceKey { get; set; }
             public string? CoverImageUrl { get; set; }
         }
     }

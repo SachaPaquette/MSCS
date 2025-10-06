@@ -1,11 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Diagnostics;
-using MSCS.Interfaces;
+﻿using MSCS.Interfaces;
 using MSCS.Models;
 using MSCS.Services;
 using MSCS.Sources;
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.Windows;
 
 namespace MSCS.ViewModels
 {
@@ -39,6 +40,9 @@ namespace MSCS.ViewModels
             LocalLibraryVM = new LocalLibraryViewModel(_localLibraryService);
             LocalLibraryVM.MangaSelected += OnLocalMangaSelected;
 
+            ContinueReadingVM = new ContinueReadingViewModel(_userSettings);
+            ContinueReadingVM.ContinueReadingRequested += OnContinueReadingRequested;
+
             SettingsVM = new SettingsViewModel(_localLibraryService, _userSettings, _aniListService);
 
 
@@ -46,6 +50,7 @@ namespace MSCS.ViewModels
             {
                 new("external", "External Sources", "\uE774", MangaListVM),
                 new("local", "Local Library", "\uE8D2", LocalLibraryVM),
+                new("continue", "Continue Reading", "\uE823", ContinueReadingVM),
                 new("settings", "Settings", "\uE713", SettingsVM)
             };
 
@@ -65,7 +70,7 @@ namespace MSCS.ViewModels
         public MangaListViewModel MangaListVM { get; }
         public LocalLibraryViewModel LocalLibraryVM { get; }
         public SettingsViewModel SettingsVM { get; }
-
+        public ContinueReadingViewModel ContinueReadingVM { get; }
         public ObservableCollection<MainMenuTab> Tabs { get; }
 
         public BaseViewModel CurrentViewModel
@@ -126,10 +131,11 @@ namespace MSCS.ViewModels
                 return;
             }
 
-            var selectedSourceKey = MangaListVM.SelectedSourceKey;
-            var source = !string.IsNullOrWhiteSpace(selectedSourceKey)
-                ? SourceRegistry.Resolve(selectedSourceKey)
-                : SourceRegistry.Resolve("mangaread");
+            var selectedSourceKey = string.IsNullOrWhiteSpace(MangaListVM.SelectedSourceKey)
+                ? SourceKeyConstants.DefaultExternal
+                : MangaListVM.SelectedSourceKey;
+
+            var source = ResolveSourceFromKey(selectedSourceKey);
 
             if (source == null)
             {
@@ -137,7 +143,7 @@ namespace MSCS.ViewModels
                 return;
             }
 
-            NavigateToChapterList(source, manga);
+            NavigateToChapterList(source, manga, selectedSourceKey);
         }
 
         private void OnLocalMangaSelected(object? sender, Manga? manga)
@@ -147,17 +153,70 @@ namespace MSCS.ViewModels
                 return;
             }
 
-            NavigateToChapterList(_LocalSource, manga);
+            NavigateToChapterList(_LocalSource, manga, SourceKeyConstants.LocalLibrary);
         }
 
-        private void NavigateToChapterList(IMangaSource source, Manga manga)
+        private void NavigateToChapterList(IMangaSource source, Manga manga, string sourceKey, bool autoOpenChapter = false)
         {
             DisposeActiveChapterViewModel();
 
-            var chapterViewModel = new ChapterListViewModel(source, _navigationService, manga, _aniListService);
+            var sanitizedKey = string.IsNullOrWhiteSpace(sourceKey) ? string.Empty : sourceKey;
+            var chapterViewModel = new ChapterListViewModel(source, _navigationService, manga, _aniListService, _userSettings, sanitizedKey, autoOpenChapter);
             _activeChapterViewModel = chapterViewModel;
             _navigationService.NavigateToViewModel(chapterViewModel);
         }
+
+
+        private IMangaSource? ResolveSourceFromKey(string? sourceKey)
+        {
+            if (string.IsNullOrWhiteSpace(sourceKey))
+            {
+                return SourceRegistry.Resolve(SourceKeyConstants.DefaultExternal);
+            }
+
+            if (string.Equals(sourceKey, SourceKeyConstants.LocalLibrary, StringComparison.OrdinalIgnoreCase))
+            {
+                return _LocalSource;
+            }
+
+            return SourceRegistry.Resolve(sourceKey);
+        }
+
+        private void OnContinueReadingRequested(object? sender, ContinueReadingRequestedEventArgs e)
+        {
+            if (_disposed || e == null)
+            {
+                return;
+            }
+
+            var progress = e.Progress;
+            if (progress == null || string.IsNullOrWhiteSpace(progress.MangaUrl))
+            {
+                return;
+            }
+
+            var sourceKey = string.IsNullOrWhiteSpace(progress.SourceKey)
+                ? SourceKeyConstants.DefaultExternal
+                : progress.SourceKey!;
+
+            var source = ResolveSourceFromKey(sourceKey);
+            if (source == null)
+            {
+                Debug.WriteLine($"Unable to resolve source '{sourceKey}' for continue reading entry '{e.MangaTitle}'.");
+                return;
+            }
+
+            var manga = new Manga
+            {
+                Title = e.MangaTitle ?? string.Empty,
+                Url = progress.MangaUrl!,
+                CoverImageUrl = progress.CoverImageUrl ?? string.Empty,
+                Description = string.Empty
+            };
+
+            NavigateToChapterList(source, manga, sourceKey, autoOpenChapter: true);
+        }
+
 
         public void NavigateTo<TViewModel>() where TViewModel : BaseViewModel
         {
@@ -240,9 +299,11 @@ namespace MSCS.ViewModels
             _disposed = true;
             MangaListVM.MangaSelected -= OnExternalMangaSelected;
             LocalLibraryVM.MangaSelected -= OnLocalMangaSelected;
+            ContinueReadingVM.ContinueReadingRequested -= OnContinueReadingRequested;
             DisposeActiveChapterViewModel();
             MangaListVM.Dispose();
             LocalLibraryVM.Dispose();
+            ContinueReadingVM.Dispose();
             SettingsVM.Dispose();
             _localLibraryService.Dispose();
         }
