@@ -42,6 +42,7 @@ namespace MSCS.ViewModels
         private DateTime _lastProgressSaveUtc = DateTime.MinValue;
         private bool _isRestoringProgress;
         private bool _hasRestoredInitialProgress;
+        private MangaReadingProgress? _initialProgress;
         public double WidthFactor
         {
             get => _widthFactor;
@@ -148,13 +149,15 @@ namespace MSCS.ViewModels
             ChapterListViewModel chapterListViewModel,
             int currentChapterIndex,
             IAniListService? aniListService,
-            UserSettings? userSettings = null)
+            UserSettings? userSettings = null,
+            MangaReadingProgress? initialProgress = null)
         {
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
             _chapterListViewModel = chapterListViewModel ?? throw new ArgumentNullException(nameof(chapterListViewModel));
             _currentChapterIndex = currentChapterIndex;
             _aniListService = aniListService;
             _userSettings = userSettings;
+            _initialProgress = initialProgress;
 
             _allImages = imageUrls?.ToList() ?? new List<ChapterImage>();
             ImageUrls = new ObservableCollection<ChapterImage>();
@@ -614,12 +617,21 @@ namespace MSCS.ViewModels
 
         private void RestoreReadingProgress()
         {
-            if (_hasRestoredInitialProgress || _userSettings == null || string.IsNullOrWhiteSpace(MangaTitle))
+            if (_hasRestoredInitialProgress || string.IsNullOrWhiteSpace(MangaTitle))
             {
                 return;
             }
 
-            if (_userSettings.TryGetReadingProgress(MangaTitle, out var progress) && progress != null)
+            if (_initialProgress != null)
+            {
+                _hasRestoredInitialProgress = true;
+                var initialProg = _initialProgress;
+                _initialProgress = null;
+                _ = RestoreReadingProgressAsync(initialProg);
+                return;
+            }
+
+            if (_userSettings != null && _userSettings.TryGetReadingProgress(MangaTitle, out var progress) && progress != null)
             {
                 _hasRestoredInitialProgress = true;
                 _ = RestoreReadingProgressAsync(progress);

@@ -20,6 +20,8 @@ namespace MSCS.Views
 {
     public partial class ReaderView : System.Windows.Controls.UserControl
     {
+        private double? _pendingScrollProgress;
+
         public ReaderView()
         {
             InitializeComponent();
@@ -43,6 +45,9 @@ namespace MSCS.Views
 
                 readerViewModel.ScrollProgress = progress;
             }
+
+            TryApplyPendingScroll();
+
             if (e.VerticalChange > 0 &&
                 scrollViewer.VerticalOffset > 0 &&
                 scrollViewer.VerticalOffset + scrollViewer.ViewportHeight >= scrollViewer.ExtentHeight - 100)
@@ -131,25 +136,31 @@ namespace MSCS.Views
                 return;
             }
 
-            var clamped = Math.Clamp(progress, 0.0, 1.0);
+            _pendingScrollProgress = Math.Clamp(progress, 0.0, 1.0);
             ScrollView.Dispatcher.InvokeAsync(() =>
             {
-                if (ScrollView == null)
-                {
-                    return;
-                }
-
-                ScrollView.UpdateLayout();
-                var available = ScrollView.ExtentHeight - ScrollView.ViewportHeight;
-                if (available <= 0)
-                {
-                    ScrollView.ScrollToTop();
-                    return;
-                }
-
-                var targetOffset = clamped * available;
-                ScrollView.ScrollToVerticalOffset(Math.Max(0, targetOffset));
+                TryApplyPendingScroll();
             }, System.Windows.Threading.DispatcherPriority.Background);
+        }
+
+        private void TryApplyPendingScroll()
+        {
+            if (ScrollView == null || !_pendingScrollProgress.HasValue)
+            {
+                return;
+            }
+
+            ScrollView.UpdateLayout();
+            var extent = ScrollView.ExtentHeight;
+            var viewport = ScrollView.ViewportHeight;
+            if (extent <= 0 || viewport <= 0)
+            {
+                return;
+            }
+
+            var targetOffset = (_pendingScrollProgress.Value * extent) - viewport;
+            ScrollView.ScrollToVerticalOffset(Math.Max(0, targetOffset));
+            _pendingScrollProgress = null;
         }
     }
 }

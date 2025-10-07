@@ -156,14 +156,25 @@ namespace MSCS.ViewModels
             NavigateToChapterList(_LocalSource, manga, SourceKeyConstants.LocalLibrary);
         }
 
-        private void NavigateToChapterList(IMangaSource source, Manga manga, string sourceKey, bool autoOpenChapter = false)
+        private void NavigateToChapterList(IMangaSource source, Manga manga, string sourceKey, bool autoOpenChapter = false, bool skipChapterListNavigation = false, MangaReadingProgress? initialProgress = null)
         {
             DisposeActiveChapterViewModel();
 
             var sanitizedKey = string.IsNullOrWhiteSpace(sourceKey) ? string.Empty : sourceKey;
-            var chapterViewModel = new ChapterListViewModel(source, _navigationService, manga, _aniListService, _userSettings, sanitizedKey, autoOpenChapter);
+            var chapterViewModel = new ChapterListViewModel(
+                source,
+                _navigationService,
+                manga,
+                _aniListService,
+                _userSettings,
+                sanitizedKey,
+                autoOpenChapter,
+                initialProgress);
             _activeChapterViewModel = chapterViewModel;
-            _navigationService.NavigateToViewModel(chapterViewModel);
+            if (!skipChapterListNavigation)
+            {
+                _navigationService.NavigateToViewModel(chapterViewModel);
+            }
         }
 
 
@@ -214,7 +225,13 @@ namespace MSCS.ViewModels
                 Description = string.Empty
             };
 
-            NavigateToChapterList(source, manga, sourceKey, autoOpenChapter: true);
+            NavigateToChapterList(
+    source,
+    manga,
+    sourceKey,
+    autoOpenChapter: true,
+    skipChapterListNavigation: true,
+    initialProgress: progress);
         }
 
 

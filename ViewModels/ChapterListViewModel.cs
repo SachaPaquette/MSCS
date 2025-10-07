@@ -34,7 +34,7 @@ namespace MSCS.ViewModels
         private Manga _manga;
         private ObservableCollection<Chapter> _chapters = new();
         private Chapter? _selectedChapter;
-
+        private MangaReadingProgress? _initialProgress;
         public Manga Manga
         {
             get => _manga;
@@ -71,7 +71,8 @@ namespace MSCS.ViewModels
             IAniListService? aniListService,
             UserSettings userSettings,
             string? sourceKey = null,
-            bool autoOpenOnLoad = false)
+            bool autoOpenOnLoad = false,
+            MangaReadingProgress? initialProgress = null)
         {
             _source = source;
             _navigationService = navigationService;
@@ -80,6 +81,7 @@ namespace MSCS.ViewModels
             _userSettings = userSettings;
             SourceKey = sourceKey ?? string.Empty;
             _autoOpenOnLoad = autoOpenOnLoad;
+            _initialProgress = initialProgress;
 
             OpenChapterCommand = new RelayCommand(_ => OpenChapter(), _ => SelectedChapter != null);
             BackCommand = new RelayCommand(_ => _navigationService.GoBack(), _ => _navigationService.CanGoBack);
@@ -151,7 +153,10 @@ namespace MSCS.ViewModels
                     this,
                     index,
                     _aniListService,
-                    _userSettings);
+                    _userSettings,
+                    _initialProgress);
+
+                _initialProgress = null;
 
                 _navigationService.NavigateToViewModel(readerVM);
                 Debug.WriteLine("Navigating to ReaderViewModel with images loaded.");
@@ -197,11 +202,26 @@ namespace MSCS.ViewModels
 
         private void RestoreLastReadChapter()
         {
-            var lastRead = GetLastReadChapter();
+            var lastRead = GetInitialProgressChapter() ?? GetLastReadChapter();
             if (lastRead != null)
             {
                 SelectedChapter = lastRead;
             }
+        }
+        private Chapter? GetInitialProgressChapter()
+        {
+            if (_initialProgress == null)
+            {
+                return null;
+            }
+
+            var targetIndex = _initialProgress.ChapterIndex;
+            if (targetIndex < 0 || targetIndex >= Chapters.Count)
+            {
+                return null;
+            }
+
+            return Chapters[targetIndex];
         }
 
         private void OnNavigationStateChanged(object sender, EventArgs e)
