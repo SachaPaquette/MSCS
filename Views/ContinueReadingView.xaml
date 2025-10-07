@@ -52,6 +52,8 @@
                         <Setter Property="Background" Value="Transparent"/>
                         <Setter Property="BorderBrush" Value="Transparent"/>
                         <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                        <Setter Property="Cursor" Value="Hand"/>
+                        <EventSetter Event="PreviewMouseLeftButtonUp" Handler="OnEntryClicked"/>
                     </Style>
                 </ListView.ItemContainerStyle>
 
