@@ -37,6 +37,8 @@ namespace MSCS.ViewModels
             MangaListVM.MangaSelected += OnExternalMangaSelected;
             _navigationService.RegisterSingleton(MangaListVM);
 
+            RecommendationsVM = new AniListRecommendationsViewModel(_aniListService);
+
             LocalLibraryVM = new LocalLibraryViewModel(_localLibraryService);
             LocalLibraryVM.MangaSelected += OnLocalMangaSelected;
 
@@ -50,6 +52,7 @@ namespace MSCS.ViewModels
             {
                 new("external", "External Sources", "\uE774", MangaListVM),
                 new("local", "Local Library", "\uE8D2", LocalLibraryVM),
+                new("recommendations", "AniList Recommendations", "\uE734", RecommendationsVM),
                 new("continue", "Continue Reading", "\uE823", ContinueReadingVM),
                 new("settings", "Settings", "\uE713", SettingsVM)
             };
