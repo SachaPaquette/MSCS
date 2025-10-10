@@ -1,9 +1,11 @@
 ﻿using MSCS.Commands;
+using MSCS.Enums;
 using MSCS.Helpers;
 using MSCS.Interfaces;
 using MSCS.Models;
 using MSCS.Services;
 using MSCS.ViewModels;
+using System.Windows.Media;
 using MSCS.Views;
 using System;
 using System.Collections.Generic;
@@ -49,10 +51,32 @@ namespace MSCS.ViewModels
         private double _lastKnownScrollOffset;
         private double _lastKnownExtentHeight;
         private double _lastKnownViewportHeight;
+        private static readonly SolidColorBrush MidnightBackground = CreateFrozenBrush("#0F151F");
+        private static readonly SolidColorBrush MidnightSurface = CreateFrozenBrush("#111727");
+        private static readonly SolidColorBrush BlackBackground = CreateFrozenBrush("#000000");
+        private static readonly SolidColorBrush BlackSurface = CreateFrozenBrush("#050505");
+        private static readonly SolidColorBrush SepiaBackground = CreateFrozenBrush("#21160C");
+        private static readonly SolidColorBrush SepiaSurface = CreateFrozenBrush("#2B1D12");
+        private static readonly SolidColorBrush HighContrastBackground = CreateFrozenBrush("#0B0B0B");
+        private static readonly SolidColorBrush HighContrastSurface = CreateFrozenBrush("#1E1E1E");
+
+        private static SolidColorBrush CreateFrozenBrush(string hex)
+        {
+            var color = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(hex)!;
+            var brush = new SolidColorBrush(color);
+            brush.Freeze();
+            return brush;
+        }
         public double WidthFactor
         {
             get => _widthFactor;
-            set => SetProperty(ref _widthFactor, Math.Clamp(value, 0.3, 1.0));
+            set
+            {
+                if (SetProperty(ref _widthFactor, Math.Clamp(value, 0.3, 1.0)))
+                {
+                    OnPropertyChanged(nameof(ZoomPercent));
+                }
+            }
         }
 
         private double _maxPageWidth = Constants.DefaultMaxPageWidth;
@@ -61,6 +85,60 @@ namespace MSCS.ViewModels
             get => _maxPageWidth;
             set => SetProperty(ref _maxPageWidth, Math.Max(400, value));
         }
+
+        private ReaderLayoutMode _layoutMode = ReaderLayoutMode.VerticalScroll;
+        public ReaderLayoutMode LayoutMode
+        {
+            get => _layoutMode;
+            set
+            {
+                if (SetProperty(ref _layoutMode, value))
+                {
+                    OnPropertyChanged(nameof(IsHorizontalLayout));
+                }
+            }
+        }
+
+        public bool IsHorizontalLayout => LayoutMode == ReaderLayoutMode.HorizontalScroll;
+
+        private bool _isRightToLeft;
+        public bool IsRightToLeft
+        {
+            get => _isRightToLeft;
+            set => SetProperty(ref _isRightToLeft, value);
+        }
+
+        private ReaderTheme _theme = ReaderTheme.Midnight;
+        public ReaderTheme Theme
+        {
+            get => _theme;
+            set
+            {
+                if (SetProperty(ref _theme, value))
+                {
+                    OnPropertyChanged(nameof(ReaderBackgroundBrush));
+                    OnPropertyChanged(nameof(ReaderSurfaceBrush));
+                }
+            }
+        }
+
+        public System.Windows.Media.Brush ReaderBackgroundBrush => Theme switch
+        {
+            ReaderTheme.PureBlack => BlackBackground,
+            ReaderTheme.Sepia => SepiaBackground,
+            ReaderTheme.HighContrast => HighContrastBackground,
+            _ => MidnightBackground
+        };
+
+        public System.Windows.Media.Brush ReaderSurfaceBrush => Theme switch
+        {
+            ReaderTheme.PureBlack => BlackSurface,
+            ReaderTheme.Sepia => SepiaSurface,
+            ReaderTheme.HighContrast => HighContrastSurface,
+            _ => MidnightSurface
+        };
+
+        public double ZoomPercent => Math.Round(WidthFactor * 100);
         private double _scrollProgress;
         public double ScrollProgress => _scrollProgress;
         private bool _isSidebarOpen;
@@ -172,6 +250,12 @@ namespace MSCS.ViewModels
         public ICommand GoHomeCommand { get; private set; } = new RelayCommand(_ => { }, _ => false);
         public ICommand NextChapterCommand { get; private set; } = new AsyncRelayCommand(_ => Task.CompletedTask, _ => false);
         public ICommand AniListTrackCommand { get; private set; } = new RelayCommand(_ => { });
+        public ICommand IncreaseZoomCommand { get; private set; } = new RelayCommand(_ => { }, _ => false);
+        public ICommand DecreaseZoomCommand { get; private set; } = new RelayCommand(_ => { }, _ => false);
+        public ICommand ResetZoomCommand { get; private set; } = new RelayCommand(_ => { }, _ => false);
+        public ICommand ToggleRightToLeftCommand { get; private set; } = new RelayCommand(_ => { });
+        public ICommand SetLayoutModeCommand { get; private set; } = new RelayCommand(_ => { });
+        public ICommand SetThemeCommand { get; private set; } = new RelayCommand(_ => { });
 
         public bool IsAniListAvailable => _aniListService != null;
         public bool IsAniListTracked => TrackingInfo != null;
@@ -187,6 +271,7 @@ namespace MSCS.ViewModels
             ImageUrls = new ObservableCollection<ChapterImage>();
             Chapters = new ObservableCollection<Chapter>();
             InitializeNavigationCommands();
+            InitializePreferenceCommands();
         }
 
         public ReaderViewModel(
@@ -229,6 +314,7 @@ namespace MSCS.ViewModels
 
             InitializeNavigationCommands();
             InitializeAniListIntegration();
+            InitializePreferenceCommands();
 
             Debug.WriteLine($"ReaderViewModel initialized with {_allImages.Count} images");
             Debug.WriteLine($"Current chapter index {_currentChapterIndex}");
@@ -433,6 +519,47 @@ namespace MSCS.ViewModels
             OnPropertyChanged(nameof(GoBackCommand));
             OnPropertyChanged(nameof(GoHomeCommand));
             OnPropertyChanged(nameof(NextChapterCommand));
+        }
+
+        private void InitializePreferenceCommands()
+        {
+            IncreaseZoomCommand = new RelayCommand(_ => WidthFactor = Math.Min(1.0, WidthFactor + 0.05));
+            DecreaseZoomCommand = new RelayCommand(_ => WidthFactor = Math.Max(0.3, WidthFactor - 0.05));
+            ResetZoomCommand = new RelayCommand(_ =>
+            {
+                WidthFactor = Constants.DefaultWidthFactor;
+                MaxPageWidth = Constants.DefaultMaxPageWidth;
+            });
+            ToggleRightToLeftCommand = new RelayCommand(_ => IsRightToLeft = !IsRightToLeft);
+            SetLayoutModeCommand = new RelayCommand(param =>
+            {
+                if (param is ReaderLayoutMode layout)
+                {
+                    LayoutMode = layout;
+                }
+                else if (param is string str && Enum.TryParse(str, out ReaderLayoutMode parsed))
+                {
+                    LayoutMode = parsed;
+                }
+            });
+            SetThemeCommand = new RelayCommand(param =>
+            {
+                if (param is ReaderTheme theme)
+                {
+                    Theme = theme;
+                }
+                else if (param is string str && Enum.TryParse(str, out ReaderTheme parsed))
+                {
+                    Theme = parsed;
+                }
+            });
+
+            OnPropertyChanged(nameof(IncreaseZoomCommand));
+            OnPropertyChanged(nameof(DecreaseZoomCommand));
+            OnPropertyChanged(nameof(ResetZoomCommand));
+            OnPropertyChanged(nameof(ToggleRightToLeftCommand));
+            OnPropertyChanged(nameof(SetLayoutModeCommand));
+            OnPropertyChanged(nameof(SetThemeCommand));
         }
 
         private void OnNavigationCanGoBackChanged(object? sender, EventArgs e)

@@ -2,9 +2,14 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:conv="clr-namespace:MSCS.Converters"
-             Background="#0F151F"
+             xmlns:enums="clr-namespace:MSCS.Enums"
+             Background="{Binding ReaderBackgroundBrush, FallbackValue=#0F151F}"
              HorizontalAlignment="Stretch"
-             VerticalAlignment="Stretch">
+             VerticalAlignment="Stretch"
+             Focusable="True"
+             FocusVisualStyle="{x:Null}"
+             Loaded="UserControl_Loaded"
+             PreviewKeyDown="UserControl_PreviewKeyDown">
 
     <UserControl.Resources>
         <ResourceDictionary>
@@ -15,6 +20,18 @@
 
             <conv:ViewportFractionConverter x:Key="ViewportFraction"/>
             <conv:BooleanOrConverter x:Key="BooleanOr"/>
+            <conv:BooleanToFlowDirectionConverter x:Key="BooleanToFlowDirectionConverter"/>
+
+            <ItemsPanelTemplate x:Key="VerticalPanelTemplate">
+                <VirtualizingStackPanel Orientation="Vertical"/>
+            </ItemsPanelTemplate>
+            <ItemsPanelTemplate x:Key="HorizontalPanelTemplate">
+                <VirtualizingStackPanel Orientation="Horizontal"/>
+            </ItemsPanelTemplate>
+            <ItemsPanelTemplate x:Key="TwoPagePanelTemplate">
+                <WrapPanel Orientation="Horizontal"/>
+            </ItemsPanelTemplate>
+
 
             <Style x:Key="AccentButton" TargetType="Button">
                 <Setter Property="Background" Value="#7C9CFF" />
@@ -54,21 +71,46 @@
 
     <Grid>
         <ScrollViewer x:Name="ScrollView"
-                      VerticalScrollBarVisibility="Auto"
-                      HorizontalScrollBarVisibility="Disabled"
-                      Background="#0F151F"
+                      Background="{Binding ReaderSurfaceBrush, FallbackValue=#111727}"
+                      PanningMode="Both"
                       ScrollChanged="ScrollViewer_ScrollChanged">
+            <ScrollViewer.Style>
+                <Style TargetType="ScrollViewer">
+                    <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+                    <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding LayoutMode}" Value="{x:Static enums:ReaderLayoutMode.HorizontalScroll}">
+                            <Setter Property="HorizontalScrollBarVisibility" Value="Auto"/>
+                            <Setter Property="VerticalScrollBarVisibility" Value="Disabled"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding LayoutMode}" Value="{x:Static enums:ReaderLayoutMode.TwoPageSpread}">
+                            <Setter Property="HorizontalScrollBarVisibility" Value="Auto"/>
+                            <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ScrollViewer.Style>
             <ItemsControl ItemsSource="{Binding ImageUrls}"
                           ScrollViewer.CanContentScroll="True"
                           VirtualizingPanel.IsVirtualizing="True"
                           VirtualizingPanel.VirtualizationMode="Recycling"
                           VirtualizingPanel.CacheLength="1">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <VirtualizingStackPanel Orientation="Vertical"/>
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-
+                VirtualizingPanel.CacheLength="1"
+                          FlowDirection="{Binding IsRightToLeft, Converter={StaticResource BooleanToFlowDirectionConverter}}">
+                <ItemsControl.Style>
+                    <Style TargetType="ItemsControl">
+                        <Setter Property="ItemsPanel" Value="{StaticResource VerticalPanelTemplate}"/>
+                        <Setter Property="Margin" Value="0"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding LayoutMode}" Value="{x:Static enums:ReaderLayoutMode.HorizontalScroll}">
+                                <Setter Property="ItemsPanel" Value="{StaticResource HorizontalPanelTemplate}"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding LayoutMode}" Value="{x:Static enums:ReaderLayoutMode.TwoPageSpread}">
+                                <Setter Property="ItemsPanel" Value="{StaticResource TwoPagePanelTemplate}"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ItemsControl.Style>
                 <ItemsControl.ItemContainerStyle>
                     <Style TargetType="ContentPresenter">
                         <Setter Property="HorizontalAlignment" Value="Center"/>
@@ -79,6 +121,7 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <Image Stretch="Uniform"
+                               Margin="0,0,0,16"
                                SnapsToDevicePixels="True"
                                UseLayoutRounding="True"
                                RenderOptions.BitmapScalingMode="HighQuality"
@@ -89,6 +132,7 @@
                                     <Binding ElementName="ScrollView" Path="ViewportWidth"/>
                                     <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.WidthFactor"/>
                                     <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.MaxPageWidth"/>
+                                    <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.LayoutMode"/>
                                 </MultiBinding>
                             </Image.Width>
                         </Image>
@@ -102,7 +146,8 @@
                 Margin="12"
                 Padding="12"
                 CornerRadius="8"
-                Background="#CC111727"
+                Background="{Binding ReaderSurfaceBrush, FallbackValue=#111727}"
+                Opacity="0.85"
                 BorderBrush="#263149"
                 BorderThickness="1">
             <Border.Style>
@@ -171,133 +216,194 @@
                 </Button>
             </StackPanel>
 
+
             <Border x:Name="ChapterSidebar"
                     Grid.Column="1"
                     Margin="8,4,0,4"
                     HorizontalAlignment="Left"
                     VerticalAlignment="Stretch"
-                    Background="#202737"
+                    Background="{Binding ReaderSurfaceBrush, FallbackValue=#202737}"
                     BorderBrush="#263149"
                     BorderThickness="1"
                     CornerRadius="10"
                     Padding="10"
                     Width="300"
                     SnapsToDevicePixels="True">
-                    <Border.Style>
-                        <Style TargetType="Border">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                            <Style.Triggers>
-                                <DataTrigger Value="True">
-                                    <DataTrigger.Binding>
-                                        <MultiBinding Converter="{StaticResource BooleanOr}">
-                                            <Binding ElementName="PinBtn" Path="IsMouseOver"/>
-                                            <Binding RelativeSource="{RelativeSource Self}" Path="IsMouseOver"/>
-                                            <Binding ElementName="SidebarHost" Path="IsMouseOver"/>
-                                        </MultiBinding>
-                                    </DataTrigger.Binding>
-                                    <Setter Property="Visibility" Value="Visible"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="8"/>
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Value="True">
+                                <DataTrigger.Binding>
+                                    <MultiBinding Converter="{StaticResource BooleanOr}">
+                                        <Binding ElementName="PinBtn" Path="IsMouseOver"/>
+                                        <Binding RelativeSource="{RelativeSource Self}" Path="IsMouseOver"/>
+                                        <Binding ElementName="SidebarHost" Path="IsMouseOver"/>
+                                    </MultiBinding>
+                                </DataTrigger.Binding>
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="12"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="12"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="12"/>
                         <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
+                    </Grid.RowDefinitions>
 
-                        <!-- Home -->
-                        <Button Grid.Row="0"
+                    <!-- Home -->
+                    <Button Grid.Row="0"
                             Style="{StaticResource IconButtonStyle}"
                             Command="{Binding GoHomeCommand}"
                             HorizontalAlignment="Left">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="&#xE10F;" Margin="0,0,6,0"/>
-                                <!-- home icon -->
-                                <TextBlock Text="Home"/>
-                            </StackPanel>
-                        </Button>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="&#xE10F;" Margin="0,0,6,0"/>
+                            <TextBlock Text="Home"/>
+                        </StackPanel>
+                    </Button>
 
+                    <!-- Reader preferences -->
+                    <StackPanel Grid.Row="2"
+                                Orientation="Vertical">
+                        <TextBlock Text="Reader preferences"
+                                   FontWeight="SemiBold"
+                                   Foreground="#E9EEF7"/>
+                        <TextBlock Text="Layout"
+                                   Margin="0,8,0,0"
+                                   Foreground="#8F9BB4"
+                                   FontSize="12"/>
+                        <ComboBox SelectedValue="{Binding LayoutMode}"
+                                  SelectedValuePath="Tag"
+                                  Margin="0,2,0,0"
+                                  ToolTip="Choose how pages are arranged">
+                            <ComboBoxItem Content="Vertical scroll" Tag="{x:Static enums:ReaderLayoutMode.VerticalScroll}"/>
+                            <ComboBoxItem Content="Horizontal scroll" Tag="{x:Static enums:ReaderLayoutMode.HorizontalScroll}"/>
+                            <ComboBoxItem Content="Two-page spread" Tag="{x:Static enums:ReaderLayoutMode.TwoPageSpread}"/>
+                        </ComboBox>
+                        <CheckBox Content="Right-to-left navigation"
+                                  Margin="0,6,0,0"
+                                  Foreground="#E9EEF7"
+                                  IsChecked="{Binding IsRightToLeft}"
+                                  ToolTip="Mirror the reading direction for horizontal mode"/>
+                        <TextBlock Text="Zoom"
+                                   Margin="0,10,0,0"
+                                   Foreground="#8F9BB4"
+                                   FontSize="12"/>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Slider Width="160"
+                                    Minimum="0.3"
+                                    Maximum="1.0"
+                                    TickFrequency="0.05"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding WidthFactor, Mode=TwoWay}"
+                                    ToolTip="Adjust the relative page width"
+                                    Margin="0,0,8,0"/>
+                            <TextBlock Text="{Binding ZoomPercent, StringFormat={}{0:F0}%}"
+                                       Foreground="#E9EEF7"
+                                       FontWeight="SemiBold"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                            <Button Content="-" Width="32" Height="28" Command="{Binding DecreaseZoomCommand}" ToolTip="Zoom out" Margin="0,0,6,0"/>
+                            <Button Content="Reset" Height="28" Command="{Binding ResetZoomCommand}" ToolTip="Reset zoom" Margin="0,0,6,0"/>
+                            <Button Content="+" Width="32" Height="28" Command="{Binding IncreaseZoomCommand}" ToolTip="Zoom in"/>
+                        </StackPanel>
+                        <TextBlock Text="Theme"
+                                   Margin="0,10,0,0"
+                                   Foreground="#8F9BB4"
+                                   FontSize="12"/>
+                        <ComboBox SelectedValue="{Binding Theme}"
+                                  SelectedValuePath="Tag"
+                                  Margin="0,2,0,0"
+                                  ToolTip="Change the reader color palette">
+                            <ComboBoxItem Content="Midnight" Tag="{x:Static enums:ReaderTheme.Midnight}"/>
+                            <ComboBoxItem Content="Pure black" Tag="{x:Static enums:ReaderTheme.PureBlack}"/>
+                            <ComboBoxItem Content="Sepia" Tag="{x:Static enums:ReaderTheme.Sepia}"/>
+                            <ComboBoxItem Content="High contrast" Tag="{x:Static enums:ReaderTheme.HighContrast}"/>
+                        </ComboBox>
+                    </StackPanel>
 
                     <!-- Manga info + tracking -->
-                    <Grid Grid.Row="2">
+                    <Grid Grid.Row="4">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <StackPanel Orientation="Vertical" Margin="0,0,12,0">
                             <TextBlock Text="{Binding MangaTitle}"
-                                           Foreground="#E9EEF7"
-                                           FontWeight="SemiBold"
-                                           TextTrimming="CharacterEllipsis" />
+                                       Foreground="#E9EEF7"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
                             <TextBlock Text="{Binding ChapterTitle}"
-                                           Foreground="#8F9BB4"
-                                           FontSize="12"
-                                           TextTrimming="CharacterEllipsis" />
+                                       Foreground="#8F9BB4"
+                                       FontSize="12"
+                                       TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                         <Button Grid.Column="1"
-                                    Content="{Binding AniListButtonText}"
-                                    Style="{StaticResource AccentButton}"
-                                    Command="{Binding AniListTrackCommand}"
-                                    Visibility="{Binding IsAniListAvailable, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                    ToolTip="Track this series on AniList" />
+                                Content="{Binding AniListButtonText}"
+                                Style="{StaticResource AccentButton}"
+                                Command="{Binding AniListTrackCommand}"
+                                Visibility="{Binding IsAniListAvailable, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                ToolTip="Track this series on AniList" />
                     </Grid>
 
                     <!-- Chapter list -->
-                    <Border Grid.Row="4"
-                            Background="#1A2230"
+                    <Border Grid.Row="6"
+                            Background="{Binding ReaderSurfaceBrush, FallbackValue=#1A2230}"
                             CornerRadius="6"
                             Padding="2"
                             VerticalAlignment="Stretch">
-                            <ListBox ItemsSource="{Binding Chapters}"
+                        <ListBox ItemsSource="{Binding Chapters}"
                                  SelectedItem="{Binding SelectedChapter, Mode=TwoWay}"
                                  BorderThickness="0"
                                  Background="Transparent"
                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
                                  VirtualizingStackPanel.IsVirtualizing="True"
                                  VirtualizingStackPanel.VirtualizationMode="Recycling">
-                                <ListBox.ItemContainerStyle>
-                                    <Style TargetType="ListBoxItem">
-                                        <Setter Property="Foreground" Value="#E9EEF7"/>
-                                        <Setter Property="Padding" Value="8,6"/>
-                                        <Setter Property="Margin" Value="0,2"/>
-                                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                                        <Setter Property="Template">
-                                            <Setter.Value>
-                                                <ControlTemplate TargetType="ListBoxItem">
-                                                    <Border x:Name="ItemBorder"
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="Foreground" Value="#E9EEF7"/>
+                                    <Setter Property="Padding" Value="8,6"/>
+                                    <Setter Property="Margin" Value="0,2"/>
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ListBoxItem">
+                                                <Border x:Name="ItemBorder"
                                                         Background="Transparent"
                                                         CornerRadius="4">
-                                                        <ContentPresenter VerticalAlignment="Center" Margin="4,0"/>
-                                                    </Border>
-                                                    <ControlTemplate.Triggers>
-                                                        <Trigger Property="IsMouseOver" Value="True">
-                                                            <Setter TargetName="ItemBorder" Property="Background" Value="#2A3A53"/>
-                                                        </Trigger>
-                                                        <Trigger Property="IsSelected" Value="True">
-                                                            <Setter TargetName="ItemBorder" Property="Background" Value="#3C4F6D"/>
-                                                        </Trigger>
-                                                    </ControlTemplate.Triggers>
-                                                </ControlTemplate>
-                                            </Setter.Value>
-                                        </Setter>
-                                    </Style>
-                                </ListBox.ItemContainerStyle>
-                                <ListBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding Title}"
+                                                    <ContentPresenter VerticalAlignment="Center" Margin="4,0"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="ItemBorder" Property="Background" Value="#2A3A53"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter TargetName="ItemBorder" Property="Background" Value="#3C4F6D"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Title}"
                                                Foreground="#E9EEF7"
                                                FontWeight="SemiBold"
                                                TextTrimming="CharacterEllipsis"/>
-                                    </DataTemplate>
-                                </ListBox.ItemTemplate>
-                            </ListBox>
-                        </Border>
-                    </Grid>
-                </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Border>
+                </Grid>
+            </Border>
         </Grid>
     </Grid>
 </UserControl>

@@ -1,28 +1,18 @@
-﻿using MSCS.Helpers;
+﻿using MSCS.Enums;
+using MSCS.Helpers;
 using MSCS.ViewModels;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Reflection;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Animation;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 namespace MSCS.Views
 {
     public partial class ReaderView : System.Windows.Controls.UserControl
     {
         private double? _pendingScrollProgress;
         private double? _pendingScrollOffset;
+        private ReaderViewModel? ViewModel => DataContext as ReaderViewModel;
 
         public ReaderView()
         {
@@ -31,47 +21,111 @@ namespace MSCS.Views
         }
         private async void ScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
-            var scrollViewer = sender as ScrollViewer;
-            if (scrollViewer == null)
-                return;
-            if (DataContext is ReaderViewModel readerViewModel)
+            if (sender is not ScrollViewer scrollViewer)
             {
-                readerViewModel.UpdateScrollPosition(
-                    scrollViewer.VerticalOffset,
-                    scrollViewer.ExtentHeight,
-                    scrollViewer.ViewportHeight);
+                return;
+            }
+
+            var readerViewModel = ViewModel;
+            if (readerViewModel != null)
+            {
+                if (readerViewModel.LayoutMode == ReaderLayoutMode.HorizontalScroll)
+                {
+                    readerViewModel.UpdateScrollPosition(
+                        scrollViewer.HorizontalOffset,
+                        scrollViewer.ExtentWidth,
+                        scrollViewer.ViewportWidth);
+                }
+                else
+                {
+                    readerViewModel.UpdateScrollPosition(
+                        scrollViewer.VerticalOffset,
+                        scrollViewer.ExtentHeight,
+                        scrollViewer.ViewportHeight);
+                }
             }
 
             TryApplyPendingScroll();
 
-            if (e.VerticalChange > 0 &&
-                scrollViewer.VerticalOffset > 0 &&
-                scrollViewer.VerticalOffset + scrollViewer.ViewportHeight >= scrollViewer.ExtentHeight - 100)
+            if (readerViewModel != null)
             {
-                if (DataContext is ReaderViewModel viewModel)
+                bool shouldLoadMore = false;
+                if (readerViewModel.LayoutMode == ReaderLayoutMode.HorizontalScroll)
                 {
-                    await viewModel.LoadMoreImagesAsync();
-                    if (viewModel.RemainingImages == 0)
+                    if (e.HorizontalChange > 0 &&
+                        scrollViewer.HorizontalOffset > 0 &&
+                        scrollViewer.HorizontalOffset + scrollViewer.ViewportWidth >= scrollViewer.ExtentWidth - 100)
                     {
-                        await GoToNextChapter(viewModel);
+                        shouldLoadMore = true;
+                    }
+                }
+                else
+                {
+                    if (e.VerticalChange > 0 &&
+                        scrollViewer.VerticalOffset > 0 &&
+                        scrollViewer.VerticalOffset + scrollViewer.ViewportHeight >= scrollViewer.ExtentHeight - 100)
+                    {
+                        shouldLoadMore = true;
                     }
                 }
 
+                if (shouldLoadMore)
+                {
+                    await readerViewModel.LoadMoreImagesAsync();
+                    if (readerViewModel.RemainingImages == 0)
+                    {
+                        await GoToNextChapter(readerViewModel);
+                    }
+                }
             }
         }
         private void ScrollEventHandler(object sender, MouseButtonEventArgs e)
         {
-            if (sender is System.Windows.Controls.Image image && ScrollView != null)
+            if (ScrollView == null || ViewModel == null || sender is not System.Windows.Controls.Image)
             {
-                // Get mouse position relative to the ScrollView
-                var pos = e.GetPosition(ScrollView);
+                return;
+            }
 
-                // Use the visible area of the ScrollView, not the full image
-                double displayedHeight = ScrollView.ViewportHeight;
+            var vm = ViewModel;
+            var pos = e.GetPosition(ScrollView);
+            var duration = TimeSpan.FromMilliseconds(Constants.DefaultSmoothScrollDuration);
+
+            if (vm.LayoutMode == ReaderLayoutMode.HorizontalScroll)
+            {
+                double displayedWidth = ScrollView.ViewportWidth > 0 ? ScrollView.ViewportWidth : ScrollView.ActualWidth;
+                if (displayedWidth <= 0)
+                {
+                    displayedWidth = 1;
+                }
+
+                double clickFraction = pos.X / displayedWidth;
+                double scrollAmount = ScrollView.ViewportWidth * Constants.DefaultSmoothScrollPageFraction;
+                if (scrollAmount <= 0)
+                {
+                    scrollAmount = ScrollView.ActualWidth * Constants.DefaultSmoothScrollPageFraction;
+                }
+
+                bool goBackward = clickFraction < 0.33;
+                double delta = goBackward
+                    ? (vm.IsRightToLeft ? scrollAmount : -scrollAmount)
+                    : (vm.IsRightToLeft ? -scrollAmount : scrollAmount);
+
+                SmoothScroll.ByHorizontal(ScrollView, delta, duration);
+            }
+            else
+            {
+                double displayedHeight = ScrollView.ViewportHeight > 0 ? ScrollView.ViewportHeight : ScrollView.ActualHeight;
+                if (displayedHeight <= 0)
+                {
+                    displayedHeight = 1;
+                }
+
                 double clickFraction = pos.Y / displayedHeight;
-
                 double scrollAmount = ScrollView.ViewportHeight * Constants.DefaultSmoothScrollPageFraction;
-                TimeSpan duration = TimeSpan.FromMilliseconds(Constants.DefaultSmoothScrollDuration);
+                if (scrollAmount <= 0)
+                {
+                    scrollAmount = ScrollView.ActualHeight * Constants.DefaultSmoothScrollPageFraction;
+                }
 
                 if (clickFraction < 0.33)
                 {
@@ -82,6 +136,8 @@ namespace MSCS.Views
                     SmoothScroll.By(ScrollView, scrollAmount, duration);
                 }
             }
+
+            e.Handled = true;
         }
 
 
@@ -95,6 +151,12 @@ namespace MSCS.Views
         {
             await vm.GoToNextChapterAsync();
             ScrollView.ScrollToTop();
+            if (ScrollView != null && vm.LayoutMode == ReaderLayoutMode.HorizontalScroll)
+            {
+                ScrollView.UpdateLayout();
+                var target = vm.IsRightToLeft ? ScrollView.ScrollableWidth : 0;
+                ScrollView.ScrollToHorizontalOffset(Math.Max(0, target));
+            }
         }
 
         private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -122,6 +184,13 @@ namespace MSCS.Views
             ScrollView.Dispatcher.InvokeAsync(() =>
             {
                 ScrollView.ScrollToTop();
+                var vm = ViewModel;
+                if (vm != null && vm.LayoutMode == ReaderLayoutMode.HorizontalScroll)
+                {
+                    ScrollView.UpdateLayout();
+                    var target = vm.IsRightToLeft ? ScrollView.ScrollableWidth : 0;
+                    ScrollView.ScrollToHorizontalOffset(Math.Max(0, target));
+                }
             }, System.Windows.Threading.DispatcherPriority.Background);
         }
 
@@ -150,15 +219,17 @@ namespace MSCS.Views
             }
 
             ScrollView.UpdateLayout();
-            var extent = ScrollView.ExtentHeight;
-            var viewport = ScrollView.ViewportHeight;
+            var vm = ViewModel;
+            var isHorizontal = vm?.LayoutMode == ReaderLayoutMode.HorizontalScroll;
+            var extent = isHorizontal ? ScrollView.ExtentWidth : ScrollView.ExtentHeight;
+            var viewport = isHorizontal ? ScrollView.ViewportWidth : ScrollView.ViewportHeight;
             if (extent <= 0 || viewport <= 0)
             {
                 return;
             }
 
-            var scrollableHeight = Math.Max(extent - viewport, 0);
-            if (scrollableHeight <= 0 && ((_pendingScrollProgress.HasValue && _pendingScrollProgress.Value > 0) || (_pendingScrollOffset.HasValue && _pendingScrollOffset.Value > 0)))
+            var scrollableLength = Math.Max(extent - viewport, 0);
+            if (scrollableLength <= 0 && ((_pendingScrollProgress.HasValue && _pendingScrollProgress.Value > 0) || (_pendingScrollOffset.HasValue && _pendingScrollOffset.Value > 0)))
             {
                 return;
             }
@@ -166,18 +237,25 @@ namespace MSCS.Views
             double targetOffset;
             if (_pendingScrollOffset.HasValue)
             {
-                targetOffset = Math.Clamp(_pendingScrollOffset.Value, 0, scrollableHeight);
+                targetOffset = Math.Clamp(_pendingScrollOffset.Value, 0, scrollableLength);
             }
             else
             {
-                targetOffset = Math.Clamp(_pendingScrollProgress!.Value * scrollableHeight, 0, scrollableHeight);
+                targetOffset = Math.Clamp(_pendingScrollProgress!.Value * scrollableLength, 0, scrollableLength);
             }
-            ScrollView.ScrollToVerticalOffset(targetOffset);
+            if (isHorizontal)
+            {
+                ScrollView.ScrollToHorizontalOffset(targetOffset);
+            }
+            else
+            {
+                ScrollView.ScrollToVerticalOffset(targetOffset);
+            }
 
-            var currentOffset = ScrollView.VerticalOffset;
-            var currentProgress = scrollableHeight > 0 ? currentOffset / scrollableHeight : 0;
+            var currentOffset = isHorizontal ? ScrollView.HorizontalOffset : ScrollView.VerticalOffset;
+            var currentProgress = scrollableLength > 0 ? currentOffset / scrollableLength : 0;
             var offsetMatch = _pendingScrollOffset.HasValue
-                ? Math.Abs(currentOffset - _pendingScrollOffset.Value) <= Math.Max(1.0, ScrollView.ViewportHeight * 0.01)
+                ? Math.Abs(currentOffset - _pendingScrollOffset.Value) <= Math.Max(1.0, (isHorizontal ? ScrollView.ViewportWidth : ScrollView.ViewportHeight) * 0.01)
                 : false;
             var progressMatch = _pendingScrollProgress.HasValue
                 ? Math.Abs(currentProgress - _pendingScrollProgress.Value) <= 0.01
@@ -186,14 +264,136 @@ namespace MSCS.Views
             {
                 _pendingScrollProgress = null;
                 _pendingScrollOffset = null;
-                if (DataContext is ReaderViewModel readerViewModel)
-                {
-                    readerViewModel.NotifyScrollRestoreCompleted();
-                }
+                vm?.NotifyScrollRestoreCompleted();
             }
             else
             {
                 // Keep the pending progress so subsequent scroll/extent changes can retry.
+            }
+        }
+
+        private void UserControl_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (ScrollView != null)
+            {
+                ScrollView.Focus();
+                Keyboard.Focus(ScrollView);
+            }
+            else
+            {
+                Focus();
+            }
+        }
+
+        private void UserControl_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (ScrollView == null || ViewModel == null)
+            {
+                return;
+            }
+
+            var vm = ViewModel;
+            bool isHorizontal = vm.LayoutMode == ReaderLayoutMode.HorizontalScroll;
+            double viewport = isHorizontal ? ScrollView.ViewportWidth : ScrollView.ViewportHeight;
+            if (viewport <= 0)
+            {
+                viewport = isHorizontal ? ScrollView.ActualWidth : ScrollView.ActualHeight;
+            }
+
+            double amount = viewport * Constants.DefaultSmoothScrollPageFraction;
+            var duration = TimeSpan.FromMilliseconds(Constants.DefaultSmoothScrollDuration);
+
+            void ScrollForward()
+            {
+                if (isHorizontal)
+                {
+                    var delta = vm.IsRightToLeft ? -amount : amount;
+                    SmoothScroll.ByHorizontal(ScrollView, delta, duration);
+                }
+                else
+                {
+                    SmoothScroll.By(ScrollView, amount, duration);
+                }
+            }
+
+            void ScrollBackward()
+            {
+                if (isHorizontal)
+                {
+                    var delta = vm.IsRightToLeft ? amount : -amount;
+                    SmoothScroll.ByHorizontal(ScrollView, delta, duration);
+                }
+                else
+                {
+                    SmoothScroll.By(ScrollView, -amount, duration);
+                }
+            }
+
+            switch (e.Key)
+            {
+                case Key.Space:
+                    if ((Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift)
+                    {
+                        ScrollBackward();
+                    }
+                    else
+                    {
+                        ScrollForward();
+                    }
+                    e.Handled = true;
+                    break;
+                case Key.PageDown:
+                case Key.Down:
+                    if (!isHorizontal)
+                    {
+                        ScrollForward();
+                        e.Handled = true;
+                    }
+                    break;
+                case Key.PageUp:
+                case Key.Up:
+                    if (!isHorizontal)
+                    {
+                        ScrollBackward();
+                        e.Handled = true;
+                    }
+                    break;
+                case Key.Right:
+                    if (isHorizontal)
+                    {
+                        if (vm.IsRightToLeft)
+                        {
+                            ScrollBackward();
+                        }
+                        else
+                        {
+                            ScrollForward();
+                        }
+                    }
+                    else
+                    {
+                        ScrollForward();
+                    }
+                    e.Handled = true;
+                    break;
+                case Key.Left:
+                    if (isHorizontal)
+                    {
+                        if (vm.IsRightToLeft)
+                        {
+                            ScrollForward();
+                        }
+                        else
+                        {
+                            ScrollBackward();
+                        }
+                    }
+                    else
+                    {
+                        ScrollBackward();
+                    }
+                    e.Handled = true;
+                    break;
             }
         }
     }
