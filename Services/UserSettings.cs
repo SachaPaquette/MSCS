@@ -179,6 +179,9 @@ namespace MSCS.Services
                 LastUpdatedUtc = progress.LastUpdatedUtc,
                 MangaUrl = string.IsNullOrWhiteSpace(progress.MangaUrl) ? null : progress.MangaUrl,
                 SourceKey = string.IsNullOrWhiteSpace(progress.SourceKey) ? null : progress.SourceKey,
+                ScrollOffset = progress.ScrollOffset.HasValue
+                    ? Math.Max(0, progress.ScrollOffset.Value)
+                    : null,
             };
 
             SaveInternal();
