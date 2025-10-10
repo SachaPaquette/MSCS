@@ -32,7 +32,23 @@ namespace MSCS.ViewModels
         private CancellationTokenSource _imageLoadCts = new();
         private bool _isChapterNavigationInProgress;
         public event EventHandler? ChapterChanged;
-        public event EventHandler<ScrollRestoreRequest>? ScrollRestoreRequested;
+        private EventHandler<ScrollRestoreRequest>? _scrollRestoreRequested;
+        private ScrollRestoreRequest? _queuedScrollRestoreRequest;
+        public event EventHandler<ScrollRestoreRequest>? ScrollRestoreRequested
+        {
+            add
+            {
+                _scrollRestoreRequested += value;
+                if (value != null && _queuedScrollRestoreRequest != null)
+                {
+                    value(this, _queuedScrollRestoreRequest);
+                }
+            }
+            remove
+            {
+                _scrollRestoreRequested -= value;
+            }
+        }
         private int _loadedCount;
         private int _currentChapterIndex;
         public int RemainingImages => _allImages.Count - _loadedCount;
@@ -130,10 +146,31 @@ namespace MSCS.ViewModels
         {
             var clampedExtent = double.IsNaN(extentHeight) ? 0 : Math.Max(extentHeight, 0);
             var clampedViewport = double.IsNaN(viewportHeight) ? 0 : Math.Max(viewportHeight, 0);
+
+            if (clampedExtent <= 0 || clampedViewport <= 0)
+            {
+                return;
+            }
+
+            var previousOffset = _lastKnownScrollOffset;
+            var previousExtent = _lastKnownExtentHeight;
+            var previousViewport = _lastKnownViewportHeight;
+
             var scrollableHeight = Math.Max(clampedExtent - clampedViewport, 0);
             var maxOffset = scrollableHeight > 0 ? scrollableHeight : 0;
             var clampedOffset = double.IsNaN(verticalOffset) ? 0 : Math.Clamp(verticalOffset, 0, maxOffset);
             var progress = scrollableHeight > 0 ? Math.Clamp(clampedOffset / scrollableHeight, 0.0, 1.0) : 0.0;
+
+            var isLayoutReset = scrollableHeight <= 0
+                && clampedOffset <= 0
+                && previousExtent > 0
+                && previousViewport > 0
+                && previousOffset > 0;
+
+            if (isLayoutReset)
+            {
+                return;
+            }
 
             _lastKnownScrollOffset = clampedOffset;
             _lastKnownExtentHeight = clampedExtent;
@@ -432,6 +469,7 @@ namespace MSCS.ViewModels
             _imageLoadCts = new CancellationTokenSource();
             _pendingRestoreProgress = null;
             _pendingRestoreOffset = null;
+            _queuedScrollRestoreRequest = null;
 
             var dispatcher = System.Windows.Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
 
@@ -476,6 +514,7 @@ namespace MSCS.ViewModels
             await TryMoveToChapterAsync(_currentChapterIndex + 1);
         }
 
+
         private void InitializeNavigationCommands()
         {
             if (_navigationService == null)
@@ -485,8 +524,16 @@ namespace MSCS.ViewModels
             }
             else
             {
-                GoBackCommand = new RelayCommand(_ => _navigationService.GoBack(), _ => _navigationService.CanGoBack);
-                GoHomeCommand = new RelayCommand(_ => _navigationService.NavigateToSingleton<MangaListViewModel>());
+                GoBackCommand = new RelayCommand(_ =>
+                {
+                    PersistReadingProgress(force: true);
+                    _navigationService.GoBack();
+                }, _ => _navigationService.CanGoBack);
+                GoHomeCommand = new RelayCommand(_ =>
+                {
+                    PersistReadingProgress(force: true);
+                    _navigationService.NavigateToSingleton<MangaListViewModel>();
+                });
                 WeakEventManager<INavigationService, EventArgs>.AddHandler(_navigationService, nameof(INavigationService.CanGoBackChanged), OnNavigationCanGoBackChanged!);
             }
 
@@ -496,6 +543,7 @@ namespace MSCS.ViewModels
             OnPropertyChanged(nameof(GoHomeCommand));
             OnPropertyChanged(nameof(NextChapterCommand));
         }
+
 
         private void InitializePreferenceCommands()
         {
@@ -862,7 +910,9 @@ namespace MSCS.ViewModels
         {
             if (progress.HasValue || offset.HasValue)
             {
-                ScrollRestoreRequested?.Invoke(this, new ScrollRestoreRequest(progress, offset));
+                var request = new ScrollRestoreRequest(progress, offset);
+                _queuedScrollRestoreRequest = request;
+                _scrollRestoreRequested?.Invoke(this, request);
             }
         }
 
