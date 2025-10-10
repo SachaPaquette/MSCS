@@ -1,4 +1,6 @@
-﻿using MSCS.Interfaces;
+﻿using MSCS.Enums;
+using MSCS.Helpers;
+using MSCS.Interfaces;
 using MSCS.Models;
 using System;
 using System.Collections.Generic;
@@ -15,6 +17,21 @@ namespace MSCS.Services
     public class AniListService : IAniListService
     {
         private const string GraphQlEndpoint = "https://graphql.anilist.co";
+        private const string SaveMediaListEntryMutation = @"mutation($mediaId: Int!, $status: MediaListStatus, $progress: Int, $score: Float) {
+  SaveMediaListEntry(mediaId: $mediaId, status: $status, progress: $progress, score: $score) {
+    id
+    status
+    progress
+    score
+    updatedAt
+  }
+}";
+        private const string DeleteMediaListEntryMutation = @"mutation($id: Int) {
+  DeleteMediaListEntry(id: $id) {
+    deleted
+  }
+}";
+
         private readonly HttpClient _httpClient;
         private readonly UserSettings _userSettings;
         private string? _accessToken;
@@ -70,6 +87,11 @@ namespace MSCS.Services
     media(search: $search, type: MANGA) {
       id
       status
+      format
+      chapters
+      siteUrl
+      meanScore
+      averageScore
       title {
         romaji
         english
@@ -83,6 +105,13 @@ namespace MSCS.Services
         year
         month
         day
+      }
+      mediaListEntry {
+        id
+        status
+        progress
+        score
+        updatedAt
       }
     }
   }
@@ -123,7 +152,52 @@ namespace MSCS.Services
                     var startDate = media.TryGetProperty("startDate", out var startDateElement)
                         ? FormatDate(startDateElement)
                         : null;
+                    var format = media.TryGetProperty("format", out var formatElement) ? formatElement.GetString() : null;
+                    var chapters = media.TryGetProperty("chapters", out var chaptersElement) && chaptersElement.ValueKind == JsonValueKind.Number
+                        ? chaptersElement.GetInt32()
+                        : (int?)null;
+                    var siteUrl = media.TryGetProperty("siteUrl", out var siteUrlElement) ? siteUrlElement.GetString() : null;
+                    var meanScore = media.TryGetProperty("meanScore", out var meanScoreElement) && meanScoreElement.ValueKind == JsonValueKind.Number
+                        ? meanScoreElement.GetDouble()
+                        : (double?)null;
+                    var averageScore = media.TryGetProperty("averageScore", out var averageScoreElement) && averageScoreElement.ValueKind == JsonValueKind.Number
+                        ? averageScoreElement.GetDouble()
+                        : (double?)null;
 
+                    AniListMediaListStatus? userStatus = null;
+                    int? userProgress = null;
+                    double? userScore = null;
+                    DateTimeOffset? userUpdatedAt = null;
+                    if (media.TryGetProperty("mediaListEntry", out var entryElement) && entryElement.ValueKind == JsonValueKind.Object)
+                    {
+                        userStatus = AniListFormatting.FromApiValue(entryElement.TryGetProperty("status", out var entryStatus) ? entryStatus.GetString() : null);
+                        if (entryElement.TryGetProperty("progress", out var entryProgress) && entryProgress.ValueKind == JsonValueKind.Number)
+                        {
+                            var progressValue = entryProgress.GetInt32();
+                            if (progressValue > 0)
+                            {
+                                userProgress = progressValue;
+                            }
+                        }
+
+                        if (entryElement.TryGetProperty("score", out var entryScore) && entryScore.ValueKind == JsonValueKind.Number)
+                        {
+                            var scoreValue = entryScore.GetDouble();
+                            if (scoreValue > 0)
+                            {
+                                userScore = scoreValue;
+                            }
+                        }
+
+                        if (entryElement.TryGetProperty("updatedAt", out var entryUpdatedAt) && entryUpdatedAt.ValueKind == JsonValueKind.Number)
+                        {
+                            var seconds = entryUpdatedAt.GetInt64();
+                            if (seconds > 0)
+                            {
+                                userUpdatedAt = DateTimeOffset.FromUnixTimeSeconds(seconds);
+                            }
+                        }
+                    }
                     results.Add(new AniListMedia
                     {
                         Id = id,
@@ -133,7 +207,16 @@ namespace MSCS.Services
                         Status = status,
                         CoverImageUrl = cover,
                         BannerImageUrl = banner,
-                        StartDateText = startDate
+                        StartDateText = startDate,
+                        Format = format,
+                        Chapters = chapters,
+                        SiteUrl = siteUrl,
+                        MeanScore = meanScore,
+                        AverageScore = averageScore,
+                        UserStatus = userStatus,
+                        UserProgress = userProgress,
+                        UserScore = userScore,
+                        UserUpdatedAt = userUpdatedAt
                     });
                 }
             }
@@ -141,31 +224,49 @@ namespace MSCS.Services
             return results;
         }
 
-        public async Task<AniListTrackingInfo> TrackSeriesAsync(string mangaTitle, AniListMedia media, CancellationToken cancellationToken = default)
+        public async Task<AniListTrackingInfo> TrackSeriesAsync(
+            string mangaTitle,
+            AniListMedia media,
+            AniListMediaListStatus? status = null,
+            int? progress = null,
+            double? score = null,
+            CancellationToken cancellationToken = default)
         {
             if (media == null) throw new ArgumentNullException(nameof(media));
             EnsureAuthenticated();
 
-            const string mutation = @"mutation($mediaId: Int!, $status: MediaListStatus) {
-  SaveMediaListEntry(mediaId: $mediaId, status: $status) {
-    id
-    status
-  }
-}";
+            var desiredStatus = status ?? AniListMediaListStatus.Current;
+            var info = await SaveMediaListEntryAsync(
+                mangaTitle,
+                media.Id,
+                media.DisplayTitle,
+                media.CoverImageUrl,
+                desiredStatus,
+                progress,
+                score,
+                cancellationToken).ConfigureAwait(false);
 
-            var variables = new
+            if (info != null)
             {
-                mediaId = media.Id,
-                status = "CURRENT"
-            };
+                return info;
+            }
 
-            using var _ = await SendGraphQlRequestAsync(mutation, variables, cancellationToken).ConfigureAwait(false);
-
-            var trackingInfo = new AniListTrackingInfo(media.Id, media.DisplayTitle, media.CoverImageUrl);
-            _userSettings.SetAniListTracking(mangaTitle, trackingInfo);
+            var fallback = new AniListTrackingInfo(
+                media.Id,
+                media.DisplayTitle,
+                media.CoverImageUrl,
+                desiredStatus,
+                progress,
+                score,
+                media.Chapters,
+                media.SiteUrl,
+                null,
+                null);
+            _userSettings.SetAniListTracking(mangaTitle, fallback);
             TrackingChanged?.Invoke(this, EventArgs.Empty);
-            return trackingInfo;
+            return fallback;
         }
+
 
         public async Task UpdateProgressAsync(string mangaTitle, int progress, CancellationToken cancellationToken = default)
         {
@@ -174,27 +275,20 @@ namespace MSCS.Services
                 return;
             }
 
-            if (!TryGetTracking(mangaTitle, out var trackingInfo) || trackingInfo == null)
+            if (!_userSettings.TryGetAniListTracking(mangaTitle, out var trackingInfo) || trackingInfo == null)
             {
                 return;
             }
 
-            EnsureAuthenticated();
-
-            const string mutation = @"mutation($mediaId: Int!, $progress: Int) {
-  SaveMediaListEntry(mediaId: $mediaId, progress: $progress) {
-    id
-    progress
-  }
-}";
-
-            var variables = new
-            {
-                mediaId = trackingInfo.MediaId,
-                progress
-            };
-
-            using var _ = await SendGraphQlRequestAsync(mutation, variables, cancellationToken).ConfigureAwait(false);
+            await SaveMediaListEntryAsync(
+                mangaTitle,
+                trackingInfo.MediaId,
+                trackingInfo.Title,
+                trackingInfo.CoverImageUrl,
+                null,
+                progress,
+                null,
+                cancellationToken).ConfigureAwait(false);
         }
 
         public bool TryGetTracking(string mangaTitle, out AniListTrackingInfo? trackingInfo)
@@ -213,6 +307,101 @@ namespace MSCS.Services
                 _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
             }
         }
+
+
+        public async Task<AniListTrackingInfo?> UpdateTrackingAsync(
+            string mangaTitle,
+            AniListMediaListStatus? status = null,
+            int? progress = null,
+            double? score = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(mangaTitle))
+            {
+                return null;
+            }
+
+            if (!_userSettings.TryGetAniListTracking(mangaTitle, out var trackingInfo) || trackingInfo == null)
+            {
+                return null;
+            }
+
+            return await SaveMediaListEntryAsync(
+                mangaTitle,
+                trackingInfo.MediaId,
+                trackingInfo.Title,
+                trackingInfo.CoverImageUrl,
+                status,
+                progress,
+                score,
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        public async Task<bool> UntrackSeriesAsync(string mangaTitle, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(mangaTitle))
+            {
+                return false;
+            }
+
+            if (!_userSettings.TryGetAniListTracking(mangaTitle, out var trackingInfo) || trackingInfo == null)
+            {
+                return false;
+            }
+
+            EnsureAuthenticated();
+            var entryId = trackingInfo.MediaListEntryId;
+            if (entryId == null)
+            {
+                var refreshed = await RefreshTrackingAsync(mangaTitle, cancellationToken).ConfigureAwait(false);
+                entryId = refreshed?.MediaListEntryId;
+                if (entryId == null)
+                {
+                    _userSettings.RemoveAniListTracking(mangaTitle);
+                    TrackingChanged?.Invoke(this, EventArgs.Empty);
+                    return true;
+                }
+            }
+
+            var variables = new
+            {
+                id = entryId
+            };
+
+            using var _ = await SendGraphQlRequestAsync(DeleteMediaListEntryMutation, variables, cancellationToken).ConfigureAwait(false);
+            _userSettings.RemoveAniListTracking(mangaTitle);
+            TrackingChanged?.Invoke(this, EventArgs.Empty);
+            return true;
+        }
+
+        public async Task<AniListTrackingInfo?> RefreshTrackingAsync(string mangaTitle, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(mangaTitle))
+            {
+                return null;
+            }
+
+            if (!_userSettings.TryGetAniListTracking(mangaTitle, out var trackingInfo) || trackingInfo == null)
+            {
+                return null;
+            }
+
+            EnsureAuthenticated();
+            var refreshed = await FetchTrackingInfoByMediaIdAsync(
+                trackingInfo.MediaId,
+                trackingInfo.Title,
+                trackingInfo.CoverImageUrl,
+                cancellationToken).ConfigureAwait(false);
+
+            if (refreshed != null)
+            {
+                _userSettings.SetAniListTracking(mangaTitle, refreshed);
+                TrackingChanged?.Invoke(this, EventArgs.Empty);
+            }
+
+            return refreshed;
+        }
+
 
         private void ApplyAccessToken(string token, DateTimeOffset expiry)
         {
@@ -290,6 +479,166 @@ namespace MSCS.Services
                 throw new InvalidOperationException("AniList authentication is required for this operation.");
             }
         }
+
+
+        private async Task<AniListTrackingInfo?> SaveMediaListEntryAsync(
+            string mangaTitle,
+            int mediaId,
+            string fallbackTitle,
+            string? fallbackCoverImage,
+            AniListMediaListStatus? status,
+            int? progress,
+            double? score,
+            CancellationToken cancellationToken)
+        {
+            EnsureAuthenticated();
+
+            var variables = new
+            {
+                mediaId,
+                status = status?.ToApiValue(),
+                progress,
+                score
+            };
+
+            using var _ = await SendGraphQlRequestAsync(SaveMediaListEntryMutation, variables, cancellationToken).ConfigureAwait(false);
+            var refreshed = await FetchTrackingInfoByMediaIdAsync(mediaId, fallbackTitle, fallbackCoverImage, cancellationToken).ConfigureAwait(false);
+            if (refreshed != null)
+            {
+                _userSettings.SetAniListTracking(mangaTitle, refreshed);
+                TrackingChanged?.Invoke(this, EventArgs.Empty);
+            }
+
+            return refreshed;
+        }
+
+        private async Task<AniListTrackingInfo?> FetchTrackingInfoByMediaIdAsync(int mediaId, string fallbackTitle, string? fallbackCover, CancellationToken cancellationToken)
+        {
+            const string query = @"query($mediaId: Int!) {
+  Media(id: $mediaId, type: MANGA) {
+    id
+    title {
+      romaji
+      english
+      native
+    }
+    coverImage {
+      large
+    }
+    siteUrl
+    chapters
+    mediaListEntry {
+      id
+      status
+      progress
+      score
+      updatedAt
+    }
+  }
+}";
+
+            var variables = new
+            {
+                mediaId
+            };
+
+            using var document = await SendGraphQlRequestAsync(query, variables, cancellationToken).ConfigureAwait(false);
+            if (!document.RootElement.TryGetProperty("data", out var dataElement) ||
+                !dataElement.TryGetProperty("Media", out var mediaElement) ||
+                mediaElement.ValueKind != JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            var titleElement = mediaElement.TryGetProperty("title", out var titleJson) ? titleJson : default;
+            var title = ResolveTitle(titleElement, fallbackTitle);
+            var cover = mediaElement.TryGetProperty("coverImage", out var coverElement) &&
+                        coverElement.TryGetProperty("large", out var coverUrl)
+                ? coverUrl.GetString()
+                : fallbackCover;
+            var siteUrl = mediaElement.TryGetProperty("siteUrl", out var siteUrlElement) ? siteUrlElement.GetString() : null;
+            var chapters = mediaElement.TryGetProperty("chapters", out var chaptersElement) && chaptersElement.ValueKind == JsonValueKind.Number
+                ? chaptersElement.GetInt32()
+                : (int?)null;
+
+            AniListMediaListStatus? status = null;
+            int? progress = null;
+            double? score = null;
+            DateTimeOffset? updatedAt = null;
+            int? entryId = null;
+            if (mediaElement.TryGetProperty("mediaListEntry", out var entryElement) && entryElement.ValueKind == JsonValueKind.Object)
+            {
+                entryId = entryElement.TryGetProperty("id", out var idElement) ? idElement.GetInt32() : (int?)null;
+                status = AniListFormatting.FromApiValue(entryElement.TryGetProperty("status", out var statusElement) ? statusElement.GetString() : null);
+                if (entryElement.TryGetProperty("progress", out var progressElement) && progressElement.ValueKind == JsonValueKind.Number)
+                {
+                    var progressValue = progressElement.GetInt32();
+                    if (progressValue > 0)
+                    {
+                        progress = progressValue;
+                    }
+                }
+
+                if (entryElement.TryGetProperty("score", out var scoreElement) && scoreElement.ValueKind == JsonValueKind.Number)
+                {
+                    var scoreValue = scoreElement.GetDouble();
+                    if (scoreValue > 0)
+                    {
+                        score = scoreValue;
+                    }
+                }
+
+                if (entryElement.TryGetProperty("updatedAt", out var updatedElement) && updatedElement.ValueKind == JsonValueKind.Number)
+                {
+                    var seconds = updatedElement.GetInt64();
+                    if (seconds > 0)
+                    {
+                        updatedAt = DateTimeOffset.FromUnixTimeSeconds(seconds);
+                    }
+                }
+            }
+
+            return new AniListTrackingInfo(
+                mediaId,
+                title,
+                cover,
+                status,
+                progress,
+                score,
+                chapters,
+                siteUrl,
+                updatedAt,
+                entryId);
+        }
+
+        private static string ResolveTitle(JsonElement titleElement, string fallbackTitle)
+        {
+            if (titleElement.ValueKind != JsonValueKind.Object)
+            {
+                return fallbackTitle;
+            }
+
+            var english = titleElement.TryGetProperty("english", out var englishElement) ? englishElement.GetString() : null;
+            if (!string.IsNullOrWhiteSpace(english))
+            {
+                return english!;
+            }
+
+            var romaji = titleElement.TryGetProperty("romaji", out var romajiElement) ? romajiElement.GetString() : null;
+            if (!string.IsNullOrWhiteSpace(romaji))
+            {
+                return romaji!;
+            }
+
+            var nativeTitle = titleElement.TryGetProperty("native", out var nativeElement) ? nativeElement.GetString() : null;
+            if (!string.IsNullOrWhiteSpace(nativeTitle))
+            {
+                return nativeTitle!;
+            }
+
+            return fallbackTitle;
+        }
+
 
         private sealed record GraphQlRequest(string query, object variables);
     }

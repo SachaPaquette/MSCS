@@ -5,18 +5,19 @@ using MSCS.Interfaces;
 using MSCS.Models;
 using MSCS.Services;
 using MSCS.ViewModels;
-using System.Windows.Media;
 using MSCS.Views;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace MSCS.ViewModels
@@ -255,8 +256,7 @@ namespace MSCS.ViewModels
             {
                 if (SetProperty(ref _trackingInfo, value))
                 {
-                    OnPropertyChanged(nameof(IsAniListTracked));
-                    OnPropertyChanged(nameof(AniListButtonText));
+                    NotifyAniListProperties();
                 }
             }
         }
@@ -265,6 +265,8 @@ namespace MSCS.ViewModels
         public ICommand GoHomeCommand { get; private set; } = new RelayCommand(_ => { }, _ => false);
         public ICommand NextChapterCommand { get; private set; } = new AsyncRelayCommand(_ => Task.CompletedTask, _ => false);
         public ICommand AniListTrackCommand { get; private set; } = new RelayCommand(_ => { });
+        public ICommand AniListOpenInBrowserCommand { get; private set; } = new RelayCommand(_ => { }, _ => false);
+        public ICommand AniListRemoveTrackingCommand { get; private set; } = new AsyncRelayCommand(_ => Task.CompletedTask, _ => false);
         public ICommand IncreaseZoomCommand { get; private set; } = new RelayCommand(_ => { }, _ => false);
         public ICommand DecreaseZoomCommand { get; private set; } = new RelayCommand(_ => { }, _ => false);
         public ICommand ResetZoomCommand { get; private set; } = new RelayCommand(_ => { }, _ => false);
@@ -272,7 +274,32 @@ namespace MSCS.ViewModels
 
         public bool IsAniListAvailable => _aniListService != null;
         public bool IsAniListTracked => TrackingInfo != null;
-        public string AniListButtonText => IsAniListTracked ? "Tracked" : "Track";
+        public string AniListButtonText => IsAniListTracked ? "Manage" : "Track";
+        public string? AniListStatusDisplay => TrackingInfo?.StatusDisplay;
+        public string? AniListProgressDisplay
+        {
+            get
+            {
+                if (TrackingInfo?.Progress is null or <= 0)
+                {
+                    return null;
+                }
+
+                return TrackingInfo.TotalChapters.HasValue
+                    ? $"Progress {TrackingInfo.Progress}/{TrackingInfo.TotalChapters}"
+                    : $"Progress {TrackingInfo.Progress}";
+            }
+        }
+
+        public string? AniListScoreDisplay => TrackingInfo?.Score is > 0
+            ? string.Format(CultureInfo.CurrentCulture, "Score {0:0}", TrackingInfo.Score)
+            : null;
+
+        public string? AniListUpdatedDisplay => TrackingInfo?.UpdatedAt.HasValue == true
+            ? string.Format(CultureInfo.CurrentCulture, "Updated {0:g}", TrackingInfo.UpdatedAt.Value.ToLocalTime())
+            : null;
+
+        public bool CanOpenAniList => TrackingInfo != null && !string.IsNullOrWhiteSpace(TrackingInfo.SiteUrl);
 
         public ReaderViewModel()
         {
@@ -646,8 +673,13 @@ namespace MSCS.ViewModels
         private void InitializeAniListIntegration()
         {
             AniListTrackCommand = new AsyncRelayCommand(TrackWithAniListAsync, () => _aniListService != null);
+            AniListOpenInBrowserCommand = new RelayCommand(_ => OpenAniListInBrowser(), _ => CanOpenAniList);
+            AniListRemoveTrackingCommand = new AsyncRelayCommand(RemoveAniListTrackingAsync, () => _aniListService != null && TrackingInfo != null);
             OnPropertyChanged(nameof(AniListTrackCommand));
+            OnPropertyChanged(nameof(AniListOpenInBrowserCommand));
+            OnPropertyChanged(nameof(AniListRemoveTrackingCommand));
             OnPropertyChanged(nameof(IsAniListAvailable));
+
             if (_aniListService != null && !string.IsNullOrWhiteSpace(MangaTitle))
             {
                 WeakEventManager<IAniListService, EventArgs>.AddHandler(_aniListService, nameof(IAniListService.TrackingChanged), OnAniListTrackingChanged);
@@ -655,6 +687,16 @@ namespace MSCS.ViewModels
                 {
                     TrackingInfo = info;
                 }
+                else
+                {
+                    NotifyAniListProperties();
+                }
+
+                _ = RefreshAniListTrackingAsync();
+            }
+            else
+            {
+                NotifyAniListProperties();
             }
         }
 
@@ -670,7 +712,6 @@ namespace MSCS.ViewModels
                 TrackingInfo = info;
             }
         }
-
         private async Task TrackWithAniListAsync()
         {
             if (_aniListService == null)
@@ -691,7 +732,14 @@ namespace MSCS.ViewModels
                 return;
             }
 
-            var trackingViewModel = new AniListTrackingViewModel(_aniListService, MangaTitle, MangaTitle);
+            var suggestedProgress = GetProgressForChapter(SelectedChapter);
+            var initialQuery = TrackingInfo?.Title ?? MangaTitle;
+            var trackingViewModel = new AniListTrackingViewModel(
+                _aniListService,
+                MangaTitle,
+                initialQuery,
+                TrackingInfo,
+                suggestedProgress > 0 ? suggestedProgress : null);
             var dialog = new AniListTrackingWindow(trackingViewModel);
             if (System.Windows.Application.Current?.MainWindow != null)
             {
@@ -705,6 +753,92 @@ namespace MSCS.ViewModels
                 await UpdateAniListProgressAsync().ConfigureAwait(true);
             }
         }
+
+        private void OpenAniListInBrowser()
+        {
+            var url = TrackingInfo?.SiteUrl;
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                return;
+            }
+
+            try
+            {
+                Process.Start(new ProcessStartInfo(url)
+                {
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"Unable to open AniList: {ex.Message}", "AniList", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async Task RemoveAniListTrackingAsync()
+        {
+            if (_aniListService == null || TrackingInfo == null || string.IsNullOrWhiteSpace(MangaTitle))
+            {
+                return;
+            }
+
+            var confirmation = System.Windows.MessageBox.Show(
+                "Remove AniList tracking for this series?",
+                "AniList",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (confirmation != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            try
+            {
+                var removed = await _aniListService.UntrackSeriesAsync(MangaTitle).ConfigureAwait(true);
+                if (removed)
+                {
+                    TrackingInfo = null;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"Unable to remove AniList tracking: {ex.Message}", "AniList", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async Task RefreshAniListTrackingAsync()
+        {
+            if (_aniListService == null || string.IsNullOrWhiteSpace(MangaTitle))
+            {
+                return;
+            }
+
+            try
+            {
+                var refreshed = await _aniListService.RefreshTrackingAsync(MangaTitle).ConfigureAwait(true);
+                if (refreshed != null)
+                {
+                    TrackingInfo = refreshed;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to refresh AniList tracking: {ex.Message}");
+            }
+        }
+
+        private void NotifyAniListProperties()
+        {
+            OnPropertyChanged(nameof(IsAniListTracked));
+            OnPropertyChanged(nameof(AniListButtonText));
+            OnPropertyChanged(nameof(AniListStatusDisplay));
+            OnPropertyChanged(nameof(AniListProgressDisplay));
+            OnPropertyChanged(nameof(AniListScoreDisplay));
+            OnPropertyChanged(nameof(AniListUpdatedDisplay));
+            OnPropertyChanged(nameof(CanOpenAniList));
+            CommandManager.InvalidateRequerySuggested();
+        }
+
 
         private async Task UpdateAniListProgressAsync()
         {

@@ -1,9 +1,10 @@
-﻿using System;
+﻿using MSCS.Helpers;
+using MSCS.Models;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using MSCS.Models;
 
 namespace MSCS.Services
 {
@@ -100,7 +101,18 @@ namespace MSCS.Services
             if (_data.AniListTrackedSeries != null &&
                 _data.AniListTrackedSeries.TryGetValue(mangaTitle, out var stored))
             {
-                trackingInfo = new AniListTrackingInfo(stored.MediaId, stored.Title ?? mangaTitle, stored.CoverImageUrl);
+                var status = AniListFormatting.FromApiValue(stored.Status);
+                trackingInfo = new AniListTrackingInfo(
+                    stored.MediaId,
+                    stored.Title ?? mangaTitle,
+                    stored.CoverImageUrl,
+                    status,
+                    stored.Progress,
+                    stored.Score,
+                    stored.TotalChapters,
+                    stored.SiteUrl,
+                    stored.UpdatedAt,
+                    stored.MediaListEntryId);
                 return true;
             }
 
@@ -118,7 +130,14 @@ namespace MSCS.Services
             {
                 MediaId = info.MediaId,
                 Title = info.Title,
-                CoverImageUrl = info.CoverImageUrl
+                CoverImageUrl = info.CoverImageUrl,
+                Status = info.Status?.ToApiValue(),
+                Progress = info.Progress,
+                Score = info.Score,
+                TotalChapters = info.TotalChapters,
+                SiteUrl = info.SiteUrl,
+                UpdatedAt = info.UpdatedAt,
+                MediaListEntryId = info.MediaListEntryId
             };
 
             SaveInternal();
@@ -290,7 +309,15 @@ namespace MSCS.Services
             public int MediaId { get; set; }
             public string? Title { get; set; }
             public string? CoverImageUrl { get; set; }
+            public string? Status { get; set; }
+            public int? Progress { get; set; }
+            public double? Score { get; set; }
+            public int? TotalChapters { get; set; }
+            public string? SiteUrl { get; set; }
+            public DateTimeOffset? UpdatedAt { get; set; }
+            public int? MediaListEntryId { get; set; }
         }
+
 
         private class ReadingProgressData
         {

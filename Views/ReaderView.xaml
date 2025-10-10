@@ -282,6 +282,7 @@
                         </ComboBox>
                     </StackPanel>
 
+
                     <!-- Manga info + tracking -->
                     <Grid Grid.Row="4">
                         <Grid.ColumnDefinitions>
@@ -297,13 +298,42 @@
                                        Foreground="#8F9BB4"
                                        FontSize="12"
                                        TextTrimming="CharacterEllipsis" />
+                            <StackPanel Orientation="Vertical"
+                                        Margin="0,6,0,0"
+                                        Visibility="{Binding IsAniListTracked, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <TextBlock Text="{Binding AniListStatusDisplay}"
+                                           Foreground="#8F9BB4"
+                                           FontSize="12" />
+                                <TextBlock Text="{Binding AniListProgressDisplay}"
+                                           Foreground="#8F9BB4"
+                                           FontSize="12" />
+                                <TextBlock Text="{Binding AniListScoreDisplay}"
+                                           Foreground="#8F9BB4"
+                                           FontSize="12" />
+                                <TextBlock Text="{Binding AniListUpdatedDisplay}"
+                                           Foreground="#60708E"
+                                           FontSize="11" />
+                            </StackPanel>
                         </StackPanel>
-                        <Button Grid.Column="1"
-                                Content="{Binding AniListButtonText}"
-                                Style="{StaticResource AccentButton}"
-                                Command="{Binding AniListTrackCommand}"
-                                Visibility="{Binding IsAniListAvailable, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                ToolTip="Track this series on AniList" />
+                        <StackPanel Grid.Column="1"
+                                    Orientation="Vertical"
+                                    HorizontalAlignment="Right"
+                                    Visibility="{Binding IsAniListAvailable, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <Button Content="{Binding AniListButtonText}"
+                                    Style="{StaticResource AccentButton}"
+                                    Command="{Binding AniListTrackCommand}"
+                                    ToolTip="Manage AniList tracking" />
+                            <Button Content="Open AniList"
+                                    Margin="0,6,0,0"
+                                    Command="{Binding AniListOpenInBrowserCommand}"
+                                    Visibility="{Binding IsAniListTracked, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    ToolTip="Open this series on AniList" />
+                            <Button Content="Remove"
+                                    Margin="0,6,0,0"
+                                    Command="{Binding AniListRemoveTrackingCommand}"
+                                    Visibility="{Binding IsAniListTracked, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    ToolTip="Remove AniList tracking" />
+                        </StackPanel>
                     </Grid>
 
                     <!-- Chapter list -->

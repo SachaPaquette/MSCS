@@ -1,4 +1,9 @@
-﻿namespace MSCS.Models
+﻿using System;
+using System.Globalization;
+using MSCS.Enums;
+using MSCS.Helpers;
+
+namespace MSCS.Models
 {
     public class AniListMedia
     {
@@ -11,9 +16,28 @@
             : !string.IsNullOrWhiteSpace(RomajiTitle)
                 ? RomajiTitle!
                 : NativeTitle ?? string.Empty;
+
         public string? Status { get; init; }
         public string? CoverImageUrl { get; init; }
         public string? BannerImageUrl { get; init; }
         public string? StartDateText { get; init; }
+        public string? Format { get; init; }
+        public int? Chapters { get; init; }
+        public string? SiteUrl { get; init; }
+        public double? AverageScore { get; init; }
+        public double? MeanScore { get; init; }
+
+        public AniListMediaListStatus? UserStatus { get; init; }
+        public int? UserProgress { get; init; }
+        public double? UserScore { get; init; }
+        public DateTimeOffset? UserUpdatedAt { get; init; }
+
+        public string? FormatDisplay => AniListFormatting.ToDisplayTitle(Format);
+        public string? AverageScoreDisplay => AverageScore.HasValue
+            ? string.Format(CultureInfo.CurrentCulture, "{0:0}", AverageScore.Value)
+            : null;
+        public string? MeanScoreDisplay => MeanScore.HasValue
+            ? string.Format(CultureInfo.CurrentCulture, "{0:0}", MeanScore.Value)
+            : null;
     }
 }
