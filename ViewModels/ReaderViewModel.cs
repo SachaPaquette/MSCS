@@ -86,28 +86,6 @@ namespace MSCS.ViewModels
             set => SetProperty(ref _maxPageWidth, Math.Max(400, value));
         }
 
-        private ReaderLayoutMode _layoutMode = ReaderLayoutMode.VerticalScroll;
-        public ReaderLayoutMode LayoutMode
-        {
-            get => _layoutMode;
-            set
-            {
-                if (SetProperty(ref _layoutMode, value))
-                {
-                    OnPropertyChanged(nameof(IsHorizontalLayout));
-                }
-            }
-        }
-
-        public bool IsHorizontalLayout => LayoutMode == ReaderLayoutMode.HorizontalScroll;
-
-        private bool _isRightToLeft;
-        public bool IsRightToLeft
-        {
-            get => _isRightToLeft;
-            set => SetProperty(ref _isRightToLeft, value);
-        }
-
         private ReaderTheme _theme = ReaderTheme.Midnight;
         public ReaderTheme Theme
         {
@@ -253,8 +231,6 @@ namespace MSCS.ViewModels
         public ICommand IncreaseZoomCommand { get; private set; } = new RelayCommand(_ => { }, _ => false);
         public ICommand DecreaseZoomCommand { get; private set; } = new RelayCommand(_ => { }, _ => false);
         public ICommand ResetZoomCommand { get; private set; } = new RelayCommand(_ => { }, _ => false);
-        public ICommand ToggleRightToLeftCommand { get; private set; } = new RelayCommand(_ => { });
-        public ICommand SetLayoutModeCommand { get; private set; } = new RelayCommand(_ => { });
         public ICommand SetThemeCommand { get; private set; } = new RelayCommand(_ => { });
 
         public bool IsAniListAvailable => _aniListService != null;
@@ -530,18 +506,7 @@ namespace MSCS.ViewModels
                 WidthFactor = Constants.DefaultWidthFactor;
                 MaxPageWidth = Constants.DefaultMaxPageWidth;
             });
-            ToggleRightToLeftCommand = new RelayCommand(_ => IsRightToLeft = !IsRightToLeft);
-            SetLayoutModeCommand = new RelayCommand(param =>
-            {
-                if (param is ReaderLayoutMode layout)
-                {
-                    LayoutMode = layout;
-                }
-                else if (param is string str && Enum.TryParse(str, out ReaderLayoutMode parsed))
-                {
-                    LayoutMode = parsed;
-                }
-            });
+
             SetThemeCommand = new RelayCommand(param =>
             {
                 if (param is ReaderTheme theme)
@@ -557,8 +522,6 @@ namespace MSCS.ViewModels
             OnPropertyChanged(nameof(IncreaseZoomCommand));
             OnPropertyChanged(nameof(DecreaseZoomCommand));
             OnPropertyChanged(nameof(ResetZoomCommand));
-            OnPropertyChanged(nameof(ToggleRightToLeftCommand));
-            OnPropertyChanged(nameof(SetLayoutModeCommand));
             OnPropertyChanged(nameof(SetThemeCommand));
         }
 

@@ -20,18 +20,10 @@
 
             <conv:ViewportFractionConverter x:Key="ViewportFraction"/>
             <conv:BooleanOrConverter x:Key="BooleanOr"/>
-            <conv:BooleanToFlowDirectionConverter x:Key="BooleanToFlowDirectionConverter"/>
 
             <ItemsPanelTemplate x:Key="VerticalPanelTemplate">
                 <VirtualizingStackPanel Orientation="Vertical"/>
             </ItemsPanelTemplate>
-            <ItemsPanelTemplate x:Key="HorizontalPanelTemplate">
-                <VirtualizingStackPanel Orientation="Horizontal"/>
-            </ItemsPanelTemplate>
-            <ItemsPanelTemplate x:Key="TwoPagePanelTemplate">
-                <WrapPanel Orientation="Horizontal"/>
-            </ItemsPanelTemplate>
-
 
             <Style x:Key="AccentButton" TargetType="Button">
                 <Setter Property="Background" Value="#7C9CFF" />
@@ -78,16 +70,6 @@
                 <Style TargetType="ScrollViewer">
                     <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
                     <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding LayoutMode}" Value="{x:Static enums:ReaderLayoutMode.HorizontalScroll}">
-                            <Setter Property="HorizontalScrollBarVisibility" Value="Auto"/>
-                            <Setter Property="VerticalScrollBarVisibility" Value="Disabled"/>
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding LayoutMode}" Value="{x:Static enums:ReaderLayoutMode.TwoPageSpread}">
-                            <Setter Property="HorizontalScrollBarVisibility" Value="Auto"/>
-                            <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
-                        </DataTrigger>
-                    </Style.Triggers>
                 </Style>
             </ScrollViewer.Style>
             <ItemsControl ItemsSource="{Binding ImageUrls}"
@@ -95,20 +77,10 @@
                           VirtualizingPanel.IsVirtualizing="True"
                           VirtualizingPanel.VirtualizationMode="Recycling"
                           VirtualizingPanel.CacheLength="1">
-                VirtualizingPanel.CacheLength="1"
-                          FlowDirection="{Binding IsRightToLeft, Converter={StaticResource BooleanToFlowDirectionConverter}}">
                 <ItemsControl.Style>
                     <Style TargetType="ItemsControl">
                         <Setter Property="ItemsPanel" Value="{StaticResource VerticalPanelTemplate}"/>
                         <Setter Property="Margin" Value="0"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding LayoutMode}" Value="{x:Static enums:ReaderLayoutMode.HorizontalScroll}">
-                                <Setter Property="ItemsPanel" Value="{StaticResource HorizontalPanelTemplate}"/>
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding LayoutMode}" Value="{x:Static enums:ReaderLayoutMode.TwoPageSpread}">
-                                <Setter Property="ItemsPanel" Value="{StaticResource TwoPagePanelTemplate}"/>
-                            </DataTrigger>
-                        </Style.Triggers>
                     </Style>
                 </ItemsControl.Style>
                 <ItemsControl.ItemContainerStyle>
@@ -132,7 +104,6 @@
                                     <Binding ElementName="ScrollView" Path="ViewportWidth"/>
                                     <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.WidthFactor"/>
                                     <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.MaxPageWidth"/>
-                                    <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.LayoutMode"/>
                                 </MultiBinding>
                             </Image.Width>
                         </Image>
@@ -274,23 +245,6 @@
                         <TextBlock Text="Reader preferences"
                                    FontWeight="SemiBold"
                                    Foreground="#E9EEF7"/>
-                        <TextBlock Text="Layout"
-                                   Margin="0,8,0,0"
-                                   Foreground="#8F9BB4"
-                                   FontSize="12"/>
-                        <ComboBox SelectedValue="{Binding LayoutMode}"
-                                  SelectedValuePath="Tag"
-                                  Margin="0,2,0,0"
-                                  ToolTip="Choose how pages are arranged">
-                            <ComboBoxItem Content="Vertical scroll" Tag="{x:Static enums:ReaderLayoutMode.VerticalScroll}"/>
-                            <ComboBoxItem Content="Horizontal scroll" Tag="{x:Static enums:ReaderLayoutMode.HorizontalScroll}"/>
-                            <ComboBoxItem Content="Two-page spread" Tag="{x:Static enums:ReaderLayoutMode.TwoPageSpread}"/>
-                        </ComboBox>
-                        <CheckBox Content="Right-to-left navigation"
-                                  Margin="0,6,0,0"
-                                  Foreground="#E9EEF7"
-                                  IsChecked="{Binding IsRightToLeft}"
-                                  ToolTip="Mirror the reading direction for horizontal mode"/>
                         <TextBlock Text="Zoom"
                                    Margin="0,10,0,0"
                                    Foreground="#8F9BB4"

@@ -29,47 +29,19 @@ namespace MSCS.Views
             var readerViewModel = ViewModel;
             if (readerViewModel != null)
             {
-                if (readerViewModel.LayoutMode == ReaderLayoutMode.HorizontalScroll)
-                {
-                    readerViewModel.UpdateScrollPosition(
-                        scrollViewer.HorizontalOffset,
-                        scrollViewer.ExtentWidth,
-                        scrollViewer.ViewportWidth);
-                }
-                else
-                {
-                    readerViewModel.UpdateScrollPosition(
-                        scrollViewer.VerticalOffset,
-                        scrollViewer.ExtentHeight,
-                        scrollViewer.ViewportHeight);
-                }
+                readerViewModel.UpdateScrollPosition(
+                    scrollViewer.VerticalOffset,
+                    scrollViewer.ExtentHeight,
+                    scrollViewer.ViewportHeight);
             }
 
             TryApplyPendingScroll();
 
             if (readerViewModel != null)
             {
-                bool shouldLoadMore = false;
-                if (readerViewModel.LayoutMode == ReaderLayoutMode.HorizontalScroll)
-                {
-                    if (e.HorizontalChange > 0 &&
-                        scrollViewer.HorizontalOffset > 0 &&
-                        scrollViewer.HorizontalOffset + scrollViewer.ViewportWidth >= scrollViewer.ExtentWidth - 100)
-                    {
-                        shouldLoadMore = true;
-                    }
-                }
-                else
-                {
-                    if (e.VerticalChange > 0 &&
-                        scrollViewer.VerticalOffset > 0 &&
-                        scrollViewer.VerticalOffset + scrollViewer.ViewportHeight >= scrollViewer.ExtentHeight - 100)
-                    {
-                        shouldLoadMore = true;
-                    }
-                }
-
-                if (shouldLoadMore)
+                const double threshold = 100;
+                double distanceToBottom = Math.Max(0, scrollViewer.ScrollableHeight - scrollViewer.VerticalOffset);
+                if (distanceToBottom <= threshold)
                 {
                     await readerViewModel.LoadMoreImagesAsync();
                     if (readerViewModel.RemainingImages == 0)
@@ -86,60 +58,32 @@ namespace MSCS.Views
                 return;
             }
 
-            var vm = ViewModel;
             var pos = e.GetPosition(ScrollView);
             var duration = TimeSpan.FromMilliseconds(Constants.DefaultSmoothScrollDuration);
-
-            if (vm.LayoutMode == ReaderLayoutMode.HorizontalScroll)
+            double displayedHeight = ScrollView.ViewportHeight > 0 ? ScrollView.ViewportHeight : ScrollView.ActualHeight;
+            if (displayedHeight <= 0)
             {
-                double displayedWidth = ScrollView.ViewportWidth > 0 ? ScrollView.ViewportWidth : ScrollView.ActualWidth;
-                if (displayedWidth <= 0)
-                {
-                    displayedWidth = 1;
-                }
+                displayedHeight = 1;
+            }
 
-                double clickFraction = pos.X / displayedWidth;
-                double scrollAmount = ScrollView.ViewportWidth * Constants.DefaultSmoothScrollPageFraction;
-                if (scrollAmount <= 0)
-                {
-                    scrollAmount = ScrollView.ActualWidth * Constants.DefaultSmoothScrollPageFraction;
-                }
+            double clickFraction = pos.Y / displayedHeight;
+            double scrollAmount = ScrollView.ViewportHeight * Constants.DefaultSmoothScrollPageFraction;
+            if (scrollAmount <= 0)
+            {
+                scrollAmount = ScrollView.ActualHeight * Constants.DefaultSmoothScrollPageFraction;
+            }
 
-                bool goBackward = clickFraction < 0.33;
-                double delta = goBackward
-                    ? (vm.IsRightToLeft ? scrollAmount : -scrollAmount)
-                    : (vm.IsRightToLeft ? -scrollAmount : scrollAmount);
-
-                SmoothScroll.ByHorizontal(ScrollView, delta, duration);
+            if (clickFraction < 0.33)
+            {
+                SmoothScroll.By(ScrollView, -scrollAmount, duration);
             }
             else
             {
-                double displayedHeight = ScrollView.ViewportHeight > 0 ? ScrollView.ViewportHeight : ScrollView.ActualHeight;
-                if (displayedHeight <= 0)
-                {
-                    displayedHeight = 1;
-                }
-
-                double clickFraction = pos.Y / displayedHeight;
-                double scrollAmount = ScrollView.ViewportHeight * Constants.DefaultSmoothScrollPageFraction;
-                if (scrollAmount <= 0)
-                {
-                    scrollAmount = ScrollView.ActualHeight * Constants.DefaultSmoothScrollPageFraction;
-                }
-
-                if (clickFraction < 0.33)
-                {
-                    SmoothScroll.By(ScrollView, -scrollAmount, duration);
-                }
-                else
-                {
-                    SmoothScroll.By(ScrollView, scrollAmount, duration);
-                }
+                SmoothScroll.By(ScrollView, scrollAmount, duration);
             }
 
             e.Handled = true;
         }
-
 
         private void Image_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
@@ -151,12 +95,6 @@ namespace MSCS.Views
         {
             await vm.GoToNextChapterAsync();
             ScrollView.ScrollToTop();
-            if (ScrollView != null && vm.LayoutMode == ReaderLayoutMode.HorizontalScroll)
-            {
-                ScrollView.UpdateLayout();
-                var target = vm.IsRightToLeft ? ScrollView.ScrollableWidth : 0;
-                ScrollView.ScrollToHorizontalOffset(Math.Max(0, target));
-            }
         }
 
         private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -184,13 +122,6 @@ namespace MSCS.Views
             ScrollView.Dispatcher.InvokeAsync(() =>
             {
                 ScrollView.ScrollToTop();
-                var vm = ViewModel;
-                if (vm != null && vm.LayoutMode == ReaderLayoutMode.HorizontalScroll)
-                {
-                    ScrollView.UpdateLayout();
-                    var target = vm.IsRightToLeft ? ScrollView.ScrollableWidth : 0;
-                    ScrollView.ScrollToHorizontalOffset(Math.Max(0, target));
-                }
             }, System.Windows.Threading.DispatcherPriority.Background);
         }
 
@@ -220,9 +151,8 @@ namespace MSCS.Views
 
             ScrollView.UpdateLayout();
             var vm = ViewModel;
-            var isHorizontal = vm?.LayoutMode == ReaderLayoutMode.HorizontalScroll;
-            var extent = isHorizontal ? ScrollView.ExtentWidth : ScrollView.ExtentHeight;
-            var viewport = isHorizontal ? ScrollView.ViewportWidth : ScrollView.ViewportHeight;
+            var extent = ScrollView.ExtentHeight;
+            var viewport = ScrollView.ViewportHeight;
             if (extent <= 0 || viewport <= 0)
             {
                 return;
@@ -243,19 +173,12 @@ namespace MSCS.Views
             {
                 targetOffset = Math.Clamp(_pendingScrollProgress!.Value * scrollableLength, 0, scrollableLength);
             }
-            if (isHorizontal)
-            {
-                ScrollView.ScrollToHorizontalOffset(targetOffset);
-            }
-            else
-            {
-                ScrollView.ScrollToVerticalOffset(targetOffset);
-            }
+            ScrollView.ScrollToVerticalOffset(targetOffset);
 
-            var currentOffset = isHorizontal ? ScrollView.HorizontalOffset : ScrollView.VerticalOffset;
+            var currentOffset = ScrollView.VerticalOffset;
             var currentProgress = scrollableLength > 0 ? currentOffset / scrollableLength : 0;
             var offsetMatch = _pendingScrollOffset.HasValue
-                ? Math.Abs(currentOffset - _pendingScrollOffset.Value) <= Math.Max(1.0, (isHorizontal ? ScrollView.ViewportWidth : ScrollView.ViewportHeight) * 0.01)
+                ? Math.Abs(currentOffset - _pendingScrollOffset.Value) <= Math.Max(1.0, ScrollView.ViewportHeight * 0.01)
                 : false;
             var progressMatch = _pendingScrollProgress.HasValue
                 ? Math.Abs(currentProgress - _pendingScrollProgress.Value) <= 0.01
@@ -292,12 +215,10 @@ namespace MSCS.Views
                 return;
             }
 
-            var vm = ViewModel;
-            bool isHorizontal = vm.LayoutMode == ReaderLayoutMode.HorizontalScroll;
-            double viewport = isHorizontal ? ScrollView.ViewportWidth : ScrollView.ViewportHeight;
+            double viewport = ScrollView.ViewportHeight;
             if (viewport <= 0)
             {
-                viewport = isHorizontal ? ScrollView.ActualWidth : ScrollView.ActualHeight;
+                viewport = ScrollView.ActualHeight;
             }
 
             double amount = viewport * Constants.DefaultSmoothScrollPageFraction;
@@ -305,28 +226,12 @@ namespace MSCS.Views
 
             void ScrollForward()
             {
-                if (isHorizontal)
-                {
-                    var delta = vm.IsRightToLeft ? -amount : amount;
-                    SmoothScroll.ByHorizontal(ScrollView, delta, duration);
-                }
-                else
-                {
-                    SmoothScroll.By(ScrollView, amount, duration);
-                }
+                SmoothScroll.By(ScrollView, amount, duration);
             }
 
             void ScrollBackward()
             {
-                if (isHorizontal)
-                {
-                    var delta = vm.IsRightToLeft ? amount : -amount;
-                    SmoothScroll.ByHorizontal(ScrollView, delta, duration);
-                }
-                else
-                {
-                    SmoothScroll.By(ScrollView, -amount, duration);
-                }
+                SmoothScroll.By(ScrollView, -amount, duration);
             }
 
             switch (e.Key)
@@ -344,54 +249,20 @@ namespace MSCS.Views
                     break;
                 case Key.PageDown:
                 case Key.Down:
-                    if (!isHorizontal)
-                    {
-                        ScrollForward();
-                        e.Handled = true;
-                    }
+                    ScrollForward();
+                    e.Handled = true;
                     break;
                 case Key.PageUp:
                 case Key.Up:
-                    if (!isHorizontal)
-                    {
-                        ScrollBackward();
-                        e.Handled = true;
-                    }
+                    ScrollBackward();
+                    e.Handled = true;
                     break;
                 case Key.Right:
-                    if (isHorizontal)
-                    {
-                        if (vm.IsRightToLeft)
-                        {
-                            ScrollBackward();
-                        }
-                        else
-                        {
-                            ScrollForward();
-                        }
-                    }
-                    else
-                    {
-                        ScrollForward();
-                    }
+                    ScrollForward();
                     e.Handled = true;
                     break;
                 case Key.Left:
-                    if (isHorizontal)
-                    {
-                        if (vm.IsRightToLeft)
-                        {
-                            ScrollForward();
-                        }
-                        else
-                        {
-                            ScrollBackward();
-                        }
-                    }
-                    else
-                    {
-                        ScrollBackward();
-                    }
+                    ScrollBackward();
                     e.Handled = true;
                     break;
             }
