@@ -95,7 +95,8 @@ namespace MSCS.ViewModels
             get => _widthFactor;
             set
             {
-                if (SetProperty(ref _widthFactor, Math.Clamp(value, 0.3, 1.0)))
+                var normalized = NormalizeWidthFactor(value);
+                if (SetProperty(ref _widthFactor, normalized))
                 {
                     OnPropertyChanged(nameof(ZoomPercent));
                     if (!_isApplyingProfile)
@@ -105,6 +106,17 @@ namespace MSCS.ViewModels
                 }
             }
         }
+
+        private static double NormalizeWidthFactor(double value)
+        {
+            if (!double.IsFinite(value))
+            {
+                return Constants.DefaultWidthFactor;
+            }
+
+            return Math.Clamp(value, 0.3, 1.0);
+        }
+
 
         private double _maxPageWidth = Constants.DefaultMaxPageWidth;
         public double MaxPageWidth
@@ -153,7 +165,14 @@ namespace MSCS.ViewModels
             _ => MidnightSurface
         };
 
-        public double ZoomPercent => Math.Round(WidthFactor * 100);
+        public double ZoomPercent
+        {
+            get
+            {
+                var factor = double.IsFinite(_widthFactor) ? _widthFactor : Constants.DefaultWidthFactor;
+                return Math.Round(factor * 100);
+            }
+        }
         public double ScrollPageFraction
         {
             get => _scrollPageFraction;

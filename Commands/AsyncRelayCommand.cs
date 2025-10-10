@@ -58,6 +58,10 @@ namespace MSCS.Commands
                 RaiseCanExecuteChanged();
                 await _executeAsync(parameter).ConfigureAwait(true);
             }
+            catch (OperationCanceledException)
+            {
+                // Ignore cancellations to avoid surfacing benign exceptions to the UI thread.
+            }
             finally
             {
                 _isExecuting = false;
