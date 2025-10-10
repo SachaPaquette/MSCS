@@ -249,7 +249,10 @@ namespace MSCS.Services
 
                 foreach (var directory in SafeEnumerateDirectories(rootInfo))
                 {
-                    ct.ThrowIfCancellationRequested();
+                    if (ct.IsCancellationRequested)
+                    {
+                        return FinalizeResults(results);
+                    }
 
                     if (ContainsChapterContent(directory))
                     {
@@ -259,7 +262,11 @@ namespace MSCS.Services
 
                     foreach (var subDirectory in SafeEnumerateDirectories(directory))
                     {
-                        ct.ThrowIfCancellationRequested();
+                        if (ct.IsCancellationRequested)
+                        {
+                            return FinalizeResults(results);
+                        }
+
                         if (ContainsChapterContent(subDirectory))
                         {
                             results.Add(CreateEntry(subDirectory));
@@ -272,19 +279,25 @@ namespace MSCS.Services
                     results.Add(CreateEntry(rootInfo));
                 }
 
-                return results
-                    .OrderBy(entry => entry.Title, StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
+                return FinalizeResults(results);
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Failed to enumerate local manga entries: {ex.Message}");
                 return Array.Empty<LocalMangaEntry>();
             }
+        }
+
+        private static IReadOnlyList<LocalMangaEntry> FinalizeResults(List<LocalMangaEntry> results)
+        {
+            if (results.Count == 0)
+            {
+                return Array.Empty<LocalMangaEntry>();
+            }
+
+            return results
+                .OrderBy(entry => entry.Title, StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
 
         private IReadOnlyList<Chapter> GetChaptersInternal(string mangaPath, CancellationToken ct)

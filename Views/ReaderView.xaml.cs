@@ -2,6 +2,7 @@
 using MSCS.Helpers;
 using MSCS.ViewModels;
 using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -43,14 +44,22 @@ namespace MSCS.Views
                 double distanceToBottom = Math.Max(0, scrollViewer.ScrollableHeight - scrollViewer.VerticalOffset);
                 if (distanceToBottom <= threshold)
                 {
-                    await readerViewModel.LoadMoreImagesAsync();
-                    if (readerViewModel.RemainingImages == 0)
+                    try
                     {
-                        await GoToNextChapter(readerViewModel);
+                        await readerViewModel.LoadMoreImagesAsync();
+                        if (readerViewModel.RemainingImages == 0)
+                        {
+                            await GoToNextChapter(readerViewModel);
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        Debug.WriteLine("Image loading cancelled during scroll.");
                     }
                 }
             }
         }
+
         private void ScrollEventHandler(object sender, MouseButtonEventArgs e)
         {
             if (ScrollView == null || ViewModel == null || sender is not System.Windows.Controls.Image)
