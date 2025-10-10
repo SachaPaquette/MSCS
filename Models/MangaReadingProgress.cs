@@ -9,5 +9,6 @@ namespace MSCS.Models
         DateTimeOffset LastUpdatedUtc,
         string? MangaUrl = null,
         string? SourceKey = null,
-        string? CoverImageUrl = null);
+        double? ScrollOffset = null
+        );
 }

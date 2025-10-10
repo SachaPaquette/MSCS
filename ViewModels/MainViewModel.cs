@@ -221,7 +221,6 @@ namespace MSCS.ViewModels
             {
                 Title = e.MangaTitle ?? string.Empty,
                 Url = progress.MangaUrl!,
-                CoverImageUrl = progress.CoverImageUrl ?? string.Empty,
                 Description = string.Empty
             };
 

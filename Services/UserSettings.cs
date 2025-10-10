@@ -157,7 +157,7 @@ namespace MSCS.Services
                     stored.LastUpdatedUtc,
                     stored.MangaUrl,
                     stored.SourceKey,
-                    stored.CoverImageUrl);
+                    stored.ScrollOffset);
                 return true;
             }
 
@@ -179,7 +179,6 @@ namespace MSCS.Services
                 LastUpdatedUtc = progress.LastUpdatedUtc,
                 MangaUrl = string.IsNullOrWhiteSpace(progress.MangaUrl) ? null : progress.MangaUrl,
                 SourceKey = string.IsNullOrWhiteSpace(progress.SourceKey) ? null : progress.SourceKey,
-                CoverImageUrl = string.IsNullOrWhiteSpace(progress.CoverImageUrl) ? null : progress.CoverImageUrl
             };
 
             SaveInternal();
@@ -218,7 +217,7 @@ namespace MSCS.Services
                     stored.LastUpdatedUtc,
                     stored.MangaUrl,
                     stored.SourceKey,
-                    stored.CoverImageUrl);
+                    stored.ScrollOffset);
                 results.Add(new KeyValuePair<string, MangaReadingProgress>(entry.Key, record));
             }
 
@@ -299,6 +298,7 @@ namespace MSCS.Services
             public string? MangaUrl { get; set; }
             public string? SourceKey { get; set; }
             public string? CoverImageUrl { get; set; }
+            public double? ScrollOffset { get; internal set; }
         }
     }
 }

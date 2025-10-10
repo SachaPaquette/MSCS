@@ -1,7 +1,10 @@
-﻿using MSCS.ViewModels;
+﻿using MSCS.Helpers;
+using MSCS.ViewModels;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -10,17 +13,16 @@ using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
-using System.Windows.Media.Animation;
-using System.Reflection;
-using MSCS.Helpers;
 namespace MSCS.Views
 {
     public partial class ReaderView : System.Windows.Controls.UserControl
     {
         private double? _pendingScrollProgress;
+        private double? _pendingScrollOffset;
 
         public ReaderView()
         {
@@ -34,16 +36,10 @@ namespace MSCS.Views
                 return;
             if (DataContext is ReaderViewModel readerViewModel)
             {
-                double progress = 0;
-                if (scrollViewer.ExtentHeight > 0)
-                {
-                    progress = Math.Clamp(
-                        (scrollViewer.VerticalOffset + scrollViewer.ViewportHeight) / scrollViewer.ExtentHeight,
-                        0.0,
-                        1.0);
-                }
-
-                readerViewModel.ScrollProgress = progress;
+                readerViewModel.UpdateScrollPosition(
+                    scrollViewer.VerticalOffset,
+                    scrollViewer.ExtentHeight,
+                    scrollViewer.ViewportHeight);
             }
 
             TryApplyPendingScroll();
@@ -106,13 +102,13 @@ namespace MSCS.Views
             if (e.OldValue is ReaderViewModel oldViewModel)
             {
                 oldViewModel.ChapterChanged -= OnChapterChanged;
-                oldViewModel.ScrollToProgressRequested -= OnScrollToProgressRequested;
+                oldViewModel.ScrollRestoreRequested -= OnScrollRestoreRequested;
             }
 
             if (e.NewValue is ReaderViewModel newViewModel)
             {
                 newViewModel.ChapterChanged += OnChapterChanged;
-                newViewModel.ScrollToProgressRequested += OnScrollToProgressRequested;
+                newViewModel.ScrollRestoreRequested += OnScrollRestoreRequested;
             }
         }
 
@@ -129,14 +125,17 @@ namespace MSCS.Views
             }, System.Windows.Threading.DispatcherPriority.Background);
         }
 
-        private void OnScrollToProgressRequested(object? sender, double progress)
+        private void OnScrollRestoreRequested(object? sender, ScrollRestoreRequest request)
         {
             if (ScrollView == null)
             {
                 return;
             }
 
-            _pendingScrollProgress = Math.Clamp(progress, 0.0, 1.0);
+            _pendingScrollProgress = request.NormalizedProgress.HasValue
+                ? Math.Clamp(request.NormalizedProgress.Value, 0.0, 1.0)
+                : null;
+            _pendingScrollOffset = request.ScrollOffset;
             ScrollView.Dispatcher.InvokeAsync(() =>
             {
                 TryApplyPendingScroll();
@@ -145,7 +144,7 @@ namespace MSCS.Views
 
         private void TryApplyPendingScroll()
         {
-            if (ScrollView == null || !_pendingScrollProgress.HasValue)
+            if (ScrollView == null || (!_pendingScrollProgress.HasValue && !_pendingScrollOffset.HasValue))
             {
                 return;
             }
@@ -158,9 +157,44 @@ namespace MSCS.Views
                 return;
             }
 
-            var targetOffset = (_pendingScrollProgress.Value * extent) - viewport;
-            ScrollView.ScrollToVerticalOffset(Math.Max(0, targetOffset));
-            _pendingScrollProgress = null;
+            var scrollableHeight = Math.Max(extent - viewport, 0);
+            if (scrollableHeight <= 0 && ((_pendingScrollProgress.HasValue && _pendingScrollProgress.Value > 0) || (_pendingScrollOffset.HasValue && _pendingScrollOffset.Value > 0)))
+            {
+                return;
+            }
+
+            double targetOffset;
+            if (_pendingScrollOffset.HasValue)
+            {
+                targetOffset = Math.Clamp(_pendingScrollOffset.Value, 0, scrollableHeight);
+            }
+            else
+            {
+                targetOffset = Math.Clamp(_pendingScrollProgress!.Value * scrollableHeight, 0, scrollableHeight);
+            }
+            ScrollView.ScrollToVerticalOffset(targetOffset);
+
+            var currentOffset = ScrollView.VerticalOffset;
+            var currentProgress = scrollableHeight > 0 ? currentOffset / scrollableHeight : 0;
+            var offsetMatch = _pendingScrollOffset.HasValue
+                ? Math.Abs(currentOffset - _pendingScrollOffset.Value) <= Math.Max(1.0, ScrollView.ViewportHeight * 0.01)
+                : false;
+            var progressMatch = _pendingScrollProgress.HasValue
+                ? Math.Abs(currentProgress - _pendingScrollProgress.Value) <= 0.01
+                : false;
+            if (offsetMatch || progressMatch)
+            {
+                _pendingScrollProgress = null;
+                _pendingScrollOffset = null;
+                if (DataContext is ReaderViewModel readerViewModel)
+                {
+                    readerViewModel.NotifyScrollRestoreCompleted();
+                }
+            }
+            else
+            {
+                // Keep the pending progress so subsequent scroll/extent changes can retry.
+            }
         }
     }
 }

@@ -30,7 +30,7 @@ namespace MSCS.ViewModels
         private CancellationTokenSource _imageLoadCts = new();
         private bool _isChapterNavigationInProgress;
         public event EventHandler? ChapterChanged;
-        public event EventHandler<double>? ScrollToProgressRequested;
+        public event EventHandler<ScrollRestoreRequest>? ScrollRestoreRequested;
         private int _loadedCount;
         private int _currentChapterIndex;
         public int RemainingImages => _allImages.Count - _loadedCount;
@@ -39,10 +39,16 @@ namespace MSCS.ViewModels
         public double LoadingProgress => _allImages.Count == 0 ? 0d : (double)_loadedCount / _allImages.Count;
         private double _widthFactor = Constants.DefaultWidthFactor;
         private double _lastPersistedScrollProgress = double.NaN;
+        private double _lastPersistedScrollOffset = double.NaN;
         private DateTime _lastProgressSaveUtc = DateTime.MinValue;
         private bool _isRestoringProgress;
         private bool _hasRestoredInitialProgress;
         private MangaReadingProgress? _initialProgress;
+        private double? _pendingRestoreProgress;
+        private double? _pendingRestoreOffset;
+        private double _lastKnownScrollOffset;
+        private double _lastKnownExtentHeight;
+        private double _lastKnownViewportHeight;
         public double WidthFactor
         {
             get => _widthFactor;
@@ -56,23 +62,64 @@ namespace MSCS.ViewModels
             set => SetProperty(ref _maxPageWidth, Math.Max(400, value));
         }
         private double _scrollProgress;
-        public double ScrollProgress
-        {
-            get => _scrollProgress;
-            set
-            {
-                var clamped = Math.Clamp(value, 0.0, 1.0);
-                if (SetProperty(ref _scrollProgress, clamped) && !_isRestoringProgress)
-                {
-                    PersistReadingProgress();
-                }
-            }
-        }
+        public double ScrollProgress => _scrollProgress;
         private bool _isSidebarOpen;
         public bool IsSidebarOpen
         {
             get => _isSidebarOpen;
             set => SetProperty(ref _isSidebarOpen, value);
+        }
+
+        public void UpdateScrollPosition(double verticalOffset, double extentHeight, double viewportHeight)
+        {
+            var clampedExtent = double.IsNaN(extentHeight) ? 0 : Math.Max(extentHeight, 0);
+            var clampedViewport = double.IsNaN(viewportHeight) ? 0 : Math.Max(viewportHeight, 0);
+            var scrollableHeight = Math.Max(clampedExtent - clampedViewport, 0);
+            var maxOffset = scrollableHeight > 0 ? scrollableHeight : 0;
+            var clampedOffset = double.IsNaN(verticalOffset) ? 0 : Math.Clamp(verticalOffset, 0, maxOffset);
+            var progress = scrollableHeight > 0 ? Math.Clamp(clampedOffset / scrollableHeight, 0.0, 1.0) : 0.0;
+
+            _lastKnownScrollOffset = clampedOffset;
+            _lastKnownExtentHeight = clampedExtent;
+            _lastKnownViewportHeight = clampedViewport;
+
+            SetProperty(ref _scrollProgress, progress, nameof(ScrollProgress));
+
+            if (_isRestoringProgress)
+            {
+                if (!HasReachedRestoreTarget(clampedOffset, progress))
+                {
+                    return;
+                }
+
+                _isRestoringProgress = false;
+                _pendingRestoreProgress = null;
+                _pendingRestoreOffset = null;
+            }
+
+            PersistReadingProgress();
+        }
+
+        private bool HasReachedRestoreTarget(double currentOffset, double currentProgress)
+        {
+            if (_pendingRestoreOffset.HasValue)
+            {
+                var tolerance = Math.Max(1.0, _lastKnownViewportHeight * 0.01);
+                if (Math.Abs(currentOffset - _pendingRestoreOffset.Value) <= tolerance)
+                {
+                    return true;
+                }
+            }
+
+            if (_pendingRestoreProgress.HasValue)
+            {
+                if (Math.Abs(currentProgress - _pendingRestoreProgress.Value) <= 0.01)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private string _chapterTitle = string.Empty;
@@ -321,6 +368,8 @@ namespace MSCS.ViewModels
             _imageLoadCts.Cancel();
             _imageLoadCts.Dispose();
             _imageLoadCts = new CancellationTokenSource();
+            _pendingRestoreProgress = null;
+            _pendingRestoreOffset = null;
 
             var dispatcher = System.Windows.Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
 
@@ -329,7 +378,10 @@ namespace MSCS.ViewModels
                 _allImages.Clear();
                 ImageUrls.Clear();
                 _loadedCount = 0;
-                ScrollProgress = 0;
+                SetProperty(ref _scrollProgress, 0.0, nameof(ScrollProgress));
+                _lastKnownScrollOffset = 0;
+                _lastKnownExtentHeight = 0;
+                _lastKnownViewportHeight = 0;
                 foreach (var img in images)
                 {
                     _allImages.Add(img);
@@ -575,12 +627,16 @@ namespace MSCS.ViewModels
             }
 
             var normalizedProgress = Math.Clamp(_scrollProgress, 0.0, 1.0);
+            var currentOffset = _lastKnownScrollOffset;
             var now = DateTime.UtcNow;
             var difference = double.IsNaN(_lastPersistedScrollProgress)
                 ? double.MaxValue
                 : Math.Abs(normalizedProgress - _lastPersistedScrollProgress);
+            var offsetDifference = double.IsNaN(_lastPersistedScrollOffset)
+                ? double.MaxValue
+                : Math.Abs(currentOffset - _lastPersistedScrollOffset);
 
-            if (!force && difference < 0.02 && (now - _lastProgressSaveUtc) < TimeSpan.FromSeconds(2))
+            if (!force && difference < 0.02 && offsetDifference < 16 && (now - _lastProgressSaveUtc) < TimeSpan.FromSeconds(2))
             {
                 return;
             }
@@ -609,9 +665,10 @@ namespace MSCS.ViewModels
                 DateTimeOffset.UtcNow,
                 string.IsNullOrWhiteSpace(mangaUrl) ? null : mangaUrl,
                 string.IsNullOrWhiteSpace(sourceKey) ? null : sourceKey,
-                string.IsNullOrWhiteSpace(coverImageUrl) ? null : coverImageUrl);
+                currentOffset);
             _userSettings.SetReadingProgress(MangaTitle, progress);
             _lastPersistedScrollProgress = normalizedProgress;
+            _lastPersistedScrollOffset = currentOffset;
             _lastProgressSaveUtc = now;
         }
 
@@ -662,26 +719,101 @@ namespace MSCS.ViewModels
                         await TryMoveToChapterAsync(targetIndex).ConfigureAwait(false);
                     }
                 }
-
                 var clamped = Math.Clamp(progress.ScrollProgress, 0.0, 1.0);
-                _scrollProgress = clamped;
-                OnPropertyChanged(nameof(ScrollProgress));
+                _pendingRestoreProgress = clamped > 0 ? clamped : null;
+                _pendingRestoreOffset = progress.ScrollOffset.HasValue && progress.ScrollOffset.Value > 0
+                    ? Math.Max(0, progress.ScrollOffset.Value)
+                    : null;
+                SetProperty(ref _scrollProgress, clamped, nameof(ScrollProgress));
                 _lastPersistedScrollProgress = clamped;
-                RequestScrollRestore(clamped);
+                if (_pendingRestoreOffset.HasValue)
+                {
+                    _lastKnownScrollOffset = _pendingRestoreOffset.Value;
+                }
+
+                if (_pendingRestoreProgress.HasValue)
+                {
+                    await EnsureImagesLoadedForProgressAsync(_pendingRestoreProgress.Value).ConfigureAwait(false);
+                    RequestScrollRestore(_pendingRestoreProgress, _pendingRestoreOffset);
+                }
+                else
+                {
+                    if (_pendingRestoreOffset.HasValue)
+                    {
+                        RequestScrollRestore(null, _pendingRestoreOffset);
+                    }
+                    else
+                    {
+                        _isRestoringProgress = false;
+                    }
+                }
+
+                if (!_pendingRestoreProgress.HasValue && !_pendingRestoreOffset.HasValue)
+                {
+                    _isRestoringProgress = false;
+                }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Failed to restore reading progress: {ex.Message}");
+                _pendingRestoreProgress = null;
+                _pendingRestoreOffset = null;
             }
             finally
             {
-                _isRestoringProgress = false;
+                if (!_pendingRestoreProgress.HasValue && !_pendingRestoreOffset.HasValue)
+                {
+                    _isRestoringProgress = false;
+                }
             }
         }
 
-        private void RequestScrollRestore(double progress)
+        private void RequestScrollRestore(double? progress, double? offset)
         {
-            ScrollToProgressRequested?.Invoke(this, progress);
+            if (progress.HasValue || offset.HasValue)
+            {
+                ScrollRestoreRequested?.Invoke(this, new ScrollRestoreRequest(progress, offset));
+            }
         }
+
+        private async Task EnsureImagesLoadedForProgressAsync(double progress)
+        {
+            if (progress <= 0 || _allImages.Count == 0)
+            {
+                return;
+            }
+
+            var targetIndex = (int)Math.Clamp(Math.Ceiling(progress * _allImages.Count) - 1, 0, _allImages.Count - 1);
+            while (_loadedCount <= targetIndex && _loadedCount < _allImages.Count)
+            {
+                await LoadMoreImagesAsync().ConfigureAwait(false);
+            }
+        }
+
+        internal void NotifyScrollRestoreCompleted()
+        {
+            if (!_isRestoringProgress)
+            {
+                return;
+            }
+
+            _isRestoringProgress = false;
+            _pendingRestoreProgress = null;
+            _pendingRestoreOffset = null;
+            _lastProgressSaveUtc = DateTime.MinValue;
+        }
+    }
+
+    public sealed class ScrollRestoreRequest : EventArgs
+    {
+        public ScrollRestoreRequest(double? normalizedProgress, double? scrollOffset)
+        {
+            NormalizedProgress = normalizedProgress;
+            ScrollOffset = scrollOffset;
+        }
+
+        public double? NormalizedProgress { get; }
+
+        public double? ScrollOffset { get; }
     }
 }
