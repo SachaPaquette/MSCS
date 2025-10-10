@@ -1,13 +1,16 @@
-﻿using System;
+﻿using MSCS.Models;
+using PdfiumViewer;
+using SharpCompress.Archives;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing.Imaging;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Text;
-using MSCS.Models;
 
 namespace MSCS.Services
 {
@@ -25,8 +28,12 @@ namespace MSCS.Services
 
         private static readonly HashSet<string> ArchiveExtensions = new(StringComparer.OrdinalIgnoreCase)
         {
-            ".cbz"
+            ".cbz",
+            ".cbr",
+            ".cb7",
+            ".pdf"
         };
+
 
         private readonly UserSettings _settings;
         private bool _disposed;
@@ -389,22 +396,42 @@ namespace MSCS.Services
         {
             try
             {
+                var extension = Path.GetExtension(archivePath);
+                if (extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+                {
+                    return ExtractPdfImages(archivePath);
+                }
+
+                return ExtractCompressedArchiveImages(archivePath);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to extract images from '{archivePath}': {ex.Message}");
+                return Array.Empty<ChapterImage>();
+            }
+        }
+
+
+        private IReadOnlyList<ChapterImage> ExtractCompressedArchiveImages(string archivePath)
+        {
+            try
+            {
                 var images = new List<ChapterImage>();
                 var extractionRoot = EnsureExtractionDirectory(archivePath);
 
                 using var stream = File.OpenRead(archivePath);
-                using var archive = new ZipArchive(stream, ZipArchiveMode.Read);
+                using var archive = ArchiveFactory.Open(stream);
 
                 foreach (var entry in archive.Entries
-                             .Where(e => !string.IsNullOrEmpty(e.Name))
-                             .OrderBy(e => e.FullName, StringComparer.OrdinalIgnoreCase))
+                             .Where(e => !e.IsDirectory && !string.IsNullOrEmpty(e.Key))
+                             .OrderBy(e => e.Key, StringComparer.OrdinalIgnoreCase))
                 {
-                    if (!IsImageFile(entry.Name))
+                    if (!IsImageFile(entry.Key!))
                     {
                         continue;
                     }
 
-                    var destinationPath = BuildExtractionPath(extractionRoot, entry.FullName);
+                    var destinationPath = BuildExtractionPath(extractionRoot, entry.Key!);
                     if (destinationPath == null)
                     {
                         continue;
@@ -418,7 +445,7 @@ namespace MSCS.Services
 
                     if (!File.Exists(destinationPath))
                     {
-                        using var entryStream = entry.Open();
+                        using var entryStream = entry.OpenEntryStream();
                         using var fileStream = File.Create(destinationPath);
                         entryStream.CopyTo(fileStream);
                     }
@@ -428,9 +455,46 @@ namespace MSCS.Services
 
                 return images;
             }
+            catch (InvalidOperationException ex)
+            {
+                Debug.WriteLine($"Unsupported archive format for '{archivePath}': {ex.Message}");
+                return Array.Empty<ChapterImage>();
+            }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Failed to extract images from '{archivePath}': {ex.Message}");
+                Debug.WriteLine($"Failed to extract compressed archive '{archivePath}': {ex.Message}");
+                return Array.Empty<ChapterImage>();
+            }
+        }
+
+        private IReadOnlyList<ChapterImage> ExtractPdfImages(string pdfPath)
+        {
+            try
+            {
+                var images = new List<ChapterImage>();
+                var extractionRoot = EnsureExtractionDirectory(pdfPath);
+
+                using var document = PdfDocument.Load(pdfPath);
+                for (var pageIndex = 0; pageIndex < document.PageCount; pageIndex++)
+                {
+                    var fileName = $"page_{pageIndex + 1:D4}.png";
+                    var destinationPath = Path.Combine(extractionRoot, fileName);
+
+                    if (!File.Exists(destinationPath))
+                    {
+                        using var bitmap = document.Render(pageIndex, 300, 300, true);
+                        Directory.CreateDirectory(extractionRoot);
+                        bitmap.Save(destinationPath, ImageFormat.Png);
+                    }
+
+                    images.Add(new ChapterImage { ImageUrl = destinationPath });
+                }
+
+                return images;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to extract images from PDF '{pdfPath}': {ex.Message}");
                 return Array.Empty<ChapterImage>();
             }
         }

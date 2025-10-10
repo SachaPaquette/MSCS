@@ -133,6 +133,26 @@ namespace MSCS.ViewModels
             await TryMoveToChapterAsync(_currentChapterIndex + 1);
         }
 
+        private bool CanGoToPreviousChapter()
+        {
+            if (_chapterListViewModel == null)
+            {
+                return false;
+            }
+
+            return _currentChapterIndex - 1 >= 0;
+        }
+
+        public async Task GoToPreviousChapterAsync()
+        {
+            if (!CanGoToPreviousChapter())
+            {
+                return;
+            }
+
+            await TryMoveToChapterAsync(_currentChapterIndex - 1);
+        }
+
         private void InitializeNavigationCommands()
         {
             if (_navigationService == null)
@@ -156,10 +176,12 @@ namespace MSCS.ViewModels
             }
 
             NextChapterCommand = new AsyncRelayCommand(_ => GoToNextChapterAsync(), _ => CanGoToNextChapter());
+            PreviousChapterCommand = new AsyncRelayCommand(_ => GoToPreviousChapterAsync(), _ => CanGoToPreviousChapter());
 
             OnPropertyChanged(nameof(GoBackCommand));
             OnPropertyChanged(nameof(GoHomeCommand));
             OnPropertyChanged(nameof(NextChapterCommand));
+            OnPropertyChanged(nameof(PreviousChapterCommand));
         }
 
         private void OnNavigationCanGoBackChanged(object? sender, EventArgs e)
@@ -229,6 +251,7 @@ namespace MSCS.ViewModels
                 Chapters = _chapterListViewModel.Chapters;
                 SelectInitialChapter();
                 RestoreReadingProgress();
+                InitializeReaderProfile();
             }
         }
     }

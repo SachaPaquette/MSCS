@@ -59,7 +59,8 @@ namespace MSCS.Views
             }
 
             var pos = e.GetPosition(ScrollView);
-            var duration = TimeSpan.FromMilliseconds(Constants.DefaultSmoothScrollDuration);
+            var vm = ViewModel;
+            var duration = vm?.ScrollDuration ?? TimeSpan.FromMilliseconds(Constants.DefaultSmoothScrollDuration);
             double displayedHeight = ScrollView.ViewportHeight > 0 ? ScrollView.ViewportHeight : ScrollView.ActualHeight;
             if (displayedHeight <= 0)
             {
@@ -67,10 +68,11 @@ namespace MSCS.Views
             }
 
             double clickFraction = pos.Y / displayedHeight;
-            double scrollAmount = ScrollView.ViewportHeight * Constants.DefaultSmoothScrollPageFraction;
+            var fraction = vm?.ScrollPageFraction ?? Constants.DefaultSmoothScrollPageFraction;
+            double scrollAmount = ScrollView.ViewportHeight * fraction;
             if (scrollAmount <= 0)
             {
-                scrollAmount = ScrollView.ActualHeight * Constants.DefaultSmoothScrollPageFraction;
+                scrollAmount = ScrollView.ActualHeight * fraction;
             }
 
             if (clickFraction < 0.33)
@@ -208,9 +210,15 @@ namespace MSCS.Views
             }
         }
 
+
         private void UserControl_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
             if (ScrollView == null || ViewModel == null)
+            {
+                return;
+            }
+
+            if ((Keyboard.Modifiers & (ModifierKeys.Control | ModifierKeys.Alt)) != ModifierKeys.None)
             {
                 return;
             }
@@ -221,8 +229,14 @@ namespace MSCS.Views
                 viewport = ScrollView.ActualHeight;
             }
 
-            double amount = viewport * Constants.DefaultSmoothScrollPageFraction;
-            var duration = TimeSpan.FromMilliseconds(Constants.DefaultSmoothScrollDuration);
+            var fraction = ViewModel.ScrollPageFraction;
+            if (fraction <= 0)
+            {
+                fraction = Constants.DefaultSmoothScrollPageFraction;
+            }
+
+            double amount = viewport * fraction;
+            var duration = ViewModel.ScrollDuration;
 
             void ScrollForward()
             {

@@ -1,4 +1,5 @@
-﻿using MSCS.Helpers;
+﻿using MSCS.Enums;
+using MSCS.Helpers;
 using MSCS.Models;
 using System;
 using System.Collections.Generic;
@@ -118,6 +119,65 @@ namespace MSCS.Services
 
             return false;
         }
+
+        public ReaderProfile GetReaderProfile(string? mangaTitle)
+        {
+            var baseProfile = ConvertToProfile(_data.DefaultReaderProfile);
+            if (string.IsNullOrWhiteSpace(mangaTitle))
+            {
+                return baseProfile;
+            }
+
+            if (_data.ReaderProfiles != null &&
+                _data.ReaderProfiles.TryGetValue(mangaTitle, out var stored) && stored != null)
+            {
+                return ConvertToProfile(stored);
+            }
+
+            return baseProfile;
+        }
+
+        public ReaderProfile GetDefaultReaderProfile()
+        {
+            return ConvertToProfile(_data.DefaultReaderProfile);
+        }
+
+        public void SetReaderProfile(string? mangaTitle, ReaderProfile profile)
+        {
+            if (profile == null)
+            {
+                return;
+            }
+
+            var data = ConvertToData(profile);
+
+            if (string.IsNullOrWhiteSpace(mangaTitle))
+            {
+                _data.DefaultReaderProfile = data;
+            }
+            else
+            {
+                _data.ReaderProfiles[mangaTitle] = data;
+            }
+
+            SaveInternal();
+            SettingsChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void ClearReaderProfile(string mangaTitle)
+        {
+            if (string.IsNullOrWhiteSpace(mangaTitle) || _data.ReaderProfiles == null)
+            {
+                return;
+            }
+
+            if (_data.ReaderProfiles.Remove(mangaTitle))
+            {
+                SaveInternal();
+                SettingsChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
 
         public void SetAniListTracking(string mangaTitle, AniListTrackingInfo info)
         {
@@ -246,6 +306,37 @@ namespace MSCS.Services
             return results;
         }
 
+
+        private static ReaderProfile ConvertToProfile(ReaderProfileData? data)
+        {
+            if (data == null)
+            {
+                return ReaderProfile.CreateDefault();
+            }
+
+            return new ReaderProfile
+            {
+                Theme = data.Theme,
+                WidthFactor = data.WidthFactor,
+                MaxPageWidth = data.MaxPageWidth,
+                ScrollPageFraction = data.ScrollPageFraction,
+                ScrollDurationMs = data.ScrollDurationMs
+            };
+        }
+
+        private static ReaderProfileData ConvertToData(ReaderProfile profile)
+        {
+            return new ReaderProfileData
+            {
+                Theme = profile.Theme,
+                WidthFactor = profile.WidthFactor,
+                MaxPageWidth = profile.MaxPageWidth,
+                ScrollPageFraction = profile.ScrollPageFraction,
+                ScrollDurationMs = profile.ScrollDurationMs
+            };
+        }
+
+
         private SettingsData LoadInternal()
         {
             try
@@ -259,6 +350,8 @@ namespace MSCS.Services
                 var data = JsonSerializer.Deserialize<SettingsData>(json) ?? new SettingsData();
                 data.AniListTrackedSeries ??= new Dictionary<string, TrackedSeriesData>();
                 data.ReadingProgress ??= new Dictionary<string, ReadingProgressData>();
+                data.ReaderProfiles ??= new Dictionary<string, ReaderProfileData>();
+                data.DefaultReaderProfile ??= new ReaderProfileData();
                 return data;
             }
             catch
@@ -302,6 +395,8 @@ namespace MSCS.Services
             public string? AniListUserName { get; set; }
             public Dictionary<string, TrackedSeriesData> AniListTrackedSeries { get; set; } = new();
             public Dictionary<string, ReadingProgressData> ReadingProgress { get; set; } = new();
+            public ReaderProfileData? DefaultReaderProfile { get; set; } = new();
+            public Dictionary<string, ReaderProfileData> ReaderProfiles { get; set; } = new();
         }
 
         private class TrackedSeriesData
@@ -329,6 +424,15 @@ namespace MSCS.Services
             public string? SourceKey { get; set; }
             public string? CoverImageUrl { get; set; }
             public double? ScrollOffset { get; internal set; }
+        }
+
+        private class ReaderProfileData
+        {
+            public ReaderTheme Theme { get; set; } = ReaderTheme.Midnight;
+            public double WidthFactor { get; set; } = Constants.DefaultWidthFactor;
+            public double MaxPageWidth { get; set; } = Constants.DefaultMaxPageWidth;
+            public double ScrollPageFraction { get; set; } = Constants.DefaultSmoothScrollPageFraction;
+            public int ScrollDurationMs { get; set; } = Constants.DefaultSmoothScrollDuration;
         }
     }
 }

@@ -61,6 +61,60 @@
         </ResourceDictionary>
     </UserControl.Resources>
 
+    <UserControl.InputBindings>
+        <KeyBinding Key="Right"
+                    Modifiers="Control"
+                    Command="{Binding NextChapterCommand}"/>
+        <KeyBinding Key="Left"
+                    Modifiers="Control"
+                    Command="{Binding PreviousChapterCommand}"/>
+        <KeyBinding Key="N"
+                    Modifiers="Control"
+                    Command="{Binding NextChapterCommand}"/>
+        <KeyBinding Key="P"
+                    Modifiers="Control"
+                    Command="{Binding PreviousChapterCommand}"/>
+        <KeyBinding Key="D1"
+                    Modifiers="Control"
+                    Command="{Binding SetZoomPresetCommand}"
+                    CommandParameter="0.6"/>
+        <KeyBinding Key="D2"
+                    Modifiers="Control"
+                    Command="{Binding SetZoomPresetCommand}"
+                    CommandParameter="0.75"/>
+        <KeyBinding Key="D3"
+                    Modifiers="Control"
+                    Command="{Binding SetZoomPresetCommand}"
+                    CommandParameter="0.9"/>
+        <KeyBinding Key="D0"
+                    Modifiers="Control"
+                    Command="{Binding ResetZoomCommand}"/>
+        <KeyBinding Key="Add"
+                    Modifiers="Control"
+                    Command="{Binding IncreaseZoomCommand}"/>
+        <KeyBinding Key="Subtract"
+                    Modifiers="Control"
+                    Command="{Binding DecreaseZoomCommand}"/>
+        <KeyBinding Key="OemPlus"
+                    Modifiers="Control"
+                    Command="{Binding IncreaseZoomCommand}"/>
+        <KeyBinding Key="OemMinus"
+                    Modifiers="Control"
+                    Command="{Binding DecreaseZoomCommand}"/>
+        <KeyBinding Key="D1"
+                    Modifiers="Control+Shift"
+                    Command="{Binding SetScrollPresetCommand}"
+                    CommandParameter="{x:Static enums:ReaderScrollPreset.Compact}"/>
+        <KeyBinding Key="D2"
+                    Modifiers="Control+Shift"
+                    Command="{Binding SetScrollPresetCommand}"
+                    CommandParameter="{x:Static enums:ReaderScrollPreset.Balanced}"/>
+        <KeyBinding Key="D3"
+                    Modifiers="Control+Shift"
+                    Command="{Binding SetScrollPresetCommand}"
+                    CommandParameter="{x:Static enums:ReaderScrollPreset.Immersive}"/>
+    </UserControl.InputBindings>
+
     <Grid>
         <ScrollViewer x:Name="ScrollView"
                       Background="{Binding ReaderSurfaceBrush, FallbackValue=#111727}"
