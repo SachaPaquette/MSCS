@@ -66,11 +66,11 @@
                                     <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="16"/>
                                     <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
-                                <StackPanel Grid.Column="1" Orientation="Vertical" VerticalAlignment="Center">
+                                <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding MangaTitle}"
                                                FontSize="16"
                                                FontWeight="SemiBold"
@@ -87,8 +87,19 @@
                                                Foreground="{StaticResource MutedBrush}"/>
                                 </StackPanel>
 
+                                <Button Grid.Row="0"
+                                        Grid.Column="1"
+                                        Margin="12,0,0,0"
+                                        Padding="10,4"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Top"
+                                        Content="Remove"
+                                        Command="{Binding RemoveCommand}"
+                                        CommandParameter="{Binding}"/>
+
                                 <ProgressBar Grid.Row="1"
-                                             Grid.Column="1"
+                                             Grid.Column="0"
+                                             Grid.ColumnSpan="2"
                                              Margin="0,12,0,0"
                                              Height="6"
                                              Value="{Binding ScrollPercentage, Mode=OneWay}"

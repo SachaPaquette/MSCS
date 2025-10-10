@@ -17,6 +17,15 @@ namespace MSCS.ViewModels
         {
             _userSettings = userSettings ?? throw new ArgumentNullException(nameof(userSettings));
             Entries = new ObservableCollection<ContinueReadingEntryViewModel>();
+            RemoveEntryCommand = new RelayCommand(
+                parameter =>
+                {
+                    if (parameter is ContinueReadingEntryViewModel entry)
+                    {
+                        RemoveEntry(entry);
+                    }
+                },
+                parameter => parameter is ContinueReadingEntryViewModel);
 
             _userSettings.ReadingProgressChanged += OnReadingProgressChanged;
 
@@ -26,6 +35,8 @@ namespace MSCS.ViewModels
         public ObservableCollection<ContinueReadingEntryViewModel> Entries { get; }
 
         public bool HasEntries => Entries.Count > 0;
+
+        public ICommand RemoveEntryCommand { get; }
 
         public event EventHandler<ContinueReadingRequestedEventArgs>? ContinueReadingRequested;
 
@@ -49,7 +60,7 @@ namespace MSCS.ViewModels
             Entries.Clear();
             foreach (var entry in allEntries)
             {
-                Entries.Add(new ContinueReadingEntryViewModel(entry.Key, entry.Value, OnContinueRequested));
+                Entries.Add(new ContinueReadingEntryViewModel(entry.Key, entry.Value, OnContinueRequested, RemoveEntryCommand));
             }
 
             OnPropertyChanged(nameof(HasEntries));
@@ -58,6 +69,17 @@ namespace MSCS.ViewModels
         private void OnContinueRequested(ContinueReadingEntryViewModel entry)
         {
             ContinueReadingRequested?.Invoke(this, new ContinueReadingRequestedEventArgs(entry.MangaTitle, entry.Progress));
+        }
+
+        public void RemoveEntry(ContinueReadingEntryViewModel entry)
+        {
+            if (entry == null)
+            {
+                return;
+            }
+
+            _userSettings.ClearReadingProgress(entry.MangaTitle);
+            ReloadEntries();
         }
 
         public void Dispose()
@@ -76,11 +98,16 @@ namespace MSCS.ViewModels
     {
         private readonly Action<ContinueReadingEntryViewModel> _onContinue;
 
-        public ContinueReadingEntryViewModel(string mangaTitle, MangaReadingProgress progress, Action<ContinueReadingEntryViewModel> onContinue)
+        public ContinueReadingEntryViewModel(
+            string mangaTitle,
+            MangaReadingProgress progress,
+            Action<ContinueReadingEntryViewModel> onContinue,
+            ICommand removeCommand)
         {
             MangaTitle = mangaTitle ?? string.Empty;
             Progress = progress ?? throw new ArgumentNullException(nameof(progress));
             _onContinue = onContinue ?? throw new ArgumentNullException(nameof(onContinue));
+            RemoveCommand = removeCommand ?? throw new ArgumentNullException(nameof(removeCommand));
 
             ContinueCommand = new RelayCommand(_ => _onContinue(this), _ => CanContinue);
         }
@@ -104,6 +131,8 @@ namespace MSCS.ViewModels
         public bool CanContinue => !string.IsNullOrWhiteSpace(Progress.MangaUrl);
 
         public ICommand ContinueCommand { get; }
+
+        public ICommand RemoveCommand { get; }
     }
 
     public class ContinueReadingRequestedEventArgs : EventArgs
