@@ -427,9 +427,9 @@ namespace MSCS.Services
 
         private static string? FormatDate(JsonElement startDateElement)
         {
-            var year = startDateElement.TryGetProperty("year", out var yearElement) ? yearElement.GetInt32() : (int?)null;
-            var month = startDateElement.TryGetProperty("month", out var monthElement) ? monthElement.GetInt32() : (int?)null;
-            var day = startDateElement.TryGetProperty("day", out var dayElement) ? dayElement.GetInt32() : (int?)null;
+            var year = GetOptionalInt32(startDateElement, "year");
+            var month = GetOptionalInt32(startDateElement, "month");
+            var day = GetOptionalInt32(startDateElement, "day");
 
             if (year == null)
             {
@@ -448,6 +448,19 @@ namespace MSCS.Services
 
             return $"{year}-{month:00}-{day:00}";
         }
+
+        private static int? GetOptionalInt32(JsonElement element, string propertyName)
+        {
+            if (!element.TryGetProperty(propertyName, out var property))
+            {
+                return null;
+            }
+
+            return property.ValueKind == JsonValueKind.Number
+                ? property.GetInt32()
+                : (int?)null;
+        }
+
 
         private async Task<JsonDocument> SendGraphQlRequestAsync(string query, object variables, CancellationToken cancellationToken)
         {

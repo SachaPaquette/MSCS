@@ -139,7 +139,7 @@
                                            TextTrimming="CharacterEllipsis" />
                                 <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
                                     <TextBlock Text="Status:" Foreground="#60708E" FontSize="12" />
-                                    <TextBlock Text=" {Binding Status}" Foreground="#8F9BB4" FontSize="12" />
+                                    <TextBlock Text="{Binding Status}" Foreground="#8F9BB4" FontSize="12" Margin="4,0,0,0" />
                                 </StackPanel>
                                 <TextBlock Text="{Binding StartDateText, StringFormat=Started {0}}"
                                            Foreground="#8F9BB4"
@@ -179,7 +179,7 @@
                 <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
                     <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
                         <TextBlock Text="Format:" Foreground="#60708E" FontSize="12" />
-                        <TextBlock Text=" {Binding SelectedMedia.FormatDisplay}" Foreground="#8F9BB4" FontSize="12" />
+                        <TextBlock Text="{Binding SelectedMedia.FormatDisplay}" Foreground="#8F9BB4" FontSize="12" Margin="4,0,0,0" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
                         <TextBlock Text="Chapters:" Foreground="#60708E" FontSize="12" />
