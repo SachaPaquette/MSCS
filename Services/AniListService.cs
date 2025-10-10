@@ -135,89 +135,95 @@ namespace MSCS.Services
             {
                 foreach (var media in mediaArray.EnumerateArray())
                 {
-                    var id = media.TryGetProperty("id", out var idElement) ? idElement.GetInt32() : 0;
-                    if (id == 0)
+                    var parsed = ParseMedia(media);
+                    if (parsed != null)
                     {
-                        continue;
+                        results.Add(parsed);
                     }
+                }
+            }
 
-                    var titleElement = media.GetProperty("title");
-                    var romaji = titleElement.TryGetProperty("romaji", out var romajiElement) ? romajiElement.GetString() : null;
-                    var english = titleElement.TryGetProperty("english", out var englishElement) ? englishElement.GetString() : null;
-                    var nativeTitle = titleElement.TryGetProperty("native", out var nativeElement) ? nativeElement.GetString() : null;
-                    var status = media.TryGetProperty("status", out var statusElement) ? statusElement.GetString() : null;
-                    var cover = media.TryGetProperty("coverImage", out var coverElement) &&
-                                coverElement.TryGetProperty("large", out var coverUrl) ? coverUrl.GetString() : null;
-                    var banner = media.TryGetProperty("bannerImage", out var bannerElement) ? bannerElement.GetString() : null;
-                    var startDate = media.TryGetProperty("startDate", out var startDateElement)
-                        ? FormatDate(startDateElement)
-                        : null;
-                    var format = media.TryGetProperty("format", out var formatElement) ? formatElement.GetString() : null;
-                    var chapters = media.TryGetProperty("chapters", out var chaptersElement) && chaptersElement.ValueKind == JsonValueKind.Number
-                        ? chaptersElement.GetInt32()
-                        : (int?)null;
-                    var siteUrl = media.TryGetProperty("siteUrl", out var siteUrlElement) ? siteUrlElement.GetString() : null;
-                    var meanScore = media.TryGetProperty("meanScore", out var meanScoreElement) && meanScoreElement.ValueKind == JsonValueKind.Number
-                        ? meanScoreElement.GetDouble()
-                        : (double?)null;
-                    var averageScore = media.TryGetProperty("averageScore", out var averageScoreElement) && averageScoreElement.ValueKind == JsonValueKind.Number
-                        ? averageScoreElement.GetDouble()
-                        : (double?)null;
+            return results;
+        }
 
-                    AniListMediaListStatus? userStatus = null;
-                    int? userProgress = null;
-                    double? userScore = null;
-                    DateTimeOffset? userUpdatedAt = null;
-                    if (media.TryGetProperty("mediaListEntry", out var entryElement) && entryElement.ValueKind == JsonValueKind.Object)
-                    {
-                        userStatus = AniListFormatting.FromApiValue(entryElement.TryGetProperty("status", out var entryStatus) ? entryStatus.GetString() : null);
-                        if (entryElement.TryGetProperty("progress", out var entryProgress) && entryProgress.ValueKind == JsonValueKind.Number)
-                        {
-                            var progressValue = entryProgress.GetInt32();
-                            if (progressValue > 0)
-                            {
-                                userProgress = progressValue;
-                            }
-                        }
+        public async Task<IReadOnlyList<AniListMedia>> GetTopSeriesAsync(
+    AniListRecommendationCategory category,
+    int perPage = 12,
+    CancellationToken cancellationToken = default)
+        {
+            if (perPage <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(perPage));
+            }
 
-                        if (entryElement.TryGetProperty("score", out var entryScore) && entryScore.ValueKind == JsonValueKind.Number)
-                        {
-                            var scoreValue = entryScore.GetDouble();
-                            if (scoreValue > 0)
-                            {
-                                userScore = scoreValue;
-                            }
-                        }
+            var country = category switch
+            {
+                AniListRecommendationCategory.Manga => "JP",
+                AniListRecommendationCategory.Manhwa => "KR",
+                _ => null
+            };
 
-                        if (entryElement.TryGetProperty("updatedAt", out var entryUpdatedAt) && entryUpdatedAt.ValueKind == JsonValueKind.Number)
-                        {
-                            var seconds = entryUpdatedAt.GetInt64();
-                            if (seconds > 0)
-                            {
-                                userUpdatedAt = DateTimeOffset.FromUnixTimeSeconds(seconds);
-                            }
-                        }
-                    }
-                    results.Add(new AniListMedia
-                    {
-                        Id = id,
-                        RomajiTitle = romaji,
-                        EnglishTitle = english,
-                        NativeTitle = nativeTitle,
-                        Status = status,
-                        CoverImageUrl = cover,
-                        BannerImageUrl = banner,
-                        StartDateText = startDate,
-                        Format = format,
-                        Chapters = chapters,
-                        SiteUrl = siteUrl,
-                        MeanScore = meanScore,
-                        AverageScore = averageScore,
-                        UserStatus = userStatus,
-                        UserProgress = userProgress,
-                        UserScore = userScore,
-                        UserUpdatedAt = userUpdatedAt
-                    });
+            const string gqlQuery = @"query ($perPage: Int!, $country: CountryCode) {
+  Page(perPage: $perPage) {
+    media(type: MANGA, sort: [POPULARITY_DESC], countryOfOrigin: $country, isAdult: false) {
+      id
+      status
+      format
+      chapters
+      siteUrl
+      meanScore
+      averageScore
+      title {
+        romaji
+        english
+        native
+      }
+      coverImage {
+        large
+      }
+      bannerImage
+      startDate {
+        year
+        month
+        day
+      }
+      mediaListEntry {
+        id
+        status
+        progress
+        score
+        updatedAt
+      }
+    }
+  }
+}";
+
+            var variables = new
+            {
+                perPage = Math.Min(perPage, 50),
+                country
+            };
+
+            using var document = await SendGraphQlRequestAsync(gqlQuery, variables, cancellationToken).ConfigureAwait(false);
+            if (!document.RootElement.TryGetProperty("data", out var dataElement))
+            {
+                return Array.Empty<AniListMedia>();
+            }
+
+            if (!dataElement.TryGetProperty("Page", out var pageElement) ||
+                !pageElement.TryGetProperty("media", out var mediaArray) ||
+                mediaArray.ValueKind != JsonValueKind.Array)
+            {
+                return Array.Empty<AniListMedia>();
+            }
+
+            var results = new List<AniListMedia>();
+            foreach (var media in mediaArray.EnumerateArray())
+            {
+                var parsed = ParseMedia(media);
+                if (parsed != null)
+                {
+                    results.Add(parsed);
                 }
             }
 
@@ -423,6 +429,109 @@ namespace MSCS.Services
                 _userName = nameElement.GetString();
                 _userSettings.AniListUserName = _userName;
             }
+        }
+
+        private static AniListMedia? ParseMedia(JsonElement media)
+        {
+            if (!media.TryGetProperty("id", out var idElement) || idElement.ValueKind != JsonValueKind.Number)
+            {
+                return null;
+            }
+
+            var id = idElement.GetInt32();
+            if (id == 0)
+            {
+                return null;
+            }
+
+            var titleElement = media.TryGetProperty("title", out var title) ? title : default;
+            var romaji = titleElement.ValueKind == JsonValueKind.Object && titleElement.TryGetProperty("romaji", out var romajiElement)
+                ? romajiElement.GetString()
+                : null;
+            var english = titleElement.ValueKind == JsonValueKind.Object && titleElement.TryGetProperty("english", out var englishElement)
+                ? englishElement.GetString()
+                : null;
+            var nativeTitle = titleElement.ValueKind == JsonValueKind.Object && titleElement.TryGetProperty("native", out var nativeElement)
+                ? nativeElement.GetString()
+                : null;
+
+            var status = media.TryGetProperty("status", out var statusElement) ? statusElement.GetString() : null;
+            var cover = media.TryGetProperty("coverImage", out var coverElement) &&
+                        coverElement.TryGetProperty("large", out var coverUrl)
+                ? coverUrl.GetString()
+                : null;
+            var banner = media.TryGetProperty("bannerImage", out var bannerElement) ? bannerElement.GetString() : null;
+            var startDate = media.TryGetProperty("startDate", out var startDateElement)
+                ? FormatDate(startDateElement)
+                : null;
+            var format = media.TryGetProperty("format", out var formatElement) ? formatElement.GetString() : null;
+            var chapters = media.TryGetProperty("chapters", out var chaptersElement) && chaptersElement.ValueKind == JsonValueKind.Number
+                ? chaptersElement.GetInt32()
+                : (int?)null;
+            var siteUrl = media.TryGetProperty("siteUrl", out var siteUrlElement) ? siteUrlElement.GetString() : null;
+            var meanScore = media.TryGetProperty("meanScore", out var meanScoreElement) && meanScoreElement.ValueKind == JsonValueKind.Number
+                ? meanScoreElement.GetDouble()
+                : (double?)null;
+            var averageScore = media.TryGetProperty("averageScore", out var averageScoreElement) && averageScoreElement.ValueKind == JsonValueKind.Number
+                ? averageScoreElement.GetDouble()
+                : (double?)null;
+
+            AniListMediaListStatus? userStatus = null;
+            int? userProgress = null;
+            double? userScore = null;
+            DateTimeOffset? userUpdatedAt = null;
+            if (media.TryGetProperty("mediaListEntry", out var entryElement) && entryElement.ValueKind == JsonValueKind.Object)
+            {
+                userStatus = AniListFormatting.FromApiValue(entryElement.TryGetProperty("status", out var entryStatus) ? entryStatus.GetString() : null);
+
+                if (entryElement.TryGetProperty("progress", out var entryProgress) && entryProgress.ValueKind == JsonValueKind.Number)
+                {
+                    var progressValue = entryProgress.GetInt32();
+                    if (progressValue > 0)
+                    {
+                        userProgress = progressValue;
+                    }
+                }
+
+                if (entryElement.TryGetProperty("score", out var entryScore) && entryScore.ValueKind == JsonValueKind.Number)
+                {
+                    var scoreValue = entryScore.GetDouble();
+                    if (scoreValue > 0)
+                    {
+                        userScore = scoreValue;
+                    }
+                }
+
+                if (entryElement.TryGetProperty("updatedAt", out var entryUpdatedAt) && entryUpdatedAt.ValueKind == JsonValueKind.Number)
+                {
+                    var seconds = entryUpdatedAt.GetInt64();
+                    if (seconds > 0)
+                    {
+                        userUpdatedAt = DateTimeOffset.FromUnixTimeSeconds(seconds);
+                    }
+                }
+            }
+
+            return new AniListMedia
+            {
+                Id = id,
+                RomajiTitle = romaji,
+                EnglishTitle = english,
+                NativeTitle = nativeTitle,
+                Status = status,
+                CoverImageUrl = cover,
+                BannerImageUrl = banner,
+                StartDateText = startDate,
+                Format = format,
+                Chapters = chapters,
+                SiteUrl = siteUrl,
+                MeanScore = meanScore,
+                AverageScore = averageScore,
+                UserStatus = userStatus,
+                UserProgress = userProgress,
+                UserScore = userScore,
+                UserUpdatedAt = userUpdatedAt
+            };
         }
 
         private static string? FormatDate(JsonElement startDateElement)

@@ -69,6 +69,7 @@ namespace MSCS.ViewModels
 
         public MangaListViewModel MangaListVM { get; }
         public LocalLibraryViewModel LocalLibraryVM { get; }
+        public AniListRecommendationsViewModel RecommendationsVM { get; }
         public SettingsViewModel SettingsVM { get; }
         public ContinueReadingViewModel ContinueReadingVM { get; }
         public ObservableCollection<MainMenuTab> Tabs { get; }
@@ -319,6 +320,7 @@ namespace MSCS.ViewModels
             DisposeActiveChapterViewModel();
             MangaListVM.Dispose();
             LocalLibraryVM.Dispose();
+            RecommendationsVM.Dispose();
             ContinueReadingVM.Dispose();
             SettingsVM.Dispose();
             _localLibraryService.Dispose();
