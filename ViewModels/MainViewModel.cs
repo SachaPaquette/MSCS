@@ -38,6 +38,7 @@ namespace MSCS.ViewModels
             _navigationService.RegisterSingleton(MangaListVM);
 
             RecommendationsVM = new AniListRecommendationsViewModel(_aniListService);
+            AniListCollectionVM = new AniListCollectionViewModel(_aniListService);
 
             LocalLibraryVM = new LocalLibraryViewModel(_localLibraryService);
             LocalLibraryVM.MangaSelected += OnLocalMangaSelected;
@@ -52,6 +53,7 @@ namespace MSCS.ViewModels
             {
                 new("external", "External Sources", "\uE774", MangaListVM),
                 new("local", "Local Library", "\uE8D2", LocalLibraryVM),
+                new("anilist-library", "AniList Library", "\uE12B", AniListCollectionVM),
                 new("recommendations", "AniList Recommendations", "\uE734", RecommendationsVM),
                 new("continue", "Continue Reading", "\uE823", ContinueReadingVM),
                 new("settings", "Settings", "\uE713", SettingsVM)
@@ -72,6 +74,7 @@ namespace MSCS.ViewModels
 
         public MangaListViewModel MangaListVM { get; }
         public LocalLibraryViewModel LocalLibraryVM { get; }
+        public AniListCollectionViewModel AniListCollectionVM { get; }
         public AniListRecommendationsViewModel RecommendationsVM { get; }
         public SettingsViewModel SettingsVM { get; }
         public ContinueReadingViewModel ContinueReadingVM { get; }
@@ -324,6 +327,7 @@ namespace MSCS.ViewModels
             MangaListVM.Dispose();
             LocalLibraryVM.Dispose();
             RecommendationsVM.Dispose();
+            AniListCollectionVM.Dispose();
             ContinueReadingVM.Dispose();
             SettingsVM.Dispose();
             _localLibraryService.Dispose();

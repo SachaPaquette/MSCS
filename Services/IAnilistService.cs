@@ -16,6 +16,7 @@ namespace MSCS.Interfaces
         event EventHandler? TrackingChanged;
         Task<bool> AuthenticateAsync(Window? owner);
         Task<IReadOnlyList<AniListMedia>> SearchSeriesAsync(string query, CancellationToken cancellationToken = default);
+        Task<IReadOnlyDictionary<AniListMediaListStatus, IReadOnlyList<AniListMedia>>> GetUserListsAsync(CancellationToken cancellationToken = default);
         Task<AniListTrackingInfo> TrackSeriesAsync(
             string mangaTitle,
             AniListMedia media,

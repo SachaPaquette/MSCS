@@ -39,5 +39,28 @@ namespace MSCS.Models
         public string? MeanScoreDisplay => MeanScore.HasValue
             ? string.Format(CultureInfo.CurrentCulture, "{0:0}", MeanScore.Value)
             : null;
+        public string? UserStatusDisplay => UserStatus?.ToDisplayString();
+        public string? UserScoreDisplay => UserScore.HasValue
+            ? string.Format(CultureInfo.CurrentCulture, "{0:0.#}", UserScore.Value)
+            : null;
+        public string? UserProgressDisplay
+        {
+            get
+            {
+                if (!UserProgress.HasValue && !Chapters.HasValue)
+                {
+                    return null;
+                }
+
+                var progressValue = UserProgress ?? 0;
+                return Chapters.HasValue
+                    ? string.Format(CultureInfo.CurrentCulture, "{0}/{1}", progressValue, Chapters.Value)
+                    : progressValue.ToString(CultureInfo.CurrentCulture);
+            }
+        }
+
+        public string? UserUpdatedAtDisplay => UserUpdatedAt.HasValue
+            ? UserUpdatedAt.Value.ToLocalTime().ToString("g", CultureInfo.CurrentCulture)
+            : null;
     }
 }

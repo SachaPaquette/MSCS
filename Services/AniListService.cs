@@ -4,6 +4,7 @@ using MSCS.Interfaces;
 using MSCS.Models;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -378,6 +379,211 @@ namespace MSCS.Services
             _userSettings.RemoveAniListTracking(mangaTitle);
             TrackingChanged?.Invoke(this, EventArgs.Empty);
             return true;
+        }
+
+        public async Task<IReadOnlyDictionary<AniListMediaListStatus, IReadOnlyList<AniListMedia>>> GetUserListsAsync(
+    CancellationToken cancellationToken = default)
+        {
+            if (!IsAuthenticated)
+            {
+                return new Dictionary<AniListMediaListStatus, IReadOnlyList<AniListMedia>>();
+            }
+
+            if (string.IsNullOrWhiteSpace(_userName))
+            {
+                await FetchViewerAsync().ConfigureAwait(false);
+                if (string.IsNullOrWhiteSpace(_userName))
+                {
+                    return new Dictionary<AniListMediaListStatus, IReadOnlyList<AniListMedia>>();
+                }
+            }
+
+            const string query = @"query ($userName: String) {
+  MediaListCollection(type: MANGA, userName: $userName) {
+    lists {
+      status
+      isCustomList
+      entries {
+        status
+        progress
+        score
+        updatedAt
+        media {
+          id
+          status
+          format
+          chapters
+          siteUrl
+          meanScore
+          averageScore
+          title {
+            romaji
+            english
+            native
+          }
+          coverImage {
+            large
+          }
+          bannerImage
+          startDate {
+            year
+            month
+            day
+          }
+          mediaListEntry {
+            id
+            status
+            progress
+            score
+            updatedAt
+          }
+        }
+      }
+    }
+  }
+}";
+
+            var variables = new
+            {
+                userName = _userName
+            };
+
+            using var document = await SendGraphQlRequestAsync(query, variables, cancellationToken).ConfigureAwait(false);
+            if (!document.RootElement.TryGetProperty("data", out var dataElement) ||
+                !dataElement.TryGetProperty("MediaListCollection", out var collectionElement) ||
+                collectionElement.ValueKind != JsonValueKind.Object)
+            {
+                return new Dictionary<AniListMediaListStatus, IReadOnlyList<AniListMedia>>();
+            }
+
+            var groups = Enum.GetValues<AniListMediaListStatus>()
+                .ToDictionary(status => status, _ => new List<AniListMedia>());
+
+            if (collectionElement.TryGetProperty("lists", out var listsElement) &&
+                listsElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var list in listsElement.EnumerateArray())
+                {
+                    if (list.TryGetProperty("isCustomList", out var isCustomList) &&
+                        isCustomList.ValueKind == JsonValueKind.True)
+                    {
+                        continue;
+                    }
+
+                    var statusValue = list.TryGetProperty("status", out var statusElement) &&
+                                       statusElement.ValueKind == JsonValueKind.String
+                        ? AniListFormatting.FromApiValue(statusElement.GetString())
+                        : null;
+
+                    if (statusValue == null)
+                    {
+                        continue;
+                    }
+
+                    if (!groups.TryGetValue(statusValue.Value, out var targetGroup))
+                    {
+                        targetGroup = new List<AniListMedia>();
+                        groups[statusValue.Value] = targetGroup;
+                    }
+
+                    if (!list.TryGetProperty("entries", out var entriesElement) ||
+                        entriesElement.ValueKind != JsonValueKind.Array)
+                    {
+                        continue;
+                    }
+
+                    foreach (var entry in entriesElement.EnumerateArray())
+                    {
+                        if (!entry.TryGetProperty("media", out var mediaElement) ||
+                            mediaElement.ValueKind != JsonValueKind.Object)
+                        {
+                            continue;
+                        }
+
+                        var media = ParseMedia(mediaElement);
+                        if (media == null)
+                        {
+                            continue;
+                        }
+
+                        var entryStatus = entry.TryGetProperty("status", out var entryStatusElement) &&
+                                          entryStatusElement.ValueKind == JsonValueKind.String
+                            ? AniListFormatting.FromApiValue(entryStatusElement.GetString()) ?? statusValue
+                            : statusValue;
+
+                        int? progress = null;
+                        if (entry.TryGetProperty("progress", out var progressElement) &&
+                            progressElement.ValueKind == JsonValueKind.Number)
+                        {
+                            var progressValue = progressElement.GetInt32();
+                            if (progressValue > 0)
+                            {
+                                progress = progressValue;
+                            }
+                        }
+
+                        double? score = null;
+                        if (entry.TryGetProperty("score", out var scoreElement) &&
+                            scoreElement.ValueKind == JsonValueKind.Number)
+                        {
+                            var scoreValue = scoreElement.GetDouble();
+                            if (scoreValue > 0)
+                            {
+                                score = scoreValue;
+                            }
+                        }
+
+                        DateTimeOffset? updatedAt = null;
+                        if (entry.TryGetProperty("updatedAt", out var updatedElement) &&
+                            updatedElement.ValueKind == JsonValueKind.Number)
+                        {
+                            var seconds = updatedElement.GetInt64();
+                            if (seconds > 0)
+                            {
+                                updatedAt = DateTimeOffset.FromUnixTimeSeconds(seconds);
+                            }
+                        }
+
+                        var merged = new AniListMedia
+                        {
+                            Id = media.Id,
+                            RomajiTitle = media.RomajiTitle,
+                            EnglishTitle = media.EnglishTitle,
+                            NativeTitle = media.NativeTitle,
+                            Status = media.Status,
+                            CoverImageUrl = media.CoverImageUrl,
+                            BannerImageUrl = media.BannerImageUrl,
+                            StartDateText = media.StartDateText,
+                            Format = media.Format,
+                            Chapters = media.Chapters,
+                            SiteUrl = media.SiteUrl,
+                            AverageScore = media.AverageScore,
+                            MeanScore = media.MeanScore,
+                            UserStatus = entryStatus ?? media.UserStatus,
+                            UserProgress = progress ?? media.UserProgress,
+                            UserScore = score ?? media.UserScore,
+                            UserUpdatedAt = updatedAt ?? media.UserUpdatedAt
+                        };
+
+                        targetGroup.Add(merged);
+                    }
+                }
+            }
+
+            var result = new Dictionary<AniListMediaListStatus, IReadOnlyList<AniListMedia>>();
+            foreach (var kvp in groups)
+            {
+                var items = kvp.Value;
+                items.Sort((a, b) =>
+                {
+                    var left = a.UserUpdatedAt ?? DateTimeOffset.MinValue;
+                    var right = b.UserUpdatedAt ?? DateTimeOffset.MinValue;
+                    return right.CompareTo(left);
+                });
+                result[kvp.Key] = new ReadOnlyCollection<AniListMedia>(items);
+            }
+
+            return result;
         }
 
         public async Task<AniListTrackingInfo?> RefreshTrackingAsync(string mangaTitle, CancellationToken cancellationToken = default)
