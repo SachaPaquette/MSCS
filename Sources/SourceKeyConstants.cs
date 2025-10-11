@@ -3,6 +3,9 @@
     public static class SourceKeyConstants
     {
         public const string LocalLibrary = "local";
-        public const string DefaultExternal = "mangaread";
+        public const string MangaRead = "mangaread";
+        public const string DefaultExternal = MangaRead;
+        public const string MangaDex = "mangadex";
+        public const string AsuraScans = "asurascans";
     }
 }

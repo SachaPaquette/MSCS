@@ -35,8 +35,7 @@ namespace MSCS.ViewModels
             _localLibraryService = new LocalLibraryService(_userSettings);
             _aniListService = new AniListService(_userSettings);
             _LocalSource = new LocalSource(_localLibraryService);
-
-            MangaListVM = new MangaListViewModel("mangaread", _navigationService);
+            MangaListVM = new MangaListViewModel(SourceKeyConstants.DefaultExternal, _navigationService);
             MangaListVM.MangaSelected += OnExternalMangaSelected;
             _navigationService.RegisterSingleton(MangaListVM);
 

@@ -130,9 +130,11 @@ namespace MSCS.ViewModels
                 return;
             }
 
-            if (!string.IsNullOrWhiteSpace(sourceKey))
+            var initialKey = string.IsNullOrWhiteSpace(sourceKey) ? SourceKeyConstants.DefaultExternal : sourceKey;
+
+            if (!string.IsNullOrWhiteSpace(initialKey))
             {
-                var descriptor = SourceRegistry.GetDescriptor(sourceKey) ?? new SourceDescriptor(sourceKey, sourceKey);
+                var descriptor = SourceRegistry.GetDescriptor(initialKey) ?? new SourceDescriptor(initialKey, initialKey);
                 if (!AvailableSources.Any(source => source.Key.Equals(descriptor.Key, StringComparison.OrdinalIgnoreCase)))
                 {
                     AvailableSources.Add(descriptor);

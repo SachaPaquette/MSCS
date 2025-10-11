@@ -13,8 +13,19 @@ namespace MSCS.Sources
 
         static SourceRegistry()
         {
-            Register("mangaread", new MangaReadSource(), "MangaRead");
-            Register("mangadex", new MangaDexSource(), "MangaDex");
+            Register(SourceKeyConstants.MangaRead, new MangaReadSource(), "MangaRead");
+            Register(SourceKeyConstants.MangaDex, new MangaDexSource(), "MangaDex");
+            Register(SourceKeyConstants.AsuraScans, new AsuraScansSource(), "AsuraScans");
+        }
+
+        public static void RegisterMadara(string key, Uri baseUri, string? displayName = null)
+        {
+            if (baseUri is null)
+            {
+                throw new ArgumentNullException(nameof(baseUri));
+            }
+
+            Register(key, new GenericMadaraSource(baseUri), displayName);
         }
 
         public static void Register(string key, IMangaSource source, string? displayName = null)
