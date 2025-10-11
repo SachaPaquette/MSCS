@@ -213,7 +213,7 @@
                                       Command="{Binding ChangeStatusCommand}">
                                 <MenuItem.CommandParameter>
                                     <MultiBinding Converter="{StaticResource PackToArrayConverter}">
-                                        <Binding Path="PlacementTarget.DataContext"
+                                        <Binding Path="PlacementTarget.Tag"
                                                  RelativeSource="{RelativeSource AncestorType=ContextMenu}"/>
                                         <Binding Source="{x:Static enums:AniListMediaListStatus.Current}"/>
                                     </MultiBinding>
@@ -224,7 +224,7 @@
                                       Command="{Binding ChangeStatusCommand}">
                                 <MenuItem.CommandParameter>
                                     <MultiBinding Converter="{StaticResource PackToArrayConverter}">
-                                        <Binding Path="PlacementTarget.DataContext"
+                                        <Binding Path="PlacementTarget.Tag"
                                                  RelativeSource="{RelativeSource AncestorType=ContextMenu}"/>
                                         <Binding Source="{x:Static enums:AniListMediaListStatus.Planning}"/>
                                     </MultiBinding>
@@ -235,7 +235,7 @@
                                       Command="{Binding ChangeStatusCommand}">
                                 <MenuItem.CommandParameter>
                                     <MultiBinding Converter="{StaticResource PackToArrayConverter}">
-                                        <Binding Path="PlacementTarget.DataContext"
+                                        <Binding Path="PlacementTarget.Tag"
                                                  RelativeSource="{RelativeSource AncestorType=ContextMenu}"/>
                                         <Binding Source="{x:Static enums:AniListMediaListStatus.Completed}"/>
                                     </MultiBinding>
@@ -246,7 +246,7 @@
                                       Command="{Binding ChangeStatusCommand}">
                                 <MenuItem.CommandParameter>
                                     <MultiBinding Converter="{StaticResource PackToArrayConverter}">
-                                        <Binding Path="PlacementTarget.DataContext"
+                                    <Binding Path="PlacementTarget.Tag"
                                                  RelativeSource="{RelativeSource AncestorType=ContextMenu}"/>
                                         <Binding Source="{x:Static enums:AniListMediaListStatus.Paused}"/>
                                     </MultiBinding>
@@ -257,7 +257,7 @@
                                       Command="{Binding ChangeStatusCommand}">
                                 <MenuItem.CommandParameter>
                                     <MultiBinding Converter="{StaticResource PackToArrayConverter}">
-                                        <Binding Path="PlacementTarget.DataContext"
+                                    <Binding Path="PlacementTarget.Tag"
                                                  RelativeSource="{RelativeSource AncestorType=ContextMenu}"/>
                                         <Binding Source="{x:Static enums:AniListMediaListStatus.Dropped}"/>
                                     </MultiBinding>
@@ -268,7 +268,7 @@
                                       Command="{Binding ChangeStatusCommand}">
                                 <MenuItem.CommandParameter>
                                     <MultiBinding Converter="{StaticResource PackToArrayConverter}">
-                                        <Binding Path="PlacementTarget.DataContext"
+                                    <Binding Path="PlacementTarget.Tag"
                                                  RelativeSource="{RelativeSource AncestorType=ContextMenu}"/>
                                         <Binding Source="{x:Static enums:AniListMediaListStatus.Repeating}"/>
                                     </MultiBinding>
@@ -279,7 +279,7 @@
 
                             <MenuItem Header="Open tracking editor..."
                                       Command="{Binding EditTrackingCommand}"
-                                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                      CommandParameter="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                         </ContextMenu>
                     </Button.ContextMenu>
                 </Button>

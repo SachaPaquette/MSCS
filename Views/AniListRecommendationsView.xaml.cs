@@ -22,12 +22,13 @@ namespace MSCS.Views
                 return;
             }
 
+            button.ContextMenu.Tag = button.DataContext;
+
             if (DataContext != null)
             {
                 button.ContextMenu.DataContext = DataContext;
             }
 
-            button.ContextMenu.Tag = button.DataContext;
             button.ContextMenu.PlacementTarget = button;
             button.ContextMenu.IsOpen = true;
             e.Handled = true;
