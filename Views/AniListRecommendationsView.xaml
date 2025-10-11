@@ -287,24 +287,110 @@
                 </TextBlock>
 
                 <StackPanel>
-                    <TextBlock Text="Top Manga"
-                               FontSize="18"
-                               FontWeight="SemiBold"
-                               Foreground="{StaticResource Fg}"
-                               Margin="0,0,0,8"/>
-                    <ItemsControl ItemsSource="{Binding TopManga}"
-                                  ItemTemplate="{StaticResource RecommendationCardTemplate}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <WrapPanel/>
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                    </ItemsControl>
-                    <Button Content="Show more"
-                            Margin="0,8,0,0"
-                            Command="{Binding ShowMoreMangaCommand}"
-                            Visibility="{Binding CanShowMoreManga, Converter={StaticResource BooleanToVisibilityConverter}}"
-                            Style="{StaticResource AccentButton}"/>
+                    <StackPanel>
+                        <TextBlock Text="Trending Now"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource Fg}"
+                                   Margin="0,0,0,8"/>
+                        <ItemsControl ItemsSource="{Binding Trending}"
+                                      ItemTemplate="{StaticResource RecommendationCardTemplate}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                        <Button Content="Show more"
+                                Margin="0,8,0,0"
+                                Command="{Binding ShowMoreTrendingCommand}"
+                                Visibility="{Binding CanShowMoreTrending, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Style="{StaticResource AccentButton}"/>
+                    </StackPanel>
+
+                    <StackPanel Margin="0,24,0,0">
+                        <TextBlock Text="Top Manga"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource Fg}"
+                                   Margin="0,0,0,8"/>
+                        <ItemsControl ItemsSource="{Binding TopManga}"
+                                      ItemTemplate="{StaticResource RecommendationCardTemplate}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                        <Button Content="Show more"
+                                Margin="0,8,0,0"
+                                Command="{Binding ShowMoreMangaCommand}"
+                                Visibility="{Binding CanShowMoreManga, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Style="{StaticResource AccentButton}"/>
+                    </StackPanel>
+
+                    <StackPanel Margin="0,24,0,0">
+                        <TextBlock Text="Top Manhwa"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource Fg}"
+                                   Margin="0,0,0,8"/>
+                        <ItemsControl ItemsSource="{Binding TopManhwa}"
+                                      ItemTemplate="{StaticResource RecommendationCardTemplate}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                        <Button Content="Show more"
+                                Margin="0,8,0,0"
+                                Command="{Binding ShowMoreManhwaCommand}"
+                                Visibility="{Binding CanShowMoreManhwa, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Style="{StaticResource AccentButton}"/>
+                    </StackPanel>
+
+                    <StackPanel Margin="0,24,0,0">
+                        <TextBlock Text="New Releases"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource Fg}"
+                                   Margin="0,0,0,8"/>
+                        <ItemsControl ItemsSource="{Binding NewReleases}"
+                                      ItemTemplate="{StaticResource RecommendationCardTemplate}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                        <Button Content="Show more"
+                                Margin="0,8,0,0"
+                                Command="{Binding ShowMoreNewReleasesCommand}"
+                                Visibility="{Binding CanShowMoreNewReleases, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Style="{StaticResource AccentButton}"/>
+                    </StackPanel>
+
+                    <StackPanel Margin="0,24,0,0">
+                        <TextBlock Text="Staff Picks"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource Fg}"
+                                   Margin="0,0,0,8"/>
+                        <ItemsControl ItemsSource="{Binding StaffPicks}"
+                                      ItemTemplate="{StaticResource RecommendationCardTemplate}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                        <Button Content="Show more"
+                                Margin="0,8,0,0"
+                                Command="{Binding ShowMoreStaffPicksCommand}"
+                                Visibility="{Binding CanShowMoreStaffPicks, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                Style="{StaticResource AccentButton}"/>
+                    </StackPanel>
                 </StackPanel>
 
                 <StackPanel Margin="0,24,0,0">

@@ -3,6 +3,9 @@
     public enum AniListRecommendationCategory
     {
         Manga,
-        Manhwa
+        Manhwa,
+        Trending,
+        NewReleases,
+        StaffPicks
     }
 }

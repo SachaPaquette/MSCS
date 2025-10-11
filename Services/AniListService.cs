@@ -153,14 +153,22 @@ namespace MSCS.Services
         }
 
         public async Task<IReadOnlyList<AniListMedia>> GetTopSeriesAsync(
-    AniListRecommendationCategory category,
-    int perPage = 12,
-    CancellationToken cancellationToken = default)
+                 AniListRecommendationCategory category,
+                 int perPage = 12,
+                 CancellationToken cancellationToken = default)
         {
             if (perPage <= 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(perPage));
             }
+
+            var sort = category switch
+            {
+                AniListRecommendationCategory.Trending => new[] { "TRENDING_DESC" },
+                AniListRecommendationCategory.NewReleases => new[] { "START_DATE_DESC", "POPULARITY_DESC" },
+                AniListRecommendationCategory.StaffPicks => new[] { "SCORE_DESC", "POPULARITY_DESC" },
+                _ => new[] { "POPULARITY_DESC" }
+            };
 
             var country = category switch
             {
@@ -169,9 +177,35 @@ namespace MSCS.Services
                 _ => null
             };
 
-            const string gqlQuery = @"query ($perPage: Int!, $country: CountryCode) {
+            string[]? statusIn = category switch
+            {
+                AniListRecommendationCategory.NewReleases => new[] { "RELEASING", "NOT_YET_RELEASED" },
+                AniListRecommendationCategory.StaffPicks => new[] { "RELEASING", "FINISHED" },
+                _ => null
+            };
+
+            int? minimumScore = category switch
+            {
+                AniListRecommendationCategory.StaffPicks => 80,
+                _ => null
+            };
+
+            const string gqlQuery = @"query (
+  $perPage: Int!,
+  $country: CountryCode,
+  $sort: [MediaSort!],
+  $statusIn: [MediaStatus!],
+  $minimumScore: Int
+) {
   Page(perPage: $perPage) {
-    media(type: MANGA, sort: [POPULARITY_DESC], countryOfOrigin: $country, isAdult: false) {
+    media(
+      type: MANGA,
+      sort: $sort,
+      countryOfOrigin: $country,
+      status_in: $statusIn,
+      averageScore_greater: $minimumScore,
+      isAdult: false
+    ) {
       id
       status
       format
@@ -207,8 +241,12 @@ namespace MSCS.Services
             var variables = new
             {
                 perPage = Math.Min(perPage, 50),
-                country
+                country,
+                sort,
+                statusIn,
+                minimumScore
             };
+
 
             using var document = await TrySendGraphQlRequestAsync(gqlQuery, variables, cancellationToken).ConfigureAwait(false);
             if (document == null)
