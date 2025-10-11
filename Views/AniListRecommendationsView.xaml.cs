@@ -1,4 +1,6 @@
-﻿using System.Windows;
+﻿using MSCS.Models;
+using MSCS.ViewModels;
+using System.Windows;
 using System.Windows.Controls;
 
 namespace MSCS.Views
@@ -17,21 +19,50 @@ namespace MSCS.Views
                 return;
             }
 
-            if (button.ContextMenu == null)
+            if (!TryPrepareContextMenu(button))
             {
                 return;
             }
 
-            button.ContextMenu.Tag = button.DataContext;
-
-            if (DataContext != null)
-            {
-                button.ContextMenu.DataContext = DataContext;
-            }
-
-            button.ContextMenu.PlacementTarget = button;
-            button.ContextMenu.IsOpen = true;
+            button.ContextMenu!.IsOpen = true;
             e.Handled = true;
         }
+
+        private void OnMenuButtonContextMenuOpening(object sender, ContextMenuEventArgs e)
+        {
+            if (sender is not System.Windows.Controls.Button button)
+            {
+                return;
+            }
+
+            if (!TryPrepareContextMenu(button))
+            {
+                e.Handled = true;
+            }
+        }
+
+        private bool TryPrepareContextMenu(System.Windows.Controls.Button button)
+        {
+            if (button.ContextMenu == null)
+            {
+                return false;
+            }
+
+            if (button.DataContext is not AniListMedia media)
+            {
+                return false;
+            }
+
+            if (DataContext is not AniListRecommendationsViewModel viewModel)
+            {
+                return false;
+            }
+
+            button.ContextMenu.DataContext = new MenuContext(viewModel, media);
+            button.ContextMenu.PlacementTarget = button;
+            return true;
+        }
+
+        private sealed record MenuContext(AniListRecommendationsViewModel ViewModel, AniListMedia Media);
     }
 }
