@@ -218,6 +218,39 @@ namespace MSCS.Services
             }
         }
 
+        public void ClearAniListTracking()
+        {
+            if (_data.AniListTrackedSeries.Count == 0)
+            {
+                return;
+            }
+
+            _data.AniListTrackedSeries.Clear();
+            SaveInternal();
+            SettingsChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void ClearAniListAuthentication()
+        {
+            var changed = false;
+
+            if (!string.IsNullOrEmpty(_data.AniListAccessToken) ||
+                _data.AniListAccessTokenExpiry.HasValue ||
+                !string.IsNullOrEmpty(_data.AniListUserName))
+            {
+                _data.AniListAccessToken = null;
+                _data.AniListAccessTokenExpiry = null;
+                _data.AniListUserName = null;
+                changed = true;
+            }
+
+            if (changed)
+            {
+                SaveInternal();
+                SettingsChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
         public bool TryGetReadingProgress(string mangaTitle, out MangaReadingProgress? progress)
         {
             progress = null;

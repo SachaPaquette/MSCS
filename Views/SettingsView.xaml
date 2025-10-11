@@ -121,6 +121,12 @@
                                     Padding="20,8"
                                     Style="{StaticResource AccentButton}"
                                     Command="{Binding AniListAuthenticateCommand}"/>
+                            <Button Content="Disconnect AniList"
+                                    Padding="20,8"
+                                    Margin="12,0,0,0"
+                                    Style="{StaticResource AccentButton}"
+                                    Command="{Binding AniListLogoutCommand}"
+                                    Visibility="{Binding IsAniListConnected, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                         </StackPanel>
 
                         <Border Background="#111722"

@@ -39,6 +39,7 @@ namespace MSCS.ViewModels
             BrowseCommand = new RelayCommand(_ => BrowseForFolder());
             ClearCommand = new RelayCommand(_ => LibraryPath = null, _ => !string.IsNullOrWhiteSpace(LibraryPath));
             AniListAuthenticateCommand = new AsyncRelayCommand(_ => AuthenticateAniListAsync());
+            AniListLogoutCommand = new AsyncRelayCommand(() => LogoutAniListAsync(), () => _aniListService.IsAuthenticated);
         }
 
         public string? LibraryPath
@@ -68,6 +69,7 @@ namespace MSCS.ViewModels
         public ICommand BrowseCommand { get; }
         public ICommand ClearCommand { get; }
         public ICommand AniListAuthenticateCommand { get; }
+        public ICommand AniListLogoutCommand { get; }
 
         public bool IsAniListConnected
         {
@@ -153,6 +155,19 @@ namespace MSCS.ViewModels
             }
         }
 
+        private async Task LogoutAniListAsync()
+        {
+            try
+            {
+                await _aniListService.LogoutAsync().ConfigureAwait(true);
+                UpdateAniListState();
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show(ex.Message, "AniList", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         private void OnLibraryPathChanged(object? sender, EventArgs e)
         {
             try
@@ -187,6 +202,7 @@ namespace MSCS.ViewModels
         {
             IsAniListConnected = _aniListService.IsAuthenticated;
             AniListUserName = _aniListService.UserName;
+            CommandManager.InvalidateRequerySuggested();
         }
     }
 }

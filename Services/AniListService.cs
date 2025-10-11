@@ -5,6 +5,7 @@ using MSCS.Models;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -32,7 +33,7 @@ namespace MSCS.Services
     deleted
   }
 }";
-
+        private const string ServiceUnavailableMessage = "AniList is currently unavailable. Please check your internet connection and try again.";
         private readonly HttpClient _httpClient;
         private readonly UserSettings _userSettings;
         private string? _accessToken;
@@ -123,7 +124,11 @@ namespace MSCS.Services
                 search = query
             };
 
-            using var document = await SendGraphQlRequestAsync(gqlQuery, variables, cancellationToken).ConfigureAwait(false);
+            using var document = await TrySendGraphQlRequestAsync(gqlQuery, variables, cancellationToken).ConfigureAwait(false);
+            if (document == null)
+            {
+                throw new InvalidOperationException(ServiceUnavailableMessage);
+            }
             if (!document.RootElement.TryGetProperty("data", out var dataElement))
             {
                 return Array.Empty<AniListMedia>();
@@ -205,7 +210,11 @@ namespace MSCS.Services
                 country
             };
 
-            using var document = await SendGraphQlRequestAsync(gqlQuery, variables, cancellationToken).ConfigureAwait(false);
+            using var document = await TrySendGraphQlRequestAsync(gqlQuery, variables, cancellationToken).ConfigureAwait(false);
+            if (document == null)
+            {
+                throw new InvalidOperationException(ServiceUnavailableMessage);
+            }
             if (!document.RootElement.TryGetProperty("data", out var dataElement))
             {
                 return Array.Empty<AniListMedia>();
@@ -267,7 +276,7 @@ namespace MSCS.Services
                 score,
                 media.Chapters,
                 media.SiteUrl,
-                null,
+                DateTimeOffset.UtcNow,
                 null);
             _userSettings.SetAniListTracking(mangaTitle, fallback);
             TrackingChanged?.Invoke(this, EventArgs.Empty);
@@ -287,7 +296,7 @@ namespace MSCS.Services
                 return;
             }
 
-            await SaveMediaListEntryAsync(
+            var updated = await SaveMediaListEntryAsync(
                 mangaTitle,
                 trackingInfo.MediaId,
                 trackingInfo.Title,
@@ -296,6 +305,23 @@ namespace MSCS.Services
                 progress,
                 null,
                 cancellationToken).ConfigureAwait(false);
+
+            if (updated == null)
+            {
+                var fallback = new AniListTrackingInfo(
+                    trackingInfo.MediaId,
+                    trackingInfo.Title,
+                    trackingInfo.CoverImageUrl,
+                    trackingInfo.Status,
+                    progress,
+                    trackingInfo.Score,
+                    trackingInfo.TotalChapters,
+                    trackingInfo.SiteUrl,
+                    DateTimeOffset.UtcNow,
+                    trackingInfo.MediaListEntryId);
+                _userSettings.SetAniListTracking(mangaTitle, fallback);
+                TrackingChanged?.Invoke(this, EventArgs.Empty);
+            }
         }
 
         public bool TryGetTracking(string mangaTitle, out AniListTrackingInfo? trackingInfo)
@@ -333,7 +359,8 @@ namespace MSCS.Services
                 return null;
             }
 
-            return await SaveMediaListEntryAsync(
+
+            var updated = await SaveMediaListEntryAsync(
                 mangaTitle,
                 trackingInfo.MediaId,
                 trackingInfo.Title,
@@ -342,6 +369,26 @@ namespace MSCS.Services
                 progress,
                 score,
                 cancellationToken).ConfigureAwait(false);
+
+            if (updated != null)
+            {
+                return updated;
+            }
+
+            var fallback = new AniListTrackingInfo(
+                trackingInfo.MediaId,
+                trackingInfo.Title,
+                trackingInfo.CoverImageUrl,
+                status ?? trackingInfo.Status,
+                progress ?? trackingInfo.Progress,
+                score ?? trackingInfo.Score,
+                trackingInfo.TotalChapters,
+                trackingInfo.SiteUrl,
+                DateTimeOffset.UtcNow,
+                trackingInfo.MediaListEntryId);
+            _userSettings.SetAniListTracking(mangaTitle, fallback);
+            TrackingChanged?.Invoke(this, EventArgs.Empty);
+            return fallback;
         }
 
         public async Task<bool> UntrackSeriesAsync(string mangaTitle, CancellationToken cancellationToken = default)
@@ -375,7 +422,11 @@ namespace MSCS.Services
                 id = entryId
             };
 
-            using var _ = await SendGraphQlRequestAsync(DeleteMediaListEntryMutation, variables, cancellationToken).ConfigureAwait(false);
+            using var document = await TrySendGraphQlRequestAsync(DeleteMediaListEntryMutation, variables, cancellationToken).ConfigureAwait(false);
+            if (document == null)
+            {
+                Debug.WriteLine("AniList: Unable to remove tracking entry due to missing connection. Removing local entry only.");
+            }
             _userSettings.RemoveAniListTracking(mangaTitle);
             TrackingChanged?.Invoke(this, EventArgs.Empty);
             return true;
@@ -448,7 +499,11 @@ namespace MSCS.Services
                 userName = _userName
             };
 
-            using var document = await SendGraphQlRequestAsync(query, variables, cancellationToken).ConfigureAwait(false);
+            using var document = await TrySendGraphQlRequestAsync(query, variables, cancellationToken).ConfigureAwait(false);
+            if (document == null)
+            {
+                throw new InvalidOperationException(ServiceUnavailableMessage);
+            }
             if (!document.RootElement.TryGetProperty("data", out var dataElement) ||
                 !dataElement.TryGetProperty("MediaListCollection", out var collectionElement) ||
                 collectionElement.ValueKind != JsonValueKind.Object)
@@ -614,6 +669,20 @@ namespace MSCS.Services
             return refreshed;
         }
 
+        public Task LogoutAsync()
+        {
+            _accessToken = null;
+            _tokenExpiry = null;
+            _userName = null;
+            _httpClient.DefaultRequestHeaders.Authorization = null;
+
+            _userSettings.ClearAniListAuthentication();
+            _userSettings.ClearAniListTracking();
+
+            AuthenticationChanged?.Invoke(this, EventArgs.Empty);
+            TrackingChanged?.Invoke(this, EventArgs.Empty);
+            return Task.CompletedTask;
+        }
 
         private void ApplyAccessToken(string token, DateTimeOffset expiry)
         {
@@ -627,7 +696,11 @@ namespace MSCS.Services
         private async Task FetchViewerAsync()
         {
             const string query = "query { Viewer { id name } }";
-            using var document = await SendGraphQlRequestAsync(query, new { }, CancellationToken.None).ConfigureAwait(false);
+            using var document = await TrySendGraphQlRequestAsync(query, new { }, CancellationToken.None).ConfigureAwait(false);
+            if (document == null)
+            {
+                return;
+            }
             if (document.RootElement.TryGetProperty("data", out var dataElement) &&
                 dataElement.TryGetProperty("Viewer", out var viewerElement) &&
                 viewerElement.TryGetProperty("name", out var nameElement))
@@ -800,6 +873,24 @@ namespace MSCS.Services
             return document;
         }
 
+        private async Task<JsonDocument?> TrySendGraphQlRequestAsync(string query, object variables, CancellationToken cancellationToken)
+        {
+            try
+            {
+                return await SendGraphQlRequestAsync(query, variables, cancellationToken).ConfigureAwait(false);
+            }
+            catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                Debug.WriteLine($"AniList request timed out: {ex.Message}");
+                return null;
+            }
+            catch (HttpRequestException ex)
+            {
+                Debug.WriteLine($"AniList request failed: {ex.Message}");
+                return null;
+            }
+        }
+
         private void EnsureAuthenticated()
         {
             if (!IsAuthenticated)
@@ -807,9 +898,6 @@ namespace MSCS.Services
                 throw new InvalidOperationException("AniList authentication is required for this operation.");
             }
         }
-
-
-
         private async Task<AniListTrackingInfo?> SaveMediaListEntryAsync(
             string mangaTitle,
             int mediaId,
@@ -842,7 +930,11 @@ namespace MSCS.Services
                 variables["score"] = score.Value;
             }
 
-            using var _ = await SendGraphQlRequestAsync(SaveMediaListEntryMutation, variables, cancellationToken).ConfigureAwait(false);
+            using var document = await TrySendGraphQlRequestAsync(SaveMediaListEntryMutation, variables, cancellationToken).ConfigureAwait(false);
+            if (document == null)
+            {
+                return null;
+            }
             var refreshed = await FetchTrackingInfoByMediaIdAsync(mediaId, fallbackTitle, fallbackCoverImage, cancellationToken).ConfigureAwait(false);
             if (refreshed != null)
             {
@@ -883,7 +975,11 @@ namespace MSCS.Services
                 mediaId
             };
 
-            using var document = await SendGraphQlRequestAsync(query, variables, cancellationToken).ConfigureAwait(false);
+            using var document = await TrySendGraphQlRequestAsync(query, variables, cancellationToken).ConfigureAwait(false);
+            if (document == null)
+            {
+                return null;
+            }
             if (!document.RootElement.TryGetProperty("data", out var dataElement) ||
                 !dataElement.TryGetProperty("Media", out var mediaElement) ||
                 mediaElement.ValueKind != JsonValueKind.Object)

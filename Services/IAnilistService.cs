@@ -17,6 +17,7 @@ namespace MSCS.Interfaces
         Task<bool> AuthenticateAsync(Window? owner);
         Task<IReadOnlyList<AniListMedia>> SearchSeriesAsync(string query, CancellationToken cancellationToken = default);
         Task<IReadOnlyDictionary<AniListMediaListStatus, IReadOnlyList<AniListMedia>>> GetUserListsAsync(CancellationToken cancellationToken = default);
+        Task LogoutAsync();
         Task<AniListTrackingInfo> TrackSeriesAsync(
             string mangaTitle,
             AniListMedia media,
