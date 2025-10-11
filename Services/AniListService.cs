@@ -190,61 +190,73 @@ namespace MSCS.Services
                 _ => null
             };
 
-            const string gqlQuery = @"query (
-  $perPage: Int!,
-  $country: CountryCode,
-  $sort: [MediaSort!],
-  $statusIn: [MediaStatus!],
-  $minimumScore: Int
-) {
-  Page(perPage: $perPage) {
-    media(
-      type: MANGA,
-      sort: $sort,
-      countryOfOrigin: $country,
-      status_in: $statusIn,
-      averageScore_greater: $minimumScore,
-      isAdult: false
-    ) {
-      id
-      status
-      format
-      chapters
-      siteUrl
-      meanScore
-      averageScore
-      title {
-        romaji
-        english
-        native
-      }
-      coverImage {
-        large
-      }
-      bannerImage
-      startDate {
-        year
-        month
-        day
-      }
-      mediaListEntry {
-        id
-        status
-        progress
-        score
-        updatedAt
-      }
-    }
-  }
-}";
+            var queryBuilder = new StringBuilder();
+            queryBuilder.AppendLine("query ($perPage: Int!) {");
+            queryBuilder.AppendLine("  Page(perPage: $perPage) {");
+            queryBuilder.Append("    media(");
+
+            var argumentParts = new List<string>
+            {
+                "type: MANGA",
+                $"sort: [{string.Join(", ", sort)}]"
+            };
+
+            if (!string.IsNullOrEmpty(country))
+            {
+                argumentParts.Add($"countryOfOrigin: {country}");
+            }
+
+            if (statusIn is { Length: > 0 })
+            {
+                argumentParts.Add($"status_in: [{string.Join(", ", statusIn)}]");
+            }
+
+            if (minimumScore.HasValue)
+            {
+                argumentParts.Add($"averageScore_greater: {minimumScore.Value}");
+            }
+
+            argumentParts.Add("isAdult: false");
+
+            queryBuilder.Append(string.Join(", ", argumentParts));
+            queryBuilder.AppendLine(") {");
+            queryBuilder.AppendLine("      id");
+            queryBuilder.AppendLine("      status");
+            queryBuilder.AppendLine("      format");
+            queryBuilder.AppendLine("      chapters");
+            queryBuilder.AppendLine("      siteUrl");
+            queryBuilder.AppendLine("      meanScore");
+            queryBuilder.AppendLine("      averageScore");
+            queryBuilder.AppendLine("      title {");
+            queryBuilder.AppendLine("        romaji");
+            queryBuilder.AppendLine("        english");
+            queryBuilder.AppendLine("        native");
+            queryBuilder.AppendLine("      }");
+            queryBuilder.AppendLine("      coverImage {");
+            queryBuilder.AppendLine("        large");
+            queryBuilder.AppendLine("      }");
+            queryBuilder.AppendLine("      bannerImage");
+            queryBuilder.AppendLine("      startDate {");
+            queryBuilder.AppendLine("        year");
+            queryBuilder.AppendLine("        month");
+            queryBuilder.AppendLine("        day");
+            queryBuilder.AppendLine("      }");
+            queryBuilder.AppendLine("      mediaListEntry {");
+            queryBuilder.AppendLine("        id");
+            queryBuilder.AppendLine("        status");
+            queryBuilder.AppendLine("        progress");
+            queryBuilder.AppendLine("        score");
+            queryBuilder.AppendLine("        updatedAt");
+            queryBuilder.AppendLine("      }");
+            queryBuilder.AppendLine("    }");
+            queryBuilder.AppendLine("  }");
+            queryBuilder.AppendLine("}");
+
+            var gqlQuery = queryBuilder.ToString();
 
             var variables = new
             {
-                perPage = Math.Min(perPage, 50),
-                country,
-                sort,
-                statusIn,
-                minimumScore
+                perPage = Math.Min(perPage, 50)
             };
 
 
