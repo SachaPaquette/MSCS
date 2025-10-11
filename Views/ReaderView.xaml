@@ -13,10 +13,6 @@
 
     <UserControl.Resources>
         <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="pack://application:,,,/Ressources/Styles/Palette.xaml"/>
-                <ResourceDictionary Source="pack://application:,,,/Ressources/Styles/Controls.xaml"/>
-            </ResourceDictionary.MergedDictionaries>
 
             <conv:ViewportFractionConverter x:Key="ViewportFraction"/>
             <conv:BooleanOrConverter x:Key="BooleanOr"/>

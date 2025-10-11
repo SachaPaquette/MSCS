@@ -3,11 +3,11 @@
     <!-- Navigation button styles -->
     <Style x:Key="NavButtonStyle" TargetType="Button">
         <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="Foreground" Value="{StaticResource SidebarText}"/>
+        <Setter Property="Foreground" Value="{DynamicResource SidebarText}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Margin" Value="0,4"/>
         <Setter Property="Padding" Value="10,6"/>
-        <Setter Property="BorderBrush" Value="#2C2C3E"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource SurfaceAlt}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="Template">
@@ -21,10 +21,10 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Background" Value="#2E2E3D"/>
+                            <Setter Property="Background" Value="{DynamicResource SurfaceAlt}"/>
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter Property="Background" Value="{StaticResource AccentColor}"/>
+                            <Setter Property="Background" Value="{DynamicResource AccentColor}"/>
                             <Setter Property="Foreground" Value="White"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
@@ -45,7 +45,7 @@
 
     <!-- Card surfaces -->
     <Style x:Key="CardStyle" TargetType="Border">
-        <Setter Property="Background" Value="{StaticResource Card}"/>
+        <Setter Property="Background" Value="{DynamicResource Card}"/>
         <Setter Property="CornerRadius" Value="14"/>
         <Setter Property="Padding" Value="16"/>
         <Setter Property="SnapsToDevicePixels" Value="True"/>
@@ -58,7 +58,7 @@
 
     <!-- Icon button (MDL2) -->
     <Style x:Key="IconButtonStyle" TargetType="Button">
-        <Setter Property="Foreground" Value="{StaticResource Fg}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Fg}"/>
         <Setter Property="Background" Value="{x:Null}"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Padding" Value="8"/>
@@ -73,10 +73,10 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="bg" Property="Background" Value="#2A3347"/>
+                            <Setter TargetName="bg" Property="Background" Value="{DynamicResource ControlHover}"/>
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="bg" Property="Background" Value="#3A465F"/>
+                            <Setter TargetName="bg" Property="Background" Value="{DynamicResource ControlPressed}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

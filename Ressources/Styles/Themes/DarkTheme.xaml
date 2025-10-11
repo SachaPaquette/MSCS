@@ -1,6 +1,6 @@
 ﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <!-- Global color palette -->
+    <!-- Global color palette for the dark theme -->
     <SolidColorBrush x:Key="PrimaryColor" Color="#2B2D42"/>
     <SolidColorBrush x:Key="AccentColor" Color="#EF8354"/>
     <SolidColorBrush x:Key="SidebarBackground" Color="#1C1C2E"/>
@@ -16,6 +16,10 @@
     <SolidColorBrush x:Key="SurfaceAlt" Color="#222A3A"/>
     <SolidColorBrush x:Key="Card"      Color="#202737"/>
     <SolidColorBrush x:Key="Accent"    Color="#7C9CFF"/>
+    <SolidColorBrush x:Key="AccentHover" Color="#91ACFF"/>
+    <SolidColorBrush x:Key="AccentPressed" Color="#6987F7"/>
     <SolidColorBrush x:Key="Fg"        Color="#E9EEF7"/>
     <SolidColorBrush x:Key="FgMuted"   Color="#9AA5B1"/>
+    <SolidColorBrush x:Key="ControlHover" Color="#2A3347"/>
+    <SolidColorBrush x:Key="ControlPressed" Color="#3A465F"/>
 </ResourceDictionary>

@@ -1,11 +1,12 @@
-﻿using System;
+﻿using MSCS.Commands;
+using MSCS.Enums;
+using MSCS.Interfaces;
+using MSCS.Services;
+using System;
 using System.IO;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
-using MSCS.Commands;
-using MSCS.Interfaces;
-using MSCS.Services;
 using Forms = System.Windows.Forms;
 
 namespace MSCS.ViewModels
@@ -21,8 +22,10 @@ namespace MSCS.ViewModels
         private bool _isAniListConnected;
         private string? _aniListUserName;
         private bool _suppressSettingsUpdate;
+        private readonly ThemeService _themeService;
+        private AppTheme _selectedTheme;
 
-        public SettingsViewModel(LocalLibraryService libraryService, UserSettings userSettings, IAniListService aniListService)
+        public SettingsViewModel(LocalLibraryService libraryService, UserSettings userSettings, IAniListService aniListService, ThemeService themeService)
         {
             _libraryService = libraryService ?? throw new ArgumentNullException(nameof(libraryService));
             _userSettings = userSettings ?? throw new ArgumentNullException(nameof(userSettings));
@@ -31,10 +34,23 @@ namespace MSCS.ViewModels
             _libraryService.LibraryPathChanged += OnLibraryPathChanged;
             _userSettings.SettingsChanged += OnUserSettingsChanged;
             _aniListService.AuthenticationChanged += OnAniListAuthenticationChanged;
+            _themeService = themeService ?? throw new ArgumentNullException(nameof(themeService));
 
             _libraryPath = _libraryService.LibraryPath;
             _isAniListConnected = _aniListService.IsAuthenticated;
             _aniListUserName = _aniListService.UserName;
+
+            ThemeOptions = new List<ThemeOption>
+            {
+                new(AppTheme.Dark, "Dark"),
+                new(AppTheme.Light, "Light")
+            };
+
+            _suppressSettingsUpdate = true;
+            _selectedTheme = _userSettings.AppTheme;
+            _suppressSettingsUpdate = false;
+            OnPropertyChanged(nameof(SelectedTheme));
+
 
             BrowseCommand = new RelayCommand(_ => BrowseForFolder());
             ClearCommand = new RelayCommand(_ => LibraryPath = null, _ => !string.IsNullOrWhiteSpace(LibraryPath));
@@ -70,6 +86,23 @@ namespace MSCS.ViewModels
         public ICommand ClearCommand { get; }
         public ICommand AniListAuthenticateCommand { get; }
         public ICommand AniListLogoutCommand { get; }
+        public IReadOnlyList<ThemeOption> ThemeOptions { get; }
+
+        public AppTheme SelectedTheme
+        {
+            get => _selectedTheme;
+            set
+            {
+                if (SetProperty(ref _selectedTheme, value, nameof(SelectedTheme)))
+                {
+                    if (!_suppressSettingsUpdate)
+                    {
+                        _themeService.ApplyTheme(value);
+                        _userSettings.AppTheme = value;
+                    }
+                }
+            }
+        }
 
         public bool IsAniListConnected
         {
@@ -186,6 +219,7 @@ namespace MSCS.ViewModels
             try
             {
                 _suppressSettingsUpdate = true;
+                SelectedTheme = _userSettings.AppTheme;
             }
             finally
             {
@@ -204,5 +238,7 @@ namespace MSCS.ViewModels
             AniListUserName = _aniListService.UserName;
             CommandManager.InvalidateRequerySuggested();
         }
+
+        public record ThemeOption(AppTheme Value, string DisplayName);
     }
 }

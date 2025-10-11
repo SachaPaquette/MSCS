@@ -10,64 +10,57 @@
 
     <Window.Resources>
         <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="pack://application:,,,/Ressources/Styles/Palette.xaml"/>
-                <ResourceDictionary Source="pack://application:,,,/Ressources/Styles/Controls.xaml"/>
-                <ResourceDictionary Source="/Ressources/DataTemplates/ViewTemplate.xaml"/>
-            </ResourceDictionary.MergedDictionaries>
-            
-
-        <!-- Main tabs -->
-        <Style x:Key="MainTabItemStyle" TargetType="ListBoxItem">
-            <Setter Property="Padding" Value="18,10"/>
-            <Setter Property="Margin" Value="0,0,12,0"/>
-            <Setter Property="Foreground" Value="{StaticResource FgMuted}"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ListBoxItem">
-                        <Border x:Name="Bd"
+            <!-- Main tabs -->
+            <Style x:Key="MainTabItemStyle" TargetType="ListBoxItem">
+                <Setter Property="Padding" Value="18,10"/>
+                <Setter Property="Margin" Value="0,0,12,0"/>
+                <Setter Property="Foreground" Value="{DynamicResource FgMuted}"/>
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListBoxItem">
+                            <Border x:Name="Bd"
                                 Background="{TemplateBinding Background}"
                                 CornerRadius="10"
                                 Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#252E40"/>
-                                <Setter Property="Foreground" Value="{StaticResource Fg}"/>
-                            </Trigger>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceAlt}"/>
-                                <Setter Property="Foreground" Value="{StaticResource Fg}"/>
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Foreground" Value="#445066"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceAlt}"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource Fg}"/>
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceAlt}"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource Fg}"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Foreground" Value="#445066"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
 
-        <DataTemplate x:Key="MainTabTemplate" DataType="{x:Type vm:MainMenuTab}">
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <TextBlock Text="{Binding IconGlyph}"
+            <DataTemplate x:Key="MainTabTemplate" DataType="{x:Type vm:MainMenuTab}">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding IconGlyph}"
                            FontFamily="Segoe MDL2 Assets"
                            Margin="0,0,6,0"
                            Foreground="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=Foreground}"/>
-                <TextBlock Text="{Binding Title}"
+                    <TextBlock Text="{Binding Title}"
                            Foreground="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=Foreground}"/>
-            </StackPanel>
-        </DataTemplate>
+                </StackPanel>
+            </DataTemplate>
         </ResourceDictionary>
     </Window.Resources>
 
     <!-- ===== Layout ===== -->
-    <Grid Background="{StaticResource AppBackground}">
+    <Grid Background="{DynamicResource AppBackground}">
         <!-- soft vignette -->
         <Rectangle>
             <Rectangle.Fill>
@@ -107,13 +100,13 @@
 
             <!-- Content host, centered, width not driven by content -->
             <Border Grid.Row="2"
-                    Style="{StaticResource CardStyle}"
+                    Style="{DynamicResource CardStyle}"
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Stretch"
                     Padding="0"
                     Background="{x:Null}">
                 <!-- MainWindow.xaml -->
-                <Grid Background="{StaticResource AppBackground}">
+                <Grid Background="{DynamicResource AppBackground}">
                     <ContentControl Content="{Binding CurrentViewModel}"
                   HorizontalAlignment="Stretch"
                   VerticalAlignment="Stretch"

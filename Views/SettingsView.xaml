@@ -7,14 +7,14 @@
         <Style x:Key="SettingsTextBox" TargetType="TextBox">
             <Setter Property="Height" Value="38"/>
             <Setter Property="Padding" Value="12,0"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Background" Value="#1C2434"/>
-            <Setter Property="BorderBrush" Value="#2B3448"/>
+            <Setter Property="Foreground" Value="{DynamicResource Fg}"/>
+            <Setter Property="Background" Value="{DynamicResource Surface}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SurfaceAlt}"/>
             <Setter Property="BorderThickness" Value="1"/>
         </Style>
 
         <Style x:Key="AccentButton" TargetType="Button">
-            <Setter Property="Background" Value="#7C9CFF"/>
+            <Setter Property="Background" Value="{DynamicResource Accent}"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="BorderBrush" Value="{x:Null}"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -38,10 +38,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="#91ACFF"/>
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource AccentHover}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="#6987F7"/>
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource AccentPressed}"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.5"/>
@@ -60,11 +60,27 @@
                 <TextBlock Text="Settings"
                            FontSize="24"
                            FontWeight="SemiBold"
-                           Foreground="White"
+                           Foreground="{DynamicResource Fg}"
                            Margin="0,0,0,18"/>
+                <settings:SettingsSection Title="Appearance"
+                                          Description="Pick a theme for the application.">
+                    <StackPanel>
+                        <ComboBox ItemsSource="{Binding ThemeOptions}"
+                                  SelectedValuePath="Value"
+                                  SelectedValue="{Binding SelectedTheme, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  DisplayMemberPath="DisplayName"
+                                  Width="220"
+                                  HorizontalAlignment="Left"/>
+                        <TextBlock Text="Changes apply immediately."
+                                   Margin="0,8,0,0"
+                                   Foreground="{DynamicResource FgMuted}"/>
+                    </StackPanel>
+                </settings:SettingsSection>
 
                 <settings:SettingsSection Title="Local library folder"
-                                          Description="Choose the folder that contains your downloaded manga collection.">
+                                          Description="Choose the folder that contains your downloaded manga collection."
+                                          Margin="0,20,0,0">
+                    
                     <StackPanel>
                         <TextBox Text="{Binding LibraryPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                  Style="{StaticResource SettingsTextBox}"
@@ -82,15 +98,15 @@
                                     Margin="10,0,0,0"/>
                         </StackPanel>
 
-                        <Border Background="#111722"
-                                BorderBrush="#273145"
+                        <Border Background="{DynamicResource Surface}"
+                                BorderBrush="{DynamicResource SurfaceAlt}"
                                 BorderThickness="1"
                                 CornerRadius="8"
                                 Padding="12"
                                 Margin="0,12,0,0">
                             <StackPanel>
                                 <TextBlock Text="Current status"
-                                           Foreground="#A9B4C7"
+                                           Foreground="{DynamicResource FgMuted}"
                                            FontSize="12"
                                            TextWrapping="Wrap"/>
                                 <TextBlock FontWeight="SemiBold">
@@ -129,15 +145,15 @@
                                     Visibility="{Binding IsAniListConnected, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                         </StackPanel>
 
-                        <Border Background="#111722"
-                                BorderBrush="#273145"
+                        <Border Background="{DynamicResource Surface}"
+                                BorderBrush="{DynamicResource SurfaceAlt}"
                                 BorderThickness="1"
                                 CornerRadius="8"
                                 Padding="12"
                                 Margin="0,12,0,0">
                             <StackPanel>
                                 <TextBlock Text="Connection status"
-                                           Foreground="#A9B4C7"
+                                           Foreground="{DynamicResource FgMuted}"
                                            FontSize="12"/>
                                 <TextBlock Text="{Binding AniListStatusText}"
                                            FontWeight="SemiBold">

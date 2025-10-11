@@ -12,6 +12,7 @@ namespace MSCS.Services
     public class UserSettings
     {
         private readonly string _settingsPath;
+        private static readonly JsonSerializerOptions SerializerOptions = CreateSerializerOptions();
         private readonly object _syncLock = new();
         private SettingsData _data;
 
@@ -86,6 +87,22 @@ namespace MSCS.Services
                 }
 
                 _data.AniListUserName = value;
+                SaveInternal();
+                SettingsChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        public AppTheme AppTheme
+        {
+            get => _data.AppTheme;
+            set
+            {
+                if (_data.AppTheme == value)
+                {
+                    return;
+                }
+
+                _data.AppTheme = value;
                 SaveInternal();
                 SettingsChanged?.Invoke(this, EventArgs.Empty);
             }
@@ -380,7 +397,7 @@ namespace MSCS.Services
                 }
 
                 var json = File.ReadAllText(_settingsPath);
-                var data = JsonSerializer.Deserialize<SettingsData>(json) ?? new SettingsData();
+                var data = JsonSerializer.Deserialize<SettingsData>(json, SerializerOptions) ?? new SettingsData();
                 data.AniListTrackedSeries ??= new Dictionary<string, TrackedSeriesData>();
                 data.ReadingProgress ??= new Dictionary<string, ReadingProgressData>();
                 data.ReaderProfiles ??= new Dictionary<string, ReaderProfileData>();
@@ -403,11 +420,7 @@ namespace MSCS.Services
                     Directory.CreateDirectory(directory);
                 }
 
-                var json = JsonSerializer.Serialize(_data, new JsonSerializerOptions
-                {
-                    WriteIndented = true,
-                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-                });
+                var json = JsonSerializer.Serialize(_data, SerializerOptions);
 
                 lock (_syncLock)
                 {
@@ -420,12 +433,24 @@ namespace MSCS.Services
             }
         }
 
+        private static JsonSerializerOptions CreateSerializerOptions()
+        {
+            var options = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+            };
+            options.Converters.Add(new JsonStringEnumConverter());
+            return options;
+        }
+
         private class SettingsData
         {
             public string? LocalLibraryPath { get; set; }
             public string? AniListAccessToken { get; set; }
             public DateTimeOffset? AniListAccessTokenExpiry { get; set; }
             public string? AniListUserName { get; set; }
+            public AppTheme AppTheme { get; set; } = AppTheme.Dark;
             public Dictionary<string, TrackedSeriesData> AniListTrackedSeries { get; set; } = new();
             public Dictionary<string, ReadingProgressData> ReadingProgress { get; set; } = new();
             public ReaderProfileData? DefaultReaderProfile { get; set; } = new();

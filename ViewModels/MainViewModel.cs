@@ -17,6 +17,7 @@ namespace MSCS.ViewModels
         private readonly LocalLibraryService _localLibraryService;
         private readonly AniListService _aniListService;
         private readonly LocalSource _LocalSource;
+        private readonly ThemeService _themeService;
         private readonly Dictionary<BaseViewModel, MainMenuTab> _tabLookup = new();
         private BaseViewModel _currentViewModel;
         private ChapterListViewModel? _activeChapterViewModel;
@@ -29,6 +30,8 @@ namespace MSCS.ViewModels
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
 
             _userSettings = new UserSettings();
+            _themeService = new ThemeService();
+            _themeService.ApplyTheme(_userSettings.AppTheme);
             _localLibraryService = new LocalLibraryService(_userSettings);
             _aniListService = new AniListService(_userSettings);
             _LocalSource = new LocalSource(_localLibraryService);
@@ -46,7 +49,7 @@ namespace MSCS.ViewModels
             ContinueReadingVM = new ContinueReadingViewModel(_userSettings);
             ContinueReadingVM.ContinueReadingRequested += OnContinueReadingRequested;
 
-            SettingsVM = new SettingsViewModel(_localLibraryService, _userSettings, _aniListService);
+            SettingsVM = new SettingsViewModel(_localLibraryService, _userSettings, _aniListService, _themeService);
 
 
             Tabs = new ObservableCollection<MainMenuTab>
