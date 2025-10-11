@@ -208,62 +208,68 @@
 
                 <Button Style="{StaticResource MediaCardMenuButton}" Click="OnMenuButtonClick">
                     <Button.ContextMenu>
-                        <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                        <ContextMenu>
                             <MenuItem Header="Mark as Currently Reading"
-                                      Command="{Binding DataContext.ChangeStatusCommand, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                                      Command="{Binding ChangeStatusCommand}">
                                 <MenuItem.CommandParameter>
                                     <MultiBinding Converter="{StaticResource PackToArrayConverter}">
-                                        <Binding/>
+                                        <Binding Path="PlacementTarget.DataContext"
+                                                 RelativeSource="{RelativeSource AncestorType=ContextMenu}"/>
                                         <Binding Source="{x:Static enums:AniListMediaListStatus.Current}"/>
                                     </MultiBinding>
                                 </MenuItem.CommandParameter>
                             </MenuItem>
 
                             <MenuItem Header="Add to Plan to Read"
-                                      Command="{Binding DataContext.ChangeStatusCommand, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                                      Command="{Binding ChangeStatusCommand}">
                                 <MenuItem.CommandParameter>
                                     <MultiBinding Converter="{StaticResource PackToArrayConverter}">
-                                        <Binding/>
+                                        <Binding Path="PlacementTarget.DataContext"
+                                                 RelativeSource="{RelativeSource AncestorType=ContextMenu}"/>
                                         <Binding Source="{x:Static enums:AniListMediaListStatus.Planning}"/>
                                     </MultiBinding>
                                 </MenuItem.CommandParameter>
                             </MenuItem>
 
                             <MenuItem Header="Mark as Completed"
-                                      Command="{Binding DataContext.ChangeStatusCommand, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                                      Command="{Binding ChangeStatusCommand}">
                                 <MenuItem.CommandParameter>
                                     <MultiBinding Converter="{StaticResource PackToArrayConverter}">
-                                        <Binding/>
+                                        <Binding Path="PlacementTarget.DataContext"
+                                                 RelativeSource="{RelativeSource AncestorType=ContextMenu}"/>
                                         <Binding Source="{x:Static enums:AniListMediaListStatus.Completed}"/>
                                     </MultiBinding>
                                 </MenuItem.CommandParameter>
                             </MenuItem>
 
                             <MenuItem Header="Mark as Paused"
-                                      Command="{Binding DataContext.ChangeStatusCommand, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                                      Command="{Binding ChangeStatusCommand}">
                                 <MenuItem.CommandParameter>
                                     <MultiBinding Converter="{StaticResource PackToArrayConverter}">
-                                        <Binding/>
+                                        <Binding Path="PlacementTarget.DataContext"
+                                                 RelativeSource="{RelativeSource AncestorType=ContextMenu}"/>
                                         <Binding Source="{x:Static enums:AniListMediaListStatus.Paused}"/>
                                     </MultiBinding>
                                 </MenuItem.CommandParameter>
                             </MenuItem>
 
                             <MenuItem Header="Mark as Dropped"
-                                      Command="{Binding DataContext.ChangeStatusCommand, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                                      Command="{Binding ChangeStatusCommand}">
                                 <MenuItem.CommandParameter>
                                     <MultiBinding Converter="{StaticResource PackToArrayConverter}">
-                                        <Binding/>
+                                        <Binding Path="PlacementTarget.DataContext"
+                                                 RelativeSource="{RelativeSource AncestorType=ContextMenu}"/>
                                         <Binding Source="{x:Static enums:AniListMediaListStatus.Dropped}"/>
                                     </MultiBinding>
                                 </MenuItem.CommandParameter>
                             </MenuItem>
 
                             <MenuItem Header="Mark as Re-reading"
-                                      Command="{Binding DataContext.ChangeStatusCommand, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                                      Command="{Binding ChangeStatusCommand}">
                                 <MenuItem.CommandParameter>
                                     <MultiBinding Converter="{StaticResource PackToArrayConverter}">
-                                        <Binding/>
+                                        <Binding Path="PlacementTarget.DataContext"
+                                                 RelativeSource="{RelativeSource AncestorType=ContextMenu}"/>
                                         <Binding Source="{x:Static enums:AniListMediaListStatus.Repeating}"/>
                                     </MultiBinding>
                                 </MenuItem.CommandParameter>
@@ -272,14 +278,15 @@
                             <Separator/>
 
                             <MenuItem Header="Open tracking editor..."
-                                      Command="{Binding DataContext.EditTrackingCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                      CommandParameter="{Binding}"/>
+                                      Command="{Binding EditTrackingCommand}"
+                                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                         </ContextMenu>
                     </Button.ContextMenu>
                 </Button>
             </Grid>
         </DataTemplate>
     </UserControl.Resources>
+
 
     <Grid>
         <ScrollViewer VerticalScrollBarVisibility="Auto">

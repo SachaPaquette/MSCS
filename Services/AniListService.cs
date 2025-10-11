@@ -603,6 +603,7 @@ namespace MSCS.Services
         }
 
 
+
         private async Task<AniListTrackingInfo?> SaveMediaListEntryAsync(
             string mangaTitle,
             int mediaId,
@@ -615,13 +616,25 @@ namespace MSCS.Services
         {
             EnsureAuthenticated();
 
-            var variables = new
+            var variables = new Dictionary<string, object?>
             {
-                mediaId,
-                status = status?.ToApiValue(),
-                progress,
-                score
+                ["mediaId"] = mediaId
             };
+
+            if (status.HasValue)
+            {
+                variables["status"] = status.Value.ToApiValue();
+            }
+
+            if (progress.HasValue)
+            {
+                variables["progress"] = progress.Value;
+            }
+
+            if (score.HasValue)
+            {
+                variables["score"] = score.Value;
+            }
 
             using var _ = await SendGraphQlRequestAsync(SaveMediaListEntryMutation, variables, cancellationToken).ConfigureAwait(false);
             var refreshed = await FetchTrackingInfoByMediaIdAsync(mediaId, fallbackTitle, fallbackCoverImage, cancellationToken).ConfigureAwait(false);
