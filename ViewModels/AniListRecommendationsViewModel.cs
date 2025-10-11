@@ -198,9 +198,24 @@ namespace MSCS.ViewModels
 
         private async Task ChangeStatusAsync(object? parameter)
         {
-            if (parameter is not object[] values || values.Length < 2 ||
-                values[0] is not AniListMedia media ||
-                values[1] is not AniListMediaListStatus status)
+            AniListMedia? media = null;
+            AniListMediaListStatus? status = null;
+
+            switch (parameter)
+            {
+                case AniListStatusChangeParameter typedParameter:
+                    media = typedParameter.Media;
+                    status = typedParameter.Status;
+                    break;
+                case object[] values when values.Length >= 2 &&
+                                         values[0] is AniListMedia mediaValue &&
+                                         values[1] is AniListMediaListStatus statusValue:
+                    media = mediaValue;
+                    status = statusValue;
+                    break;
+            }
+
+            if (media == null || status == null)
             {
                 return;
             }
@@ -218,16 +233,17 @@ namespace MSCS.ViewModels
             var trackingKey = GetTrackingKey(media);
 
             var updated = false;
+            var resolvedStatus = status.Value;
 
             try
             {
                 IsLoading = true;
-                StatusMessage = $"Updating AniList status to {status.ToDisplayString()}...";
+                StatusMessage = $"Updating AniList status to {resolvedStatus.ToDisplayString()}...";
 
                 await _aniListService.TrackSeriesAsync(
                     trackingKey,
                     media,
-                    status,
+                    resolvedStatus,
                     null,
                     null,
                     _cts.Token).ConfigureAwait(true);
@@ -261,7 +277,7 @@ namespace MSCS.ViewModels
             if (updated)
             {
                 await LoadRecommendationsAsync().ConfigureAwait(true);
-                StatusMessage = $"AniList status updated to {status.ToDisplayString()}.";
+                StatusMessage = $"AniList status updated to {resolvedStatus.ToDisplayString()}.";
             }
         }
 

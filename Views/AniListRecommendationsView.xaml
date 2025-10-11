@@ -15,7 +15,7 @@
         <SolidColorBrush x:Key="MutedBrush" Color="#9AA5B1"/>
 
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
-        <conv:PackToArrayConverter x:Key="PackToArrayConverter"/>
+        <conv:AniListStatusCommandParameterConverter x:Key="AniListStatusCommandParameterConverter"/>
 
         <Style x:Key="AccentButton" TargetType="Button">
             <Setter Property="Background" Value="{StaticResource Accent}"/>
@@ -212,64 +212,28 @@
                     <Button.ContextMenu>
                         <ContextMenu>
                             <MenuItem Header="Mark as Currently Reading"
-                                       Command="{Binding ViewModel.ChangeStatusCommand}">
-                                <MenuItem.CommandParameter>
-                                    <MultiBinding Converter="{StaticResource PackToArrayConverter}">
-                                        <Binding Path="Media"/>
-                                        <Binding Source="{x:Static enums:AniListMediaListStatus.Current}"/>
-                                    </MultiBinding>
-                                </MenuItem.CommandParameter>
-                            </MenuItem>
+                                      Command="{Binding ViewModel.ChangeStatusCommand}"
+                                      CommandParameter="{Binding Media, Converter={StaticResource AniListStatusCommandParameterConverter}, ConverterParameter={x:Static enums:AniListMediaListStatus.Current}}"/>
 
                             <MenuItem Header="Add to Plan to Read"
-                                      Command="{Binding ViewModel.ChangeStatusCommand}">
-                                <MenuItem.CommandParameter>
-                                    <MultiBinding Converter="{StaticResource PackToArrayConverter}">
-                                        <Binding Path="Media"/>
-                                        <Binding Source="{x:Static enums:AniListMediaListStatus.Planning}"/>
-                                    </MultiBinding>
-                                </MenuItem.CommandParameter>
-                            </MenuItem>
+                                      Command="{Binding ViewModel.ChangeStatusCommand}"
+                                      CommandParameter="{Binding Media, Converter={StaticResource AniListStatusCommandParameterConverter}, ConverterParameter={x:Static enums:AniListMediaListStatus.Planning}}"/>
 
                             <MenuItem Header="Mark as Completed"
-                                      Command="{Binding ViewModel.ChangeStatusCommand}">
-                                <MenuItem.CommandParameter>
-                                    <MultiBinding Converter="{StaticResource PackToArrayConverter}">
-                                        <Binding Path="Media"/>
-                                        <Binding Source="{x:Static enums:AniListMediaListStatus.Completed}"/>
-                                    </MultiBinding>
-                                </MenuItem.CommandParameter>
-                            </MenuItem>
+                                      Command="{Binding ViewModel.ChangeStatusCommand}"
+                                      CommandParameter="{Binding Media, Converter={StaticResource AniListStatusCommandParameterConverter}, ConverterParameter={x:Static enums:AniListMediaListStatus.Completed}}"/>
 
                             <MenuItem Header="Mark as Paused"
-                                      Command="{Binding ViewModel.ChangeStatusCommand}">
-                                <MenuItem.CommandParameter>
-                                    <MultiBinding Converter="{StaticResource PackToArrayConverter}">
-                                        <Binding Path="Media"/>
-                                        <Binding Source="{x:Static enums:AniListMediaListStatus.Paused}"/>
-                                    </MultiBinding>
-                                </MenuItem.CommandParameter>
-                            </MenuItem>
+                                      Command="{Binding ViewModel.ChangeStatusCommand}"
+                                      CommandParameter="{Binding Media, Converter={StaticResource AniListStatusCommandParameterConverter}, ConverterParameter={x:Static enums:AniListMediaListStatus.Paused}}"/>
 
                             <MenuItem Header="Mark as Dropped"
-                                      Command="{Binding ViewModel.ChangeStatusCommand}">
-                                <MenuItem.CommandParameter>
-                                    <MultiBinding Converter="{StaticResource PackToArrayConverter}">
-                                        <Binding Path="Media"/>
-                                        <Binding Source="{x:Static enums:AniListMediaListStatus.Dropped}"/>
-                                    </MultiBinding>
-                                </MenuItem.CommandParameter>
-                            </MenuItem>
+                                      Command="{Binding ViewModel.ChangeStatusCommand}"
+                                      CommandParameter="{Binding Media, Converter={StaticResource AniListStatusCommandParameterConverter}, ConverterParameter={x:Static enums:AniListMediaListStatus.Dropped}}"/>
 
                             <MenuItem Header="Mark as Re-reading"
-                                      Command="{Binding ViewModel.ChangeStatusCommand}">
-                                <MenuItem.CommandParameter>
-                                    <MultiBinding Converter="{StaticResource PackToArrayConverter}">
-                                        <Binding Path="Media"/>
-                                        <Binding Source="{x:Static enums:AniListMediaListStatus.Repeating}"/>
-                                    </MultiBinding>
-                                </MenuItem.CommandParameter>
-                            </MenuItem>
+                                      Command="{Binding ViewModel.ChangeStatusCommand}"
+                                      CommandParameter="{Binding Media, Converter={StaticResource AniListStatusCommandParameterConverter}, ConverterParameter={x:Static enums:AniListMediaListStatus.Repeating}}"/>
 
                             <Separator/>
 
