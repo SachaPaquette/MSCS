@@ -1,70 +1,38 @@
-name: Publish WPF EXE
+name: Build and Release
 
 on:
   push:
-    branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
+    branches:
+      - main
 
 jobs:
-  build:
+  build-and-release:
     runs-on: windows-latest
-
-    env:
-      Solution_Name: MSCS.sln                       
-      Project_Path: ${{ github.workspace }}\MSCS.csproj
-      Framework: net8.0-windows                     
-      Runtime: win-x64                              
-      Configuration: Release
-
-      # Publish options (single-file EXE)
-      PublishSingleFile: true
-      SelfContained: true
-      IncludeNativeLibrariesForSelfExtract: true
-      PublishTrimmed: false                         
-      ReadyToRun: true                              
-      SIGNED_EXE_NAME: MSCS.exe                     
-
+    permissions:
+      contents: write
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Setup .NET SDK
+      - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: '9.0.x'
+          include-prerelease: true
 
-      - name: Cache NuGet
-        uses: actions/cache@v4
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Publish Windows Release build
+        run: dotnet publish MSCS.csproj -c Release -r win-x64 --self-contained false -o publish
+
+      - name: Upload release asset
+        uses: ncipollo/release-action@v1
         with:
-          path: |
-            ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.sln', '**/*.csproj', '**/packages.lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-
-
-      - name: Restore
-        run: dotnet restore "$env:Solution_Name"
-        
-      - name: Publish single-file EXE
-        run: >
-          dotnet publish "$env:Project_Path"
-          -c "$env:Configuration"
-          -r "$env:Runtime"
-          /p:PublishSingleFile=$env:PublishSingleFile
-          /p:SelfContained=$env:SelfContained
-          /p:IncludeNativeLibrariesForSelfExtract=$env:IncludeNativeLibrariesForSelfExtract
-          /p:PublishTrimmed=$env:PublishTrimmed
-          /p:ReadyToRun=$env:ReadyToRun
-          /p:DebugType=None
-          /p:DebugSymbols=false
-          /p:EnableWindowsTargeting=true
-
-      - name: Compute publish directory
-        shell: pwsh
-        run: |
-          $pub = Join-Path (Split-Path "$env:Project_Path") "bin\$env:Configuration\$env:Framework\$env:Runtime\publish"
-          echo "PUBLISH_DIR=$pub" >> $env:GITHUB_ENV
-          Write-Host "Publish dir: $pub"
+          artifacts: publish/MSCS.exe
+          artifactErrorsFailBuild: true
+          tag: 'main-${{ github.run_number }}'
+          name: 'Main build ${{ github.run_number }}'
+          generateReleaseNotes: true
+          makeLatest: true
+          token: ${{ secrets.GITHUB_TOKEN }}
