@@ -272,10 +272,11 @@ namespace MSCS.ViewModels
                 return Array.Empty<ChapterImage>();
             }
 
-            Debug.WriteLine($"Fetching chapter images: {chapter.Title} ({chapter.Url})");
             try
             {
                 var images = await _source.FetchChapterImages(chapter.Url, _cts.Token).ConfigureAwait(false);
+                Debug.WriteLine("Images: " + (images != null ? images.Count.ToString() : "null"));
+                Debug.WriteLine("Image 1: " + (images != null && images.Count > 0 ? images[0].ImageUrl : "N/A"));
                 return images?.ToList() ?? new List<ChapterImage>();
             }
             catch (OperationCanceledException)

@@ -11,6 +11,7 @@ using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Diagnostics;
 
 namespace MSCS.Sources
 {
@@ -170,7 +171,7 @@ namespace MSCS.Sources
 
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
-
+            Debug.WriteLine("Html: " + html);
             var imageNodes = doc.DocumentNode.SelectNodes(Settings.ReaderImageXPath);
             if (imageNodes == null || imageNodes.Count == 0)
             {
