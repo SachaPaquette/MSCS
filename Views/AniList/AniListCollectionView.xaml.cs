@@ -1,27 +1,68 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using MSCS.Models;
+using MSCS.ViewModels;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 
 namespace MSCS.Views
 {
-    /// <summary>
-    /// Interaction logic for AniListCollectionView.xaml
-    /// </summary>
-    public partial class AniListCollectionView
+    public partial class AniListCollectionView : System.Windows.Controls.UserControl
     {
         public AniListCollectionView()
         {
             InitializeComponent();
         }
+
+        private void OnMenuButtonClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is not System.Windows.Controls.Button button)
+            {
+                return;
+            }
+
+            if (!TryPrepareContextMenu(button))
+            {
+                return;
+            }
+
+            button.ContextMenu!.IsOpen = true;
+            e.Handled = true;
+        }
+
+        private void OnMenuButtonContextMenuOpening(object sender, ContextMenuEventArgs e)
+        {
+            if (sender is not System.Windows.Controls.Button button)
+            {
+                return;
+            }
+
+            if (!TryPrepareContextMenu(button))
+            {
+                e.Handled = true;
+            }
+        }
+
+        private bool TryPrepareContextMenu(System.Windows.Controls.Button button)
+        {
+            if (button.ContextMenu == null)
+            {
+                return false;
+            }
+
+            if (button.DataContext is not AniListMedia media)
+            {
+                return false;
+            }
+
+            if (DataContext is not AniListCollectionViewModel viewModel)
+            {
+                return false;
+            }
+
+            button.ContextMenu.DataContext = new MenuContext(viewModel, media);
+            button.ContextMenu.PlacementTarget = button;
+            return true;
+        }
+
+        private sealed record MenuContext(AniListCollectionViewModel ViewModel, AniListMedia Media);
     }
 }

@@ -1,7 +1,9 @@
 ﻿using MSCS.Commands;
 using MSCS.Enums;
+using MSCS.Helpers;
 using MSCS.Models;
 using MSCS.Services;
+using MSCS.Views;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -38,6 +40,9 @@ namespace MSCS.ViewModels
 
             RefreshCommand = new AsyncRelayCommand(_ => LoadAsync(), _ => !IsLoading);
             OpenSeriesCommand = new RelayCommand(OpenSeries);
+            ChangeStatusCommand = new AsyncRelayCommand(parameter => ChangeStatusAsync(parameter), _ => !IsLoading);
+            EditTrackingCommand = new AsyncRelayCommand(parameter => OpenTrackingEditorAsync(parameter), _ => !IsLoading);
+
 
             _aniListService.AuthenticationChanged += OnAniListAuthenticationChanged;
             _aniListService.TrackingChanged += OnAniListTrackingChanged;
@@ -73,6 +78,10 @@ namespace MSCS.ViewModels
         public ICommand RefreshCommand { get; }
 
         public ICommand OpenSeriesCommand { get; }
+
+        public ICommand ChangeStatusCommand { get; }
+
+        public ICommand EditTrackingCommand { get; }
 
         public bool HasAnySeries => _sections.Any(section => section.HasItems);
 
@@ -156,6 +165,151 @@ namespace MSCS.ViewModels
                 section.ReplaceItems(Array.Empty<AniListMedia>());
             }
             Statistics.Reset();
+        }
+
+
+        private async Task ChangeStatusAsync(object? parameter)
+        {
+            AniListMedia? media = null;
+            AniListMediaListStatus? status = null;
+
+            switch (parameter)
+            {
+                case AniListStatusChangeParameter typedParameter:
+                    media = typedParameter.Media;
+                    status = typedParameter.Status;
+                    break;
+                case object[] values when values.Length >= 2 &&
+                                         values[0] is AniListMedia mediaValue &&
+                                         values[1] is AniListMediaListStatus statusValue:
+                    media = mediaValue;
+                    status = statusValue;
+                    break;
+            }
+
+            if (media == null || status == null)
+            {
+                return;
+            }
+
+            if (!_aniListService.IsAuthenticated)
+            {
+                System.Windows.MessageBox.Show(
+                    "Connect your AniList account from the Settings tab before editing your list.",
+                    "AniList",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            var trackingKey = GetTrackingKey(media);
+            var resolvedStatus = status.Value;
+            var updated = false;
+
+            try
+            {
+                IsLoading = true;
+                StatusMessage = $"Updating AniList status to {resolvedStatus.ToDisplayString()}...";
+
+                await _aniListService.TrackSeriesAsync(
+                    trackingKey,
+                    media,
+                    resolvedStatus,
+                    null,
+                    null,
+                    _cts.Token).ConfigureAwait(true);
+
+                updated = true;
+            }
+            catch (OperationCanceledException)
+            {
+                StatusMessage = "AniList update cancelled.";
+            }
+            catch (InvalidOperationException ex)
+            {
+                System.Windows.MessageBox.Show(ex.Message, "AniList", MessageBoxButton.OK, MessageBoxImage.Warning);
+                StatusMessage = ex.Message;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to update AniList status: {ex}");
+                System.Windows.MessageBox.Show(
+                    "Unable to update the AniList status. Please try again.",
+                    "AniList",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                StatusMessage = "Failed to update the AniList status.";
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+
+            if (updated)
+            {
+                StatusMessage = $"AniList status updated to {resolvedStatus.ToDisplayString()}.";
+            }
+        }
+
+        private async Task OpenTrackingEditorAsync(object? parameter)
+        {
+            if (parameter is not AniListMedia media)
+            {
+                return;
+            }
+
+            if (!_aniListService.IsAuthenticated)
+            {
+                System.Windows.MessageBox.Show(
+                    "Connect your AniList account from the Settings tab before editing your list.",
+                    "AniList",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            var trackingKey = GetTrackingKey(media);
+            AniListTrackingViewModel? trackingViewModel = null;
+
+            try
+            {
+                _aniListService.TryGetTracking(trackingKey, out var existingTracking);
+                trackingViewModel = new AniListTrackingViewModel(
+                    _aniListService,
+                    trackingKey,
+                    media.DisplayTitle,
+                    existingTracking,
+                    null);
+
+                var dialog = new AniListTrackingWindow(trackingViewModel);
+                if (System.Windows.Application.Current?.MainWindow != null)
+                {
+                    dialog.Owner = System.Windows.Application.Current.MainWindow;
+                }
+
+                var result = dialog.ShowDialog();
+                if (result == true && trackingViewModel.TrackingInfo != null)
+                {
+                    StatusMessage = "AniList tracking updated.";
+                }
+            }
+            catch (InvalidOperationException ex)
+            {
+                System.Windows.MessageBox.Show(ex.Message, "AniList", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to open AniList tracking editor: {ex}");
+                System.Windows.MessageBox.Show(
+                    "Unable to open the AniList tracking editor right now.",
+                    "AniList",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+            finally
+            {
+                trackingViewModel?.Dispose();
+            }
         }
 
         private void OpenSeries(object? parameter)
@@ -333,6 +487,27 @@ namespace MSCS.ViewModels
                 section => section.Status,
                 section => (IReadOnlyList<AniListMedia>)section.Items.ToList());
             Statistics.Update(snapshot);
+        }
+
+
+        private static string GetTrackingKey(AniListMedia media)
+        {
+            if (!string.IsNullOrWhiteSpace(media.EnglishTitle))
+            {
+                return media.EnglishTitle!;
+            }
+
+            if (!string.IsNullOrWhiteSpace(media.RomajiTitle))
+            {
+                return media.RomajiTitle!;
+            }
+
+            if (!string.IsNullOrWhiteSpace(media.NativeTitle))
+            {
+                return media.NativeTitle!;
+            }
+
+            return media.DisplayTitle;
         }
 
         public void Dispose()
