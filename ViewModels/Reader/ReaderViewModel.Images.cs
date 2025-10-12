@@ -11,7 +11,7 @@ namespace MSCS.ViewModels
 {
     public partial class ReaderViewModel
     {
-        public async Task LoadMoreImagesAsync(CancellationToken cancellationToken = default)
+        public async Task LoadMoreImagesAsync(int? desiredCount = null, CancellationToken cancellationToken = default)
         {
             if (_allImages.Count - _loadedCount <= 0)
             {
@@ -32,7 +32,9 @@ namespace MSCS.ViewModels
                     return;
                 }
 
-                int countToLoad = Math.Min(Constants.DefaultLoadedBatchSize, remaining);
+                int countToLoad = desiredCount.HasValue
+                    ? Math.Min(remaining, Math.Max(1, desiredCount.Value))
+                    : Math.Min(Constants.DefaultLoadedBatchSize, remaining);
                 var batch = new List<ChapterImage>(countToLoad);
                 for (int i = 0; i < countToLoad; i++)
                 {
@@ -53,7 +55,7 @@ namespace MSCS.ViewModels
                     OnPropertyChanged(nameof(LoadedImages));
                     OnPropertyChanged(nameof(TotalImages));
                     OnPropertyChanged(nameof(LoadingProgress));
-                });
+                }, DispatcherPriority.Background);
 
                 Debug.WriteLine($"Loaded {_loadedCount} / {_allImages.Count} images");
             }
@@ -80,7 +82,14 @@ namespace MSCS.ViewModels
             var targetIndex = (int)Math.Clamp(Math.Ceiling(progress * _allImages.Count) - 1, 0, _allImages.Count - 1);
             while (_loadedCount <= targetIndex && _loadedCount < _allImages.Count)
             {
-                await LoadMoreImagesAsync().ConfigureAwait(false);
+                var needed = targetIndex - _loadedCount + 1;
+                if (needed <= 0)
+                {
+                    break;
+                }
+
+                var requestCount = Math.Max(Constants.DefaultLoadedBatchSize, needed);
+                await LoadMoreImagesAsync(requestCount).ConfigureAwait(false);
             }
         }
     }
