@@ -3,7 +3,7 @@ name: Build and Release
 on:
   push:
     branches:
-      - main
+      - master
 
 jobs:
   build-and-release:
@@ -31,7 +31,7 @@ jobs:
         with:
           artifacts: publish/MSCS.exe
           artifactErrorsFailBuild: true
-          tag: 'main-${{ github.run_number }}'
+          tag: 'master-${{ github.run_number }}'
           name: 'Main build ${{ github.run_number }}'
           generateReleaseNotes: true
           makeLatest: true
