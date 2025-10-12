@@ -154,58 +154,129 @@
             </Button>
         </StackPanel>
 
-        <TextBlock Grid.Row="1"
+        <TextBlock Grid.Row="2"
                    Margin="24,12,24,0"
                    Foreground="{StaticResource MutedBrush}"
                    Text="{Binding StatusMessage}"
                    TextWrapping="Wrap"/>
 
-        <ScrollViewer Grid.Row="2"
+        <ScrollViewer Grid.Row="3"
                       Margin="24"
                       VerticalScrollBarVisibility="Auto">
-            <ItemsControl ItemsSource="{Binding Sections}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate DataType="{x:Type vm:AniListListSectionViewModel}">
-                        <Border Margin="0,0,0,16"
-                                Background="{StaticResource SectionBackground}"
-                                CornerRadius="14"
-                                Padding="16">
-                            <Expander Header="{Binding Header}"
-                                      IsExpanded="{Binding IsExpanded, Mode=TwoWay}"
-                                      Foreground="{StaticResource Fg}">
-                                <Expander.Content>
-                                    <Grid>
-                                        <ItemsControl ItemsSource="{Binding Items}"
-                                                      Margin="0,8,0,0"
-                                                      ItemTemplate="{StaticResource MediaCardTemplate}">
-                                            <ItemsControl.ItemsPanel>
-                                                <ItemsPanelTemplate>
-                                                    <WrapPanel/>
-                                                </ItemsPanelTemplate>
-                                            </ItemsControl.ItemsPanel>
-                                        </ItemsControl>
-                                        <TextBlock Text="No series in this list yet."
-                                                   Foreground="{StaticResource MutedBrush}"
-                                                   HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding HasItems}" Value="False">
-                                                            <Setter Property="Visibility" Value="Visible"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                    </Grid>
-                                </Expander.Content>
-                            </Expander>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+            <StackPanel>
+                <Border Background="{StaticResource SectionBackground}"
+                        CornerRadius="14"
+                        Padding="16"
+                        Margin="0,0,0,16"
+                        Visibility="{Binding Statistics.HasData, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel>
+                        <TextBlock Text="Library Snapshot"
+                                   Foreground="{StaticResource Fg}"
+                                   FontWeight="SemiBold"
+                                   FontSize="16"/>
+                        <UniformGrid Columns="3" Margin="0,12,0,0" Rows="2">
+                            <StackPanel Margin="0,0,12,12">
+                                <TextBlock Text="Tracked Series"
+                                           Foreground="{StaticResource MutedBrush}"/>
+                                <TextBlock Text="{Binding Statistics.TotalSeries}"
+                                           Foreground="{StaticResource Fg}"
+                                           FontWeight="SemiBold"
+                                           FontSize="18"/>
+                            </StackPanel>
+                            <StackPanel Margin="0,0,12,12">
+                                <TextBlock Text="Completed"
+                                           Foreground="{StaticResource MutedBrush}"/>
+                                <TextBlock Text="{Binding Statistics.CompletedSeries}"
+                                           Foreground="{StaticResource Fg}"
+                                           FontWeight="SemiBold"
+                                           FontSize="18"/>
+                            </StackPanel>
+                            <StackPanel Margin="0,0,0,12">
+                                <TextBlock Text="In Progress"
+                                           Foreground="{StaticResource MutedBrush}"/>
+                                <TextBlock Text="{Binding Statistics.InProgressSeries}"
+                                           Foreground="{StaticResource Fg}"
+                                           FontWeight="SemiBold"
+                                           FontSize="18"/>
+                            </StackPanel>
+                            <StackPanel Margin="0,0,12,0">
+                                <TextBlock Text="Planned"
+                                           Foreground="{StaticResource MutedBrush}"/>
+                                <TextBlock Text="{Binding Statistics.PlannedSeries}"
+                                           Foreground="{StaticResource Fg}"
+                                           FontWeight="SemiBold"
+                                           FontSize="18"/>
+                            </StackPanel>
+                            <StackPanel Margin="0,0,12,0">
+                                <TextBlock Text="Chapters Read"
+                                           Foreground="{StaticResource MutedBrush}"/>
+                                <TextBlock Text="{Binding Statistics.ChaptersRead}"
+                                           Foreground="{StaticResource Fg}"
+                                           FontWeight="SemiBold"
+                                           FontSize="18"/>
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Text="Avg. Score"
+                                           Foreground="{StaticResource MutedBrush}"/>
+                                <TextBlock Text="{Binding Statistics.AverageScoreDisplay}"
+                                           Foreground="{StaticResource Fg}"
+                                           FontWeight="SemiBold"
+                                           FontSize="18"/>
+                            </StackPanel>
+                        </UniformGrid>
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                            <TextBlock Text="Last update"
+                                       Foreground="{StaticResource MutedBrush}"/>
+                            <TextBlock Text="{Binding Statistics.LastUpdatedDisplay, StringFormat=  ·  {0}}"
+                                       Foreground="{StaticResource MutedBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <ItemsControl ItemsSource="{Binding Sections}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:AniListListSectionViewModel}">
+                            <Border Margin="0,0,0,16"
+                                    Background="{StaticResource SectionBackground}"
+                                    CornerRadius="14"
+                                    Padding="16">
+                                <Expander Header="{Binding Header}"
+                                          IsExpanded="{Binding IsExpanded, Mode=TwoWay}"
+                                          Foreground="{StaticResource Fg}">
+                                    <Expander.Content>
+                                        <Grid>
+                                            <ItemsControl ItemsSource="{Binding Items}"
+                                                          Margin="0,8,0,0"
+                                                          ItemTemplate="{StaticResource MediaCardTemplate}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel/>
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                            </ItemsControl>
+                                            <TextBlock Text="No series in this list yet."
+                                                       Foreground="{StaticResource MutedBrush}"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding HasItems}" Value="False">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Grid>
+                                    </Expander.Content>
+                                </Expander>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
         </ScrollViewer>
     </Grid>
 </UserControl>

@@ -25,6 +25,6 @@ namespace MSCS.Models
         public string Status { get; set; }
         public int? ReleaseYear { get; set; }
         public string LatestChapter { get; set; }
-        public double? Rating { get; set; }
+        public double? Rating { get; set; } = 0.0;
     }
 }

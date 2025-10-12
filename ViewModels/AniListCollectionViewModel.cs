@@ -34,6 +34,7 @@ namespace MSCS.ViewModels
                     .Select(status => new AniListListSectionViewModel(status)));
 
             Sections = new ReadOnlyObservableCollection<AniListListSectionViewModel>(_sections);
+            Statistics = new AniListStatisticsViewModel();
 
             RefreshCommand = new AsyncRelayCommand(_ => LoadAsync(), _ => !IsLoading);
             OpenSeriesCommand = new RelayCommand(OpenSeries);
@@ -45,6 +46,7 @@ namespace MSCS.ViewModels
         }
 
         public ReadOnlyObservableCollection<AniListListSectionViewModel> Sections { get; }
+        public AniListStatisticsViewModel Statistics { get; }
 
         public bool IsLoading
         {
@@ -86,6 +88,7 @@ namespace MSCS.ViewModels
                 CancelActiveLoad();
                 ClearSections();
                 StatusMessage = "Connect your AniList account from the Settings tab to view your library.";
+                Statistics.Reset();
                 OnPropertyChanged(nameof(IsAuthenticated));
                 OnPropertyChanged(nameof(UserName));
                 OnPropertyChanged(nameof(HasAnySeries));
@@ -143,6 +146,7 @@ namespace MSCS.ViewModels
                     section.ReplaceItems(Array.Empty<AniListMedia>());
                 }
             }
+            Statistics.Update(lists);
         }
 
         private void ClearSections()
@@ -151,6 +155,7 @@ namespace MSCS.ViewModels
             {
                 section.ReplaceItems(Array.Empty<AniListMedia>());
             }
+            Statistics.Reset();
         }
 
         private void OpenSeries(object? parameter)
