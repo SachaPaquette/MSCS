@@ -92,5 +92,70 @@ namespace MSCS.ViewModels
                 await LoadMoreImagesAsync(requestCount).ConfigureAwait(false);
             }
         }
+
+        private async Task InitializeChapterImagesAsync(int chapterIndex)
+        {
+            if (_chapterListViewModel == null)
+            {
+                return;
+            }
+
+            try
+            {
+                var images = await _chapterListViewModel.GetChapterImagesAsync(chapterIndex).ConfigureAwait(false);
+                await ApplyInitialImagesAsync(images).ConfigureAwait(false);
+
+                var restoreProgress = _pendingRestoreProgress;
+                var restoreOffset = _pendingRestoreOffset;
+
+                if (restoreProgress.HasValue)
+                {
+                    await EnsureImagesLoadedForProgressAsync(restoreProgress.Value).ConfigureAwait(false);
+                }
+
+                if (restoreProgress.HasValue || restoreOffset.HasValue)
+                {
+                    RequestScrollRestore(restoreProgress, restoreOffset);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                Debug.WriteLine($"Initial image load cancelled for chapter {chapterIndex}.");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to initialize chapter images for chapter {chapterIndex}: {ex.Message}");
+            }
+        }
+
+        private async Task ApplyInitialImagesAsync(IReadOnlyList<ChapterImage>? images)
+        {
+            var dispatcher = System.Windows.Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
+
+            await dispatcher.InvokeAsync(() =>
+            {
+                _allImages.Clear();
+                ImageUrls.Clear();
+                _loadedCount = 0;
+
+                if (images != null)
+                {
+                    foreach (var image in images)
+                    {
+                        _allImages.Add(image);
+                    }
+                }
+
+                OnPropertyChanged(nameof(RemainingImages));
+                OnPropertyChanged(nameof(LoadedImages));
+                OnPropertyChanged(nameof(TotalImages));
+                OnPropertyChanged(nameof(LoadingProgress));
+            }, DispatcherPriority.Background);
+
+            if (_allImages.Count > 0)
+            {
+                await LoadMoreImagesAsync().ConfigureAwait(false);
+            }
+        }
     }
 }

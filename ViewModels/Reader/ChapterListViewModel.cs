@@ -313,7 +313,8 @@ namespace MSCS.ViewModels
             OpenChapter();
         }
 
-        private async void OpenChapter()
+
+        private void OpenChapter()
         {
             var chapterToOpen = EnsureSelectedChapter();
             if (chapterToOpen == null || string.IsNullOrEmpty(chapterToOpen.Url))
@@ -329,33 +330,57 @@ namespace MSCS.ViewModels
                 return;
             }
 
-            var images = await GetChapterImagesAsync(index);
-            if (images != null && images.Any())
+            IReadOnlyList<ChapterImage>? cachedImages = null;
+            if (TryGetCachedChapterImages(index, out var cached))
             {
-                var initialProgress = _initialProgress ?? new MangaReadingProgress(
-                    index,
-                    chapterToOpen.Title,
-                    0,
-                    DateTimeOffset.UtcNow,
-                    string.IsNullOrWhiteSpace(Manga?.Url) ? null : Manga.Url,
-                    string.IsNullOrWhiteSpace(SourceKey) ? null : SourceKey);
-
-                var readerVM = new ReaderViewModel(
-                    images,
-                    chapterToOpen.Title,
-                    _navigationService,
-                    this,
-                    index,
-                    _aniListService,
-                    _userSettings,
-                    initialProgress);
-
-                _initialProgress = null;
-
-                _navigationService.NavigateToViewModel(readerVM);
-                Debug.WriteLine("Navigating to ReaderViewModel with images loaded.");
-                _ = PrefetchChapterAsync(index + 1);
+                cachedImages = cached;
             }
+
+            var initialProgress = _initialProgress ?? new MangaReadingProgress(
+                index,
+                chapterToOpen.Title,
+                0,
+                DateTimeOffset.UtcNow,
+                string.IsNullOrWhiteSpace(Manga?.Url) ? null : Manga.Url,
+                string.IsNullOrWhiteSpace(SourceKey) ? null : SourceKey);
+
+            var readerVM = new ReaderViewModel(
+                cachedImages,
+                chapterToOpen.Title,
+                _navigationService,
+                this,
+                index,
+                _aniListService,
+                _userSettings,
+                initialProgress);
+
+            _initialProgress = null;
+
+            _navigationService.NavigateToViewModel(readerVM);
+            Debug.WriteLine("Navigating to ReaderViewModel.");
+            _ = PrefetchChapterAsync(index + 1);
+        }
+
+
+        public bool TryGetCachedChapterImages(int index, out IReadOnlyList<ChapterImage>? images)
+        {
+            images = null;
+            if (index < 0 || index >= Chapters.Count)
+            {
+                return false;
+            }
+
+            if (_chapterImageCache.TryGetValue(index, out var cached) && cached.IsValueCreated)
+            {
+                var task = cached.Value;
+                if (task.IsCompletedSuccessfully)
+                {
+                    images = task.Result;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private Chapter? EnsureSelectedChapter()
@@ -363,6 +388,13 @@ namespace MSCS.ViewModels
             if (SelectedChapter != null)
             {
                 return SelectedChapter;
+            }
+
+            var initialChapter = GetInitialProgressChapter();
+            if (initialChapter != null)
+            {
+                SelectedChapter = initialChapter;
+                return initialChapter;
             }
 
             var lastRead = GetLastReadChapter();
@@ -404,18 +436,111 @@ namespace MSCS.ViewModels
         }
         private Chapter? GetInitialProgressChapter()
         {
-            if (_initialProgress == null)
+            if (_initialProgress == null || Chapters == null || Chapters.Count == 0)
             {
                 return null;
             }
 
-            var targetIndex = _initialProgress.ChapterIndex;
-            if (targetIndex < 0 || targetIndex >= Chapters.Count)
+            var progress = _initialProgress;
+            Chapter? indexCandidate = null;
+
+            if (progress.ChapterIndex >= 0 && progress.ChapterIndex < Chapters.Count)
+            {
+                indexCandidate = Chapters[progress.ChapterIndex];
+                if (IsChapterMatchForProgress(indexCandidate, progress))
+                {
+                    UpdateInitialProgressIndex(progress, progress.ChapterIndex, indexCandidate);
+                    return indexCandidate;
+                }
+            }
+
+            var titleCandidate = TryResolveChapterByTitle(progress.ChapterTitle);
+            if (titleCandidate != null)
+            {
+                var resolvedIndex = Chapters.IndexOf(titleCandidate);
+                if (resolvedIndex >= 0)
+                {
+                    UpdateInitialProgressIndex(progress, resolvedIndex, titleCandidate);
+                }
+
+                return titleCandidate;
+            }
+
+            return indexCandidate;
+        }
+
+
+        private static bool IsChapterMatchForProgress(Chapter? chapter, MangaReadingProgress progress)
+        {
+            if (chapter == null)
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(progress.ChapterTitle))
+            {
+                return true;
+            }
+
+            var progressTitle = NormalizeChapterTitle(progress.ChapterTitle);
+            if (string.IsNullOrEmpty(progressTitle))
+            {
+                return true;
+            }
+
+            var chapterTitle = NormalizeChapterTitle(chapter.Title);
+            if (string.IsNullOrEmpty(chapterTitle))
+            {
+                return true;
+            }
+
+            return string.Equals(chapterTitle, progressTitle, StringComparison.OrdinalIgnoreCase);
+        }
+
+
+        private Chapter? TryResolveChapterByTitle(string? title)
+        {
+            var normalizedTitle = NormalizeChapterTitle(title);
+            if (string.IsNullOrEmpty(normalizedTitle))
             {
                 return null;
             }
 
-            return Chapters[targetIndex];
+            return Chapters.FirstOrDefault(chapter =>
+                !string.IsNullOrEmpty(chapter?.Title) &&
+                string.Equals(NormalizeChapterTitle(chapter.Title), normalizedTitle, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private void UpdateInitialProgressIndex(MangaReadingProgress progress, int newIndex, Chapter chapter)
+        {
+            var updatedTitle = string.IsNullOrWhiteSpace(chapter?.Title) ? progress.ChapterTitle : chapter.Title;
+            var shouldUpdate = newIndex != progress.ChapterIndex
+                || !string.Equals(NormalizeChapterTitle(progress.ChapterTitle), NormalizeChapterTitle(updatedTitle), StringComparison.OrdinalIgnoreCase);
+
+            if (!shouldUpdate)
+            {
+                return;
+            }
+
+            var updated = progress with
+            {
+                ChapterIndex = newIndex,
+                ChapterTitle = updatedTitle
+            };
+
+            _initialProgress = updated;
+
+            if (_userSettings != null && !string.IsNullOrWhiteSpace(Manga?.Title))
+            {
+                _userSettings.SetReadingProgress(Manga.Title, updated);
+            }
+        }
+
+        private static string NormalizeChapterTitle(string? title)
+        {
+            return string.IsNullOrWhiteSpace(title)
+                ? string.Empty
+                : title.Trim();
         }
 
         private void OnNavigationStateChanged(object sender, EventArgs e)

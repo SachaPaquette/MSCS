@@ -386,7 +386,15 @@ namespace MSCS.ViewModels
             Debug.WriteLine($"ReaderViewModel initialized with {_allImages.Count} images");
             Debug.WriteLine($"Current chapter index {_currentChapterIndex}");
 
-            _ = LoadMoreImagesAsync();
+            if (_allImages.Count > 0)
+            {
+                _ = LoadMoreImagesAsync();
+            }
+            else
+            {
+                _ = InitializeChapterImagesAsync(_currentChapterIndex);
+            }
+
             _ = _chapterListViewModel?.PrefetchChapterAsync(_currentChapterIndex + 1);
             _ = UpdateAniListProgressAsync();
             RestoreReadingProgress();
