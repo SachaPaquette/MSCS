@@ -60,19 +60,46 @@ namespace MSCS.Sources
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             ConfigureRequest(request);
 
-            using var resp = await Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
-            if (!resp.IsSuccessStatusCode)
+            try
+            {
+                using var resp = await Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+                if (!resp.IsSuccessStatusCode)
+                {
+                    return new List<Manga>();
+                }
+
+                var html = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                return ParseMangaHtml(html);
+            }
+            catch (HttpRequestException)
+            {
+
+                return new List<Manga>();
+            }
+            catch (TaskCanceledException) when (!ct.IsCancellationRequested)
             {
                 return new List<Manga>();
             }
-            var html = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        }
 
-            return ParseMangaHtml(html);
+        protected List<Manga> ParseMangaHtmlCore(string html)
+        {
+            var doc = new HtmlAgilityPack.HtmlDocument();
+            doc.LoadHtml(html);
+
+            var results = new List<Manga>();
+            ExtractMangaFromDocument(doc, results);
+            return results;
+        }
+
+        protected virtual List<Manga> ParseMangaHtml(string html)
+        {
+            return ParseMangaHtmlCore(html);
         }
 
         public virtual List<Manga> ParseMangaFromHtmlFragment(string htmlFragment)
         {
-            return ParseMangaHtml(htmlFragment);
+            return ParseMangaHtmlCore(htmlFragment);
         }
 
         public virtual async Task<List<Chapter>> GetChaptersAsync(string mangaUrl, CancellationToken ct = default)
@@ -220,21 +247,11 @@ namespace MSCS.Sources
             };
         }
 
-        protected virtual List<Manga> ParseMangaHtml(string html)
-        {
-            var doc = new HtmlDocument();
-            doc.LoadHtml(html);
-
-            var results = new List<Manga>();
-            ExtractMangaFromDocument(doc, results);
-            return results;
-        }
-
         private void ExtractMangaFromDocument(HtmlDocument doc, List<Manga> results)
-        {
+       {
             var mangaNodes = doc.DocumentNode.SelectNodes(Settings.MangaContainerXPath);
             if (mangaNodes == null)
-            {
+          {
                 return;
             }
 

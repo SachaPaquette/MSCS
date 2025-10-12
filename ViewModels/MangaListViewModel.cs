@@ -212,6 +212,10 @@ namespace MSCS.ViewModels
             {
                 var firstPageResults = await _source.SearchMangaAsync(sanitized, cts.Token).ConfigureAwait(false);
 
+                Debug.WriteLine(firstPageResults.Count == 0
+                    ? $"No results found for query: {sanitized}"
+                    : $"Search returned {firstPageResults.Count} results for query: {sanitized}");
+
                 await RunOnUiThreadAsync(() =>
                 {
                     foreach (var manga in firstPageResults)
