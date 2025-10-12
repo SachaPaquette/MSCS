@@ -429,41 +429,26 @@ namespace MSCS.Services
         {
             try
             {
-                var images = new List<ChapterImage>();
-                var extractionRoot = EnsureExtractionDirectory(archivePath);
-
                 using var stream = File.OpenRead(archivePath);
                 using var archive = ArchiveFactory.Open(stream);
 
-                foreach (var entry in archive.Entries
-                             .Where(e => !e.IsDirectory && !string.IsNullOrEmpty(e.Key))
-                             .OrderBy(e => e.Key, StringComparer.OrdinalIgnoreCase))
+                var entryKeys = archive.Entries
+                    .Where(e => !e.IsDirectory && !string.IsNullOrEmpty(e.Key))
+                    .Select(e => NormalizeArchiveEntryKey(e.Key!))
+                    .Where(key => !string.IsNullOrEmpty(key) && IsImageFile(Path.GetFileName(key)))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                var images = new List<ChapterImage>(entryKeys.Count);
+
+                foreach (var key in entryKeys)
                 {
-                    if (!IsImageFile(entry.Key!))
+                    images.Add(new ChapterImage
                     {
-                        continue;
-                    }
-
-                    var destinationPath = BuildExtractionPath(extractionRoot, entry.Key!);
-                    if (destinationPath == null)
-                    {
-                        continue;
-                    }
-
-                    var destinationDirectory = Path.GetDirectoryName(destinationPath);
-                    if (!string.IsNullOrEmpty(destinationDirectory))
-                    {
-                        Directory.CreateDirectory(destinationDirectory);
-                    }
-
-                    if (!File.Exists(destinationPath))
-                    {
-                        using var entryStream = entry.OpenEntryStream();
-                        using var fileStream = File.Create(destinationPath);
-                        entryStream.CopyTo(fileStream);
-                    }
-
-                    images.Add(new ChapterImage { ImageUrl = destinationPath });
+                        ImageUrl = $"{archivePath}::{key}",
+                        StreamFactory = CreateArchiveEntryStreamFactory(archivePath, key)
+                    });
                 }
 
                 return images;
@@ -564,7 +549,7 @@ namespace MSCS.Services
                     {
                         try
                         {
-                            directory.Delete(true);
+                            DeleteDirectory(directory);
                         }
                         catch (Exception ex)
                         {
@@ -582,6 +567,89 @@ namespace MSCS.Services
                 Debug.WriteLine($"Failed to clean extraction cache '{cacheRoot}': {ex.Message}");
             }
         }
+
+        private static string NormalizeArchiveEntryKey(string entryKey)
+        {
+            if (string.IsNullOrEmpty(entryKey))
+            {
+                return string.Empty;
+            }
+
+            var normalized = entryKey.Replace('\\', '/');
+
+            while (normalized.StartsWith("./", StringComparison.Ordinal))
+            {
+                normalized = normalized[2..];
+            }
+
+            normalized = normalized.TrimStart('/');
+
+            if (normalized.Contains("../", StringComparison.Ordinal))
+            {
+                return string.Empty;
+            }
+
+            return normalized;
+        }
+
+        private static void DeleteDirectory(DirectoryInfo directory)
+        {
+            if (!directory.Exists)
+            {
+                return;
+            }
+
+            foreach (var file in directory.EnumerateFiles("*", SearchOption.AllDirectories))
+            {
+                if (file.IsReadOnly)
+                {
+                    file.IsReadOnly = false;
+                }
+            }
+
+            foreach (var subDirectory in directory.EnumerateDirectories("*", SearchOption.AllDirectories))
+            {
+                if ((subDirectory.Attributes & FileAttributes.ReadOnly) != 0)
+                {
+                    subDirectory.Attributes &= ~FileAttributes.ReadOnly;
+                }
+            }
+
+            if ((directory.Attributes & FileAttributes.ReadOnly) != 0)
+            {
+                directory.Attributes &= ~FileAttributes.ReadOnly;
+            }
+
+            directory.Delete(true);
+        }
+
+        private static Func<Stream> CreateArchiveEntryStreamFactory(string archivePath, string entryKey)
+        {
+            var normalizedKey = NormalizeArchiveEntryKey(entryKey);
+
+            return () =>
+            {
+                var memory = new MemoryStream();
+
+                using var fileStream = File.OpenRead(archivePath);
+                using var archive = ArchiveFactory.Open(fileStream);
+
+                var match = archive.Entries
+                    .FirstOrDefault(e => !e.IsDirectory && !string.IsNullOrEmpty(e.Key) &&
+                                         string.Equals(NormalizeArchiveEntryKey(e.Key!), normalizedKey, StringComparison.OrdinalIgnoreCase));
+
+                if (match == null)
+                {
+                    throw new FileNotFoundException($"Entry '{normalizedKey}' was not found in '{archivePath}'.", normalizedKey);
+                }
+
+                using var entryStream = match.OpenEntryStream();
+                entryStream.CopyTo(memory);
+                memory.Position = 0;
+                return memory;
+            };
+        }
+
 
         private static string? BuildExtractionPath(string root, string entryPath)
         {

@@ -16,7 +16,7 @@
 
             <conv:ViewportFractionConverter x:Key="ViewportFraction"/>
             <conv:BooleanOrConverter x:Key="BooleanOr"/>
-
+            <conv:ChapterImageSourceConverter x:Key="ChapterImageSource"/>
             <ItemsPanelTemplate x:Key="VerticalPanelTemplate">
                 <VirtualizingStackPanel Orientation="Vertical"/>
             </ItemsPanelTemplate>
@@ -148,7 +148,7 @@
                                UseLayoutRounding="True"
                                RenderOptions.BitmapScalingMode="HighQuality"
                                MouseLeftButtonDown="Image_MouseLeftButtonDown"
-                               Source="{Binding ImageUrl}">
+                               Source="{Binding Converter={StaticResource ChapterImageSource}}">
                             <Image.Width>
                                 <MultiBinding Converter="{StaticResource ViewportFraction}">
                                     <Binding ElementName="ScrollView" Path="ViewportWidth"/>

@@ -1,8 +1,6 @@
-﻿using System;
+﻿using System.IO;
+using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace MSCS.Models
 {
@@ -10,5 +8,6 @@ namespace MSCS.Models
     {
         public string ImageUrl { get; set; } = string.Empty;
         public IDictionary<string, string>? Headers { get; set; }
+        public Func<Stream>? StreamFactory { get; set; }
     }
 }
