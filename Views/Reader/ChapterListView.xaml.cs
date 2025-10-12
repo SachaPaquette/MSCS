@@ -23,5 +23,37 @@ namespace MSCS.Views
         {
             InitializeComponent();
         }
+
+        private void OnChaptersListPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            if (sender is not DependencyObject dependencyObject)
+            {
+                return;
+            }
+
+            var scrollViewer = FindParentScrollViewer(dependencyObject);
+            if (scrollViewer == null)
+            {
+                return;
+            }
+
+            scrollViewer.ScrollToVerticalOffset(scrollViewer.VerticalOffset - e.Delta);
+            e.Handled = true;
+        }
+
+        private static ScrollViewer? FindParentScrollViewer(DependencyObject current)
+        {
+            while (current != null)
+            {
+                if (current is ScrollViewer scrollViewer)
+                {
+                    return scrollViewer;
+                }
+
+                current = VisualTreeHelper.GetParent(current);
+            }
+
+            return null;
+        }
     }
 }

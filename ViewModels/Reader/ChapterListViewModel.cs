@@ -7,17 +7,22 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Data;
 using System.Windows.Input;
 
 namespace MSCS.ViewModels
 {
     public class ChapterListViewModel : BaseViewModel, IDisposable
     {
+        private const int DefaultChapterLimit = 100;
         private readonly IMangaSource _source;
         private readonly INavigationService _navigationService;
         private readonly CancellationTokenSource _cts = new();
@@ -35,6 +40,10 @@ namespace MSCS.ViewModels
         private ObservableCollection<Chapter> _chapters = new();
         private Chapter? _selectedChapter;
         private MangaReadingProgress? _initialProgress;
+        private string _chapterSearchText = string.Empty;
+        private bool _showAllChapters;
+        private ICollectionView? _filteredChapters;
+
         public Manga Manga
         {
             get => _manga;
@@ -44,7 +53,28 @@ namespace MSCS.ViewModels
         public ObservableCollection<Chapter> Chapters
         {
             get => _chapters;
-            set => SetProperty(ref _chapters, value);
+            set
+            {
+                if (_chapters == value)
+                {
+                    return;
+                }
+
+                if (_chapters != null)
+                {
+                    _chapters.CollectionChanged -= OnChaptersCollectionChanged;
+                }
+
+                if (SetProperty(ref _chapters, value))
+                {
+                    if (_chapters != null)
+                    {
+                        _chapters.CollectionChanged += OnChaptersCollectionChanged;
+                    }
+
+                    RefreshChapterView();
+                }
+            }
         }
 
         public Chapter? SelectedChapter
@@ -54,6 +84,7 @@ namespace MSCS.ViewModels
             {
                 if (SetProperty(ref _selectedChapter, value))
                 {
+                    EnsureChapterVisible(value);
                     CommandManager.InvalidateRequerySuggested();
                 }
             }
@@ -61,8 +92,59 @@ namespace MSCS.ViewModels
 
         public ICommand OpenChapterCommand { get; }
         public ICommand BackCommand { get; }
+        public ICommand ToggleChapterListLengthCommand { get; }
 
         public string SourceKey { get; }
+
+
+        public ICollectionView? FilteredChapters
+        {
+            get => _filteredChapters;
+            private set => SetProperty(ref _filteredChapters, value);
+        }
+
+        public string ChapterSearchText
+        {
+            get => _chapterSearchText;
+            set
+            {
+                var newValue = value ?? string.Empty;
+                if (SetProperty(ref _chapterSearchText, newValue))
+                {
+                    UpdateLimitedState();
+                    FilteredChapters?.Refresh();
+                }
+            }
+        }
+
+        public bool ShowAllChapters
+        {
+            get => _showAllChapters;
+            set
+            {
+                if (SetProperty(ref _showAllChapters, value))
+                {
+                    UpdateLimitedState();
+                    FilteredChapters?.Refresh();
+                }
+            }
+        }
+
+        public bool HasChapterOverflow => Chapters?.Count > DefaultChapterLimit;
+
+        public bool IsShowingLimitedList => HasChapterOverflow && !ShowAllChapters && string.IsNullOrWhiteSpace(ChapterSearchText);
+
+        public string ChapterOverflowMessage
+        {
+            get
+            {
+                var total = Chapters?.Count ?? 0;
+                var limited = Math.Min(DefaultChapterLimit, total);
+                return $"Showing the first {limited} of {total} chapters. Use search or Show all to browse the rest.";
+            }
+        }
+
+        public string ChapterToggleButtonText => ShowAllChapters ? "Show fewer chapters" : "Show all chapters";
 
         public ChapterListViewModel(
             IMangaSource source,
@@ -86,12 +168,109 @@ namespace MSCS.ViewModels
             OpenChapterCommand = new RelayCommand(_ => OpenChapter(), _ => SelectedChapter != null);
             BackCommand = new RelayCommand(_ => _navigationService.GoBack(), _ => _navigationService.CanGoBack);
             WeakEventManager<INavigationService, EventArgs>.AddHandler(_navigationService, nameof(INavigationService.CanGoBackChanged), OnNavigationStateChanged);
+            ToggleChapterListLengthCommand = new RelayCommand(_ => ToggleChapterListMode(), _ => HasChapterOverflow);
+            InitializeChapterListState();
 
             _ = LoadChaptersAsync();
         }
 
-        public ChapterListViewModel() {
+
+        public ChapterListViewModel()
+        {
             SourceKey = string.Empty;
+            OpenChapterCommand = new RelayCommand(_ => { }, _ => false);
+            BackCommand = new RelayCommand(_ => { }, _ => false);
+            ToggleChapterListLengthCommand = new RelayCommand(_ => ToggleChapterListMode(), _ => HasChapterOverflow);
+            InitializeChapterListState();
+        }
+
+        private void InitializeChapterListState()
+        {
+            _chapters.CollectionChanged += OnChaptersCollectionChanged;
+            RefreshChapterView();
+        }
+
+        private void RefreshChapterView()
+        {
+            if (_filteredChapters != null)
+            {
+                _filteredChapters.Filter = null;
+            }
+
+            ICollectionView? view = null;
+
+            if (_chapters != null)
+            {
+                view = CollectionViewSource.GetDefaultView(_chapters);
+                view.Filter = FilterChapter;
+            }
+
+            FilteredChapters = view;
+            UpdateLimitedState();
+            FilteredChapters?.Refresh();
+        }
+
+        private bool FilterChapter(object item)
+        {
+            if (item is not Chapter chapter)
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(ChapterSearchText))
+            {
+                if (!HasChapterOverflow || ShowAllChapters)
+                {
+                    return true;
+                }
+
+                var index = Chapters.IndexOf(chapter);
+                return index >= 0 && index < DefaultChapterLimit;
+            }
+
+            var searchText = ChapterSearchText.Trim();
+            var comparison = StringComparison.OrdinalIgnoreCase;
+            if (!string.IsNullOrEmpty(chapter.Title) && chapter.Title.IndexOf(searchText, comparison) >= 0)
+            {
+                return true;
+            }
+
+            var numberText = chapter.Number.ToString("0.##", CultureInfo.InvariantCulture);
+            return numberText.IndexOf(searchText, comparison) >= 0;
+        }
+
+        private void UpdateLimitedState()
+        {
+            OnPropertyChanged(nameof(HasChapterOverflow));
+            OnPropertyChanged(nameof(IsShowingLimitedList));
+            OnPropertyChanged(nameof(ChapterOverflowMessage));
+            OnPropertyChanged(nameof(ChapterToggleButtonText));
+            CommandManager.InvalidateRequerySuggested();
+        }
+
+        private void OnChaptersCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            UpdateLimitedState();
+            FilteredChapters?.Refresh();
+        }
+
+        private void ToggleChapterListMode()
+        {
+            ShowAllChapters = !ShowAllChapters;
+        }
+
+        private void EnsureChapterVisible(Chapter? chapter)
+        {
+            if (chapter == null || !HasChapterOverflow || !string.IsNullOrWhiteSpace(ChapterSearchText))
+            {
+                return;
+            }
+
+            var index = Chapters.IndexOf(chapter);
+            if (index >= DefaultChapterLimit && !ShowAllChapters)
+            {
+                ShowAllChapters = true;
+            }
         }
 
         private async Task LoadChaptersAsync()
@@ -106,6 +285,8 @@ namespace MSCS.ViewModels
                 var chapters = await _source.GetChaptersAsync(Manga.Url, _cts.Token);
                 ClearChapterCache();
                 Chapters = new ObservableCollection<Chapter>(chapters);
+                ChapterSearchText = string.Empty;
+                ShowAllChapters = false;
                 Debug.WriteLine($"Loaded {Chapters.Count} chapters for {Manga.Title}");
                 RestoreLastReadChapter();
                 MaybeAutoOpenChapter();
@@ -318,6 +499,15 @@ namespace MSCS.ViewModels
             _cts.Cancel();
             _cts.Dispose();
             ClearChapterCache();
+            if (_chapters != null)
+            {
+                _chapters.CollectionChanged -= OnChaptersCollectionChanged;
+            }
+
+            if (_filteredChapters != null)
+            {
+                _filteredChapters.Filter = null;
+            }
         }
 
         private Lazy<Task<IReadOnlyList<ChapterImage>>> CreateCacheEntry(int index)

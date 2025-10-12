@@ -14,7 +14,6 @@
             <Setter Property="Margin" Value="0,0,0,6"/>
         </Style>
 
-        <!-- Per-item card for the chapter row -->
         <Style x:Key="ChapterRowBorderStyle" TargetType="Border">
             <Setter Property="Background" Value="{DynamicResource Surface}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderSoft}"/>
@@ -26,193 +25,243 @@
     </UserControl.Resources>
 
     <Grid Background="{DynamicResource SurfaceLow}">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
+        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled"
+                      Padding="0">
+            <StackPanel>
+                <!-- Header / Hero -->
+                <Border Margin="16"
+                        Style="{StaticResource SurfaceSectionStyle}"
+                        Padding="24"
+                        Effect="{x:Null}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="20"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
 
-        <!-- Header / Hero -->
-        <Border Grid.Row="0"
-                Margin="16"
-                Style="{StaticResource SurfaceSectionStyle}"
-                Padding="24"
-                Effect="{x:Null}">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="20"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
+                        <!-- Back button uses Accent style -->
+                        <Button Grid.Column="0"
+                                MinWidth="110"
+                                Height="38"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Top"
+                                Command="{Binding BackCommand}"
+                                Style="{StaticResource AccentButtonStyle}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="" FontFamily="Segoe MDL2 Assets" Margin="0,0,6,0"/>
+                                <TextBlock Text="Back"/>
+                            </StackPanel>
+                        </Button>
 
-                <!-- Back button uses Accent style -->
-                <Button Grid.Column="0"
-                        MinWidth="110"
-                        Height="38"
-                        HorizontalAlignment="Left"
-                        VerticalAlignment="Top"
-                        Command="{Binding BackCommand}"
-                        Style="{StaticResource AccentButtonStyle}">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="" FontFamily="Segoe MDL2 Assets" Margin="0,0,6,0"/>
-                        <TextBlock Text="Back"/>
-                    </StackPanel>
-                </Button>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="{Binding Manga.Title}"
+                                       Foreground="{DynamicResource Fg}"
+                                       FontSize="24"
+                                       FontWeight="Bold"
+                                       TextWrapping="Wrap"/>
 
-                <StackPanel Grid.Column="2">
-                    <TextBlock Text="{Binding Manga.Title}"
-                               Foreground="{DynamicResource Fg}"
-                               FontSize="24"
-                               FontWeight="Bold"
-                               TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding Manga.AlternativeTitles, Converter={StaticResource ListToStringConverter}}"
+                                       Foreground="{DynamicResource FgMuted}"
+                                       FontSize="12"
+                                       Margin="0,6,0,0"
+                                       TextWrapping="Wrap"
+                                       TextTrimming="CharacterEllipsis"/>
 
-                    <TextBlock Text="{Binding Manga.AlternativeTitles, Converter={StaticResource ListToStringConverter}}"
-                               Foreground="{DynamicResource FgMuted}"
-                               FontSize="12"
-                               Margin="0,6,0,0"
-                               TextWrapping="Wrap"
-                               TextTrimming="CharacterEllipsis"/>
+                            <StackPanel>
+                                <TextBlock Text="{Binding Manga.TotalChapters, StringFormat=Total chapters\: {0}}"
+                                           Margin="0,14,0,6">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource MetadataTextStyle}">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Manga.TotalChapters}" Value="{x:Null}">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
 
-                    <StackPanel>
-                        <TextBlock Text="{Binding Manga.TotalChapters, StringFormat=Total chapters\: {0}}"
-                                   Margin="0,14,0,6">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock" BasedOn="{StaticResource MetadataTextStyle}">
-                                    <Setter Property="Visibility" Value="Visible"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding Manga.TotalChapters}" Value="{x:Null}">
-                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
+                                <TextBlock Text="{Binding Manga.LastUpdated, StringFormat=Last updated\: {0:d}}"
+                                           Margin="0">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource MetadataTextStyle}">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Manga.LastUpdated}" Value="{x:Null}">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+                </Border>
 
-                        <TextBlock Text="{Binding Manga.LastUpdated, StringFormat=Last updated\: {0:d}}"
-                                   Margin="0">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock" BasedOn="{StaticResource MetadataTextStyle}">
-                                    <Setter Property="Visibility" Value="Visible"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding Manga.LastUpdated}" Value="{x:Null}">
-                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-                    </StackPanel>
-                </StackPanel>
-            </Grid>
-        </Border>
+                <!-- Chapters list -->
+                <Border Margin="16"
+                        Padding="20"
+                        Style="{StaticResource SurfaceSectionStyle}"
+                        Effect="{x:Null}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
 
-        <!-- Chapters list -->
-        <Border Grid.Row="1"
-                Margin="16"
-                Padding="20"
-                Style="{StaticResource SurfaceSectionStyle}"
-                Effect="{x:Null}">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
+                        <StackPanel Orientation="Vertical">
+                            <TextBlock Text="Chapters"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Fg}"/>
+                            <TextBlock Text="Pick a chapter to start reading"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource FgMuted}"
+                                       Margin="0,4,0,0"/>
+                        </StackPanel>
 
-                <StackPanel Orientation="Vertical">
-                    <TextBlock Text="Chapters"
-                               FontSize="18"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource Fg}"/>
-                    <TextBlock Text="Pick a chapter to start reading"
-                               FontSize="12"
-                               Foreground="{DynamicResource FgMuted}"
-                               Margin="0,4,0,0"/>
-                </StackPanel>
+                        <TextBox Grid.Row="1"
+                                 Margin="0,12,0,0"
+                                 Style="{StaticResource InputTextBoxStyle}"
+                                 Text="{Binding ChapterSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Filter chapters by title or number"
+                                 VerticalContentAlignment="Center"
+                                 MinWidth="0"/>
 
-                <ListView x:Name="ChaptersList"
-                          Grid.Row="1"
-                          Margin="0,16,0,0"
-                          ItemsSource="{Binding Chapters}"
-                          SelectedItem="{Binding SelectedChapter, Mode=TwoWay}"
-                          BorderThickness="0"
-                          Background="Transparent"
-                          ScrollViewer.VerticalScrollBarVisibility="Auto"
-                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <Grid Grid.Row="2" Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
 
-                    <!-- Double-click to open -->
-                    <i:Interaction.Triggers>
-                        <i:EventTrigger EventName="MouseDoubleClick">
-                            <i:InvokeCommandAction
-                                Command="{Binding OpenChapterCommand}"
-                                CommandParameter="{Binding SelectedItem, ElementName=ChaptersList}"/>
-                        </i:EventTrigger>
-                    </i:Interaction.Triggers>
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding ChapterOverflowMessage}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource FgMuted}"
+                                       TextWrapping="Wrap"
+                                       Visibility="{Binding IsShowingLimitedList, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
-                    <!-- Item template -->
-                    <ListView.ItemTemplate>
-                        <DataTemplate DataType="{x:Type local:Chapter}">
-                            <Border Style="{StaticResource ChapterRowBorderStyle}" Margin="0,4,0,0">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="16"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
+                            <Button Grid.Column="1"
+                                    Margin="12,0,0,0"
+                                    Padding="12,6"
+                                    Command="{Binding ToggleChapterListLengthCommand}"
+                                    Content="{Binding ChapterToggleButtonText}"
+                                    ToolTip="Toggle between the compact list and all chapters"
+                                    Visibility="{Binding HasChapterOverflow, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Foreground" Value="{DynamicResource Accent}"/>
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="BorderBrush" Value="{DynamicResource Accent}"/>
+                                        <Setter Property="BorderThickness" Value="1"/>
+                                        <Setter Property="Cursor" Value="Hand"/>
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                        <Setter Property="Padding" Value="12,6"/>
+                                        <Style.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="{DynamicResource Accent}"/>
+                                                <Setter Property="Foreground" Value="{DynamicResource AccentForeground}"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </Grid>
 
-                                    <!-- Number badge -->
-                                    <Border Width="42"
-                                            Height="42"
-                                            CornerRadius="12"
-                                            Background="{DynamicResource SurfaceLow}"
-                                            BorderBrush="{DynamicResource SurfaceBorderSoft}"
-                                            BorderThickness="1"
-                                            VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Number, StringFormat=\{0:0.##\}}"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource Fg}"
-                                                   HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center"/>
+                        <ListView x:Name="ChaptersList"
+                                  Grid.Row="3"
+                                  Margin="0,16,0,0"
+                                  ItemsSource="{Binding FilteredChapters}"
+                                  SelectedItem="{Binding SelectedChapter, Mode=TwoWay}"
+                                  BorderThickness="0"
+                                  Background="Transparent"
+                                  ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                  ScrollViewer.CanContentScroll="False"
+                                  PreviewMouseWheel="OnChaptersListPreviewMouseWheel">
+                            <!-- Double-click to open -->
+                            <i:Interaction.Triggers>
+                                <i:EventTrigger EventName="MouseDoubleClick">
+                                    <i:InvokeCommandAction
+                                        Command="{Binding OpenChapterCommand}"
+                                        CommandParameter="{Binding SelectedItem, ElementName=ChaptersList}"/>
+                                </i:EventTrigger>
+                            </i:Interaction.Triggers>
+
+                            <!-- Item template -->
+                            <ListView.ItemTemplate>
+                                <DataTemplate DataType="{x:Type local:Chapter}">
+                                    <Border Style="{StaticResource ChapterRowBorderStyle}" Margin="0,4,0,0">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="16"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- Number badge -->
+                                            <Border Width="42"
+                                                    Height="42"
+                                                    CornerRadius="12"
+                                                    Background="{DynamicResource SurfaceLow}"
+                                                    BorderBrush="{DynamicResource SurfaceBorderSoft}"
+                                                    BorderThickness="1"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Number, StringFormat=\{0:0.##\}}"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource Fg}"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"/>
+                                            </Border>
+
+                                            <!-- Title + hint -->
+                                            <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Title}"
+                                                           FontSize="14"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource Fg}"
+                                                           TextWrapping="Wrap"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="Double click to open"
+                                                           FontSize="11"
+                                                           Foreground="{DynamicResource FgSubtle}"
+                                                           Margin="0,4,0,0"/>
+                                            </StackPanel>
+                                        </Grid>
                                     </Border>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
 
-                                    <!-- Title + hint -->
-                                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Title}"
-                                                   FontSize="14"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource Fg}"
-                                                   TextWrapping="Wrap"
-                                                   TextTrimming="CharacterEllipsis"/>
-                                        <TextBlock Text="Double click to open"
-                                                   FontSize="11"
-                                                   Foreground="{DynamicResource FgSubtle}"
-                                                   Margin="0,4,0,0"/>
-                                    </StackPanel>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-
-                    <!-- Row look & feel -->
-                    <ListView.ItemContainerStyle>
-                        <Style TargetType="ListViewItem">
-                            <Setter Property="Padding" Value="0"/>
-                            <Setter Property="Margin" Value="0"/>
-                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                            <Setter Property="Background" Value="Transparent"/>
-                            <Setter Property="BorderThickness" Value="0"/>
-                            <Setter Property="SnapsToDevicePixels" Value="True"/>
-                            <Style.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorder}"/>
-                                </Trigger>
-                                <Trigger Property="IsSelected" Value="True">
-                                    <Setter Property="BorderBrush" Value="{DynamicResource Accent}"/>
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
-                    </ListView.ItemContainerStyle>
-                </ListView>
-            </Grid>
-        </Border>
+                            <!-- Row look & feel -->
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="Padding" Value="0"/>
+                                    <Setter Property="Margin" Value="0"/>
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="BorderThickness" Value="0"/>
+                                    <Setter Property="SnapsToDevicePixels" Value="True"/>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorder}"/>
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter Property="BorderBrush" Value="{DynamicResource Accent}"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                        </ListView>
+                    </Grid>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
     </Grid>
 </UserControl>
