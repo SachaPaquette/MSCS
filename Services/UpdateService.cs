@@ -155,8 +155,9 @@ public sealed class UpdateService
             versionText = versionText[..separatorIndex];
         }
 
-        if (Version.TryParse(versionText, out version))
+        if (Version.TryParse(versionText, out var parsedVersion))
         {
+            version = NormalizeVersion(parsedVersion);
             return true;
         }
 
@@ -164,9 +165,21 @@ public sealed class UpdateService
         if (parts.Length == 2)
         {
             var expandedVersion = string.Join('.', parts[0], parts[1], "0");
-            return Version.TryParse(expandedVersion, out version);
+            if (Version.TryParse(expandedVersion, out parsedVersion))
+            {
+                version = NormalizeVersion(parsedVersion);
+                return true;
+            }
         }
 
         return false;
+    }
+
+    private static Version NormalizeVersion(Version version)
+    {
+        var build = version.Build >= 0 ? version.Build : 0;
+        var revision = version.Revision >= 0 ? version.Revision : 0;
+
+        return new Version(version.Major, version.Minor, build, revision);
     }
 }
