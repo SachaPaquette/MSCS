@@ -61,6 +61,10 @@ namespace MSCS.Services
             LoadExistingAuthentication();
         }
 
+        public string ServiceId => "AniList";
+
+        public string DisplayName => "AniList";
+
         public bool IsAuthenticated => !string.IsNullOrWhiteSpace(_accessToken) &&
                                         (!_tokenExpiry.HasValue || _tokenExpiry > DateTimeOffset.UtcNow);
 
@@ -68,6 +72,7 @@ namespace MSCS.Services
 
         public event EventHandler? AuthenticationChanged;
         public event EventHandler<AniListTrackingChangedEventArgs>? TrackingChanged;
+        public event EventHandler<MediaTrackingChangedEventArgs<AniListTrackingInfo>>? MediaTrackingChanged;
 
         public async Task<bool> AuthenticateAsync(Window? owner)
         {
@@ -88,6 +93,12 @@ namespace MSCS.Services
             await FetchViewerAsync().ConfigureAwait(false);
             AuthenticationChanged?.Invoke(this, EventArgs.Empty);
             return true;
+        }
+
+        private void RaiseTrackingChanged(AniListTrackingChangedEventArgs args)
+        {
+            TrackingChanged?.Invoke(this, args);
+            MediaTrackingChanged?.Invoke(this, args);
         }
 
         public async Task<IReadOnlyList<AniListMedia>> SearchSeriesAsync(string query, CancellationToken cancellationToken = default)
@@ -342,7 +353,7 @@ namespace MSCS.Services
                 DateTimeOffset.UtcNow,
                 null);
             _userSettings.SetAniListTracking(mangaTitle, fallback);
-            TrackingChanged?.Invoke(this, new AniListTrackingChangedEventArgs(mangaTitle, fallback.MediaId, fallback));
+            RaiseTrackingChanged(new AniListTrackingChangedEventArgs(mangaTitle, fallback.MediaId, fallback));
             return fallback;
         }
 
@@ -383,7 +394,7 @@ namespace MSCS.Services
                     DateTimeOffset.UtcNow,
                     trackingInfo.MediaListEntryId);
                 _userSettings.SetAniListTracking(mangaTitle, fallback);
-                TrackingChanged?.Invoke(this, new AniListTrackingChangedEventArgs(mangaTitle, fallback.MediaId, fallback));
+                RaiseTrackingChanged(new AniListTrackingChangedEventArgs(mangaTitle, fallback.MediaId, fallback));
             }
         }
 
@@ -450,7 +461,7 @@ namespace MSCS.Services
                 DateTimeOffset.UtcNow,
                 trackingInfo.MediaListEntryId);
             _userSettings.SetAniListTracking(mangaTitle, fallback);
-            TrackingChanged?.Invoke(this, new AniListTrackingChangedEventArgs(mangaTitle, fallback.MediaId, fallback));
+            RaiseTrackingChanged(new AniListTrackingChangedEventArgs(mangaTitle, fallback.MediaId, fallback));
             return fallback;
         }
 
@@ -475,7 +486,7 @@ namespace MSCS.Services
                 if (entryId == null)
                 {
                     _userSettings.RemoveAniListTracking(mangaTitle);
-                    TrackingChanged?.Invoke(this, new AniListTrackingChangedEventArgs(mangaTitle, trackingInfo.MediaId, null));
+                    RaiseTrackingChanged(new AniListTrackingChangedEventArgs(mangaTitle, trackingInfo.MediaId, null));
                     return true;
                 }
             }
@@ -491,7 +502,7 @@ namespace MSCS.Services
                 Debug.WriteLine("AniList: Unable to remove tracking entry due to missing connection. Removing local entry only.");
             }
             _userSettings.RemoveAniListTracking(mangaTitle);
-            TrackingChanged?.Invoke(this, new AniListTrackingChangedEventArgs(mangaTitle, trackingInfo.MediaId, null));
+            RaiseTrackingChanged(new AniListTrackingChangedEventArgs(mangaTitle, trackingInfo.MediaId, null));
             return true;
         }
 
@@ -726,7 +737,7 @@ namespace MSCS.Services
             if (refreshed != null)
             {
                 _userSettings.SetAniListTracking(mangaTitle, refreshed);
-                TrackingChanged?.Invoke(this, new AniListTrackingChangedEventArgs(mangaTitle, refreshed.MediaId, refreshed));
+                RaiseTrackingChanged(new AniListTrackingChangedEventArgs(mangaTitle, refreshed.MediaId, refreshed));
             }
 
             return refreshed;
@@ -743,7 +754,7 @@ namespace MSCS.Services
             _userSettings.ClearAniListTracking();
 
             AuthenticationChanged?.Invoke(this, EventArgs.Empty);
-            TrackingChanged?.Invoke(this, new AniListTrackingChangedEventArgs(null, 0, null));
+            RaiseTrackingChanged(new AniListTrackingChangedEventArgs(null, 0, null));
             return Task.CompletedTask;
         }
 
@@ -1003,7 +1014,7 @@ namespace MSCS.Services
             if (parsed != null)
             {
                 _userSettings.SetAniListTracking(mangaTitle, parsed);
-                TrackingChanged?.Invoke(this, new AniListTrackingChangedEventArgs(mangaTitle, parsed.MediaId, parsed));
+                RaiseTrackingChanged(new AniListTrackingChangedEventArgs(mangaTitle, parsed.MediaId, parsed));
                 return parsed;
             }
 
@@ -1011,7 +1022,7 @@ namespace MSCS.Services
             if (refreshed != null)
             {
                 _userSettings.SetAniListTracking(mangaTitle, refreshed);
-                TrackingChanged?.Invoke(this, new AniListTrackingChangedEventArgs(mangaTitle, refreshed.MediaId, refreshed));
+                RaiseTrackingChanged(new AniListTrackingChangedEventArgs(mangaTitle, refreshed.MediaId, refreshed));
             }
 
             return refreshed;
@@ -1231,7 +1242,6 @@ namespace MSCS.Services
 
             return fallbackTitle;
         }
-
 
         private sealed record GraphQlRequest(string query, object variables);
     }

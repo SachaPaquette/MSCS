@@ -2,19 +2,18 @@
 
 namespace MSCS.Models
 {
-    public sealed class AniListTrackingChangedEventArgs : EventArgs
+    public sealed class AniListTrackingChangedEventArgs : MediaTrackingChangedEventArgs<AniListTrackingInfo>
     {
         public AniListTrackingChangedEventArgs(string? mangaTitle, int mediaId, AniListTrackingInfo? trackingInfo)
+            : base(mangaTitle, trackingInfo)
         {
-            MangaTitle = mangaTitle;
             MediaId = mediaId;
-            TrackingInfo = trackingInfo;
         }
 
-        public string? MangaTitle { get; }
+        public string? MangaTitle => SeriesTitle;
 
         public int MediaId { get; }
 
-        public AniListTrackingInfo? TrackingInfo { get; }
+        public new AniListTrackingInfo? TrackingInfo => base.TrackingInfo;
     }
 }
