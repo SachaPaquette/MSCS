@@ -39,8 +39,8 @@ namespace MSCS.ViewModels
             RefreshCommand = new AsyncRelayCommand(_ => LoadAsync(), _ => !IsLoading);
             OpenSeriesCommand = new RelayCommand(OpenSeries);
 
-            _aniListService.AuthenticationChanged += OnAniListStateChanged;
-            _aniListService.TrackingChanged += OnAniListStateChanged;
+            _aniListService.AuthenticationChanged += OnAniListAuthenticationChanged;
+            _aniListService.TrackingChanged += OnAniListTrackingChanged;
 
             _ = LoadAsync();
         }
@@ -191,7 +191,7 @@ namespace MSCS.ViewModels
             }
         }
 
-        private void OnAniListStateChanged(object? sender, EventArgs e)
+        private void OnAniListAuthenticationChanged(object? sender, EventArgs e)
         {
             if (_disposed)
             {
@@ -216,6 +216,125 @@ namespace MSCS.ViewModels
             }
         }
 
+
+        private void OnAniListTrackingChanged(object? sender, AniListTrackingChangedEventArgs e)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher != null && !dispatcher.CheckAccess())
+            {
+                dispatcher.BeginInvoke(new Action(() => HandleTrackingChanged(e)));
+            }
+            else
+            {
+                HandleTrackingChanged(e);
+            }
+        }
+
+        private void HandleTrackingChanged(AniListTrackingChangedEventArgs e)
+        {
+            if (string.IsNullOrEmpty(e.MangaTitle))
+            {
+                _ = LoadAsync();
+                return;
+            }
+
+            ApplyTrackingUpdate(e);
+        }
+
+        private void ApplyTrackingUpdate(AniListTrackingChangedEventArgs e)
+        {
+            var info = e.TrackingInfo;
+            if (info == null || !info.Status.HasValue)
+            {
+                if (RemoveMediaFromSections(e.MediaId))
+                {
+                    UpdateStatisticsFromSections();
+                    OnPropertyChanged(nameof(HasAnySeries));
+                }
+
+                return;
+            }
+
+            var targetSection = _sections.FirstOrDefault(section => section.Status == info.Status.Value);
+            if (targetSection == null)
+            {
+                return;
+            }
+
+            AniListListSectionViewModel? currentSection = null;
+            AniListMedia? existingMedia = null;
+            foreach (var section in _sections)
+            {
+                var match = section.Items.FirstOrDefault(media => media.Id == info.MediaId);
+                if (match != null)
+                {
+                    currentSection = section;
+                    existingMedia = match;
+                    break;
+                }
+            }
+
+            var updatedMedia = CreateUpdatedMedia(existingMedia, info);
+
+            if (currentSection != null && currentSection != targetSection)
+            {
+                currentSection.RemoveById(info.MediaId);
+            }
+
+            targetSection.Upsert(updatedMedia);
+
+            UpdateStatisticsFromSections();
+            OnPropertyChanged(nameof(HasAnySeries));
+        }
+
+        private bool RemoveMediaFromSections(int mediaId)
+        {
+            var removed = false;
+            foreach (var section in _sections)
+            {
+                removed |= section.RemoveById(mediaId);
+            }
+
+            return removed;
+        }
+
+        private static AniListMedia CreateUpdatedMedia(AniListMedia? existing, AniListTrackingInfo info)
+        {
+            return new AniListMedia
+            {
+                Id = info.MediaId,
+                RomajiTitle = existing?.RomajiTitle ?? info.Title,
+                EnglishTitle = existing?.EnglishTitle ?? info.Title,
+                NativeTitle = existing?.NativeTitle ?? info.Title,
+                Status = existing?.Status,
+                CoverImageUrl = info.CoverImageUrl ?? existing?.CoverImageUrl,
+                BannerImageUrl = existing?.BannerImageUrl,
+                StartDateText = existing?.StartDateText,
+                Format = existing?.Format,
+                Chapters = info.TotalChapters ?? existing?.Chapters,
+                SiteUrl = info.SiteUrl ?? existing?.SiteUrl,
+                AverageScore = existing?.AverageScore,
+                MeanScore = existing?.MeanScore,
+                UserStatus = info.Status,
+                UserProgress = info.Progress,
+                UserScore = info.Score,
+                UserUpdatedAt = info.UpdatedAt
+            };
+        }
+
+        private void UpdateStatisticsFromSections()
+        {
+            var snapshot = _sections.ToDictionary(
+                section => section.Status,
+                section => (IReadOnlyList<AniListMedia>)section.Items.ToList());
+            Statistics.Update(snapshot);
+        }
+
         public void Dispose()
         {
             if (_disposed)
@@ -224,8 +343,8 @@ namespace MSCS.ViewModels
             }
 
             _disposed = true;
-            _aniListService.AuthenticationChanged -= OnAniListStateChanged;
-            _aniListService.TrackingChanged -= OnAniListStateChanged;
+            _aniListService.AuthenticationChanged -= OnAniListAuthenticationChanged;
+            _aniListService.TrackingChanged -= OnAniListTrackingChanged;
             CancelActiveLoad();
             _cts.Cancel();
             _cts.Dispose();

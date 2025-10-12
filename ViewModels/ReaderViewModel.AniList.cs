@@ -26,8 +26,7 @@ namespace MSCS.ViewModels
 
             if (_aniListService != null && !string.IsNullOrWhiteSpace(MangaTitle))
             {
-                WeakEventManager<IAniListService, EventArgs>.AddHandler(_aniListService, nameof(IAniListService.TrackingChanged), OnAniListTrackingChanged);
-                if (_aniListService.TryGetTracking(MangaTitle, out var info))
+                WeakEventManager<IAniListService, AniListTrackingChangedEventArgs>.AddHandler(_aniListService, nameof(IAniListService.TrackingChanged), OnAniListTrackingChanged); if (_aniListService.TryGetTracking(MangaTitle, out var info))
                 {
                     TrackingInfo = info;
                 }
@@ -44,16 +43,45 @@ namespace MSCS.ViewModels
             }
         }
 
-        private void OnAniListTrackingChanged(object? sender, EventArgs e)
+        private void OnAniListTrackingChanged(object? sender, AniListTrackingChangedEventArgs e)
         {
-            if (_aniListService == null || string.IsNullOrWhiteSpace(MangaTitle))
+
+            var matchesTitle = !string.IsNullOrEmpty(e.MangaTitle) &&
+                                string.Equals(e.MangaTitle, MangaTitle, StringComparison.OrdinalIgnoreCase);
+            var matchesMediaId = e.MediaId != 0 && TrackingInfo?.MediaId == e.MediaId;
+
+            if (!matchesTitle && !matchesMediaId && !string.IsNullOrEmpty(e.MangaTitle))
             {
                 return;
             }
 
-            if (_aniListService.TryGetTracking(MangaTitle, out var info))
+            if (string.IsNullOrEmpty(e.MangaTitle) && !matchesMediaId)
+            {
+                if (_aniListService.TryGetTracking(MangaTitle, out var refreshed))
+                {
+                    TrackingInfo = refreshed;
+                }
+                else
+                {
+                    TrackingInfo = null;
+                    NotifyAniListProperties();
+                }
+
+                return;
+            }
+
+            if (e.TrackingInfo != null)
+            {
+                TrackingInfo = e.TrackingInfo;
+            }
+            else if (_aniListService.TryGetTracking(MangaTitle, out var info))
             {
                 TrackingInfo = info;
+            }
+            else
+            {
+                TrackingInfo = null;
+                NotifyAniListProperties();
             }
         }
 

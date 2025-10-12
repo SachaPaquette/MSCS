@@ -13,7 +13,7 @@ namespace MSCS.Interfaces
         bool IsAuthenticated { get; }
         string? UserName { get; }
         event EventHandler? AuthenticationChanged;
-        event EventHandler? TrackingChanged;
+        event EventHandler<AniListTrackingChangedEventArgs>? TrackingChanged;
         Task<bool> AuthenticateAsync(Window? owner);
         Task<IReadOnlyList<AniListMedia>> SearchSeriesAsync(string query, CancellationToken cancellationToken = default);
         Task<IReadOnlyDictionary<AniListMediaListStatus, IReadOnlyList<AniListMedia>>> GetUserListsAsync(CancellationToken cancellationToken = default);

@@ -1,4 +1,5 @@
-﻿using MSCS.Models;
+﻿using MSCS.Enums;
+using MSCS.Models;
 using MSCS.ViewModels;
 using System.Windows;
 using System.Windows.Controls;
@@ -61,6 +62,21 @@ namespace MSCS.Views
             button.ContextMenu.DataContext = new MenuContext(viewModel, media);
             button.ContextMenu.PlacementTarget = button;
             return true;
+        }
+
+        private async void OnDeferredSectionExpanded(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Expander expander || expander.Tag is not AniListRecommendationCategory category)
+            {
+                return;
+            }
+
+            if (DataContext is not AniListRecommendationsViewModel viewModel)
+            {
+                return;
+            }
+
+            await viewModel.EnsureCategoryLoadedAsync(category).ConfigureAwait(true);
         }
 
         private sealed record MenuContext(AniListRecommendationsViewModel ViewModel, AniListMedia Media);

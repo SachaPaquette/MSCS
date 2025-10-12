@@ -23,6 +23,10 @@ namespace MSCS.ViewModels
 
         private readonly AniListService _aniListService;
         private readonly CancellationTokenSource _cts = new();
+        private readonly Dictionary<AniListRecommendationCategory, Task<bool>> _categoryLoadTasks = new();
+        private readonly HashSet<AniListRecommendationCategory> _loadedCategories = new();
+        private readonly object _categoryLoadLock = new();
+
         private bool _isLoading;
         private string? _statusMessage;
         private bool _disposed;
@@ -123,31 +127,25 @@ namespace MSCS.ViewModels
             }
 
             IsLoading = true;
-            StatusMessage = "Fetching AniList recommendations...";
+            StatusMessage = "Fetching trending AniList recommendations...";
+
+            ResetDeferredCategories();
 
             try
             {
-                var trendingTask = _aniListService.GetTopSeriesAsync(AniListRecommendationCategory.Trending, _trendingItemsToLoad, _cts.Token);
-                var mangaTask = _aniListService.GetTopSeriesAsync(AniListRecommendationCategory.Manga, _mangaItemsToLoad, _cts.Token);
-                var manhwaTask = _aniListService.GetTopSeriesAsync(AniListRecommendationCategory.Manhwa, _manhwaItemsToLoad, _cts.Token);
-                var newReleasesTask = _aniListService.GetTopSeriesAsync(AniListRecommendationCategory.NewReleases, _newReleasesItemsToLoad, _cts.Token);
-                var staffPicksTask = _aniListService.GetTopSeriesAsync(AniListRecommendationCategory.StaffPicks, _staffPicksItemsToLoad, _cts.Token);
+                var trendingLoaded = await EnsureCategoryLoadedAsyncInternal(AniListRecommendationCategory.Trending, true).ConfigureAwait(true);
+                var staffLoaded = await EnsureCategoryLoadedAsyncInternal(AniListRecommendationCategory.StaffPicks, true).ConfigureAwait(true);
 
-                var results = await Task.WhenAll(trendingTask, mangaTask, manhwaTask, newReleasesTask, staffPicksTask).ConfigureAwait(true);
-
-                UpdateCollection(Trending, results[0]);
-                UpdateCollection(TopManga, results[1]);
-                UpdateCollection(TopManhwa, results[2]);
-                UpdateCollection(NewReleases, results[3]);
-                UpdateCollection(StaffPicks, results[4]);
-                OnPropertyChanged(nameof(HasRecommendations));
-                OnPropertyChanged(nameof(CanShowMoreTrending));
-                OnPropertyChanged(nameof(CanShowMoreManga));
-                OnPropertyChanged(nameof(CanShowMoreManhwa));
-                OnPropertyChanged(nameof(CanShowMoreNewReleases));
-                OnPropertyChanged(nameof(CanShowMoreStaffPicks));
-
-                StatusMessage = HasRecommendations ? null : "No recommendations available right now.";
+                if (!trendingLoaded && !staffLoaded)
+                {
+                    StatusMessage = "Unable to load recommendations right now.";
+                }
+                else
+                {
+                    StatusMessage = HasRecommendations
+                        ? "Expand a category to load more recommendations."
+                        : "No recommendations available right now.";
+                }
             }
             catch (OperationCanceledException)
             {
@@ -170,6 +168,35 @@ namespace MSCS.ViewModels
             }
         }
 
+
+        private void ResetDeferredCategories()
+        {
+            lock (_categoryLoadLock)
+            {
+                _categoryLoadTasks.Clear();
+                _loadedCategories.Clear();
+            }
+
+            UpdateCollection(Trending, Array.Empty<AniListMedia>());
+            UpdateCollection(TopManga, Array.Empty<AniListMedia>());
+            UpdateCollection(TopManhwa, Array.Empty<AniListMedia>());
+            UpdateCollection(NewReleases, Array.Empty<AniListMedia>());
+            UpdateCollection(StaffPicks, Array.Empty<AniListMedia>());
+
+            _trendingItemsToLoad = DefaultItemsPerCategory;
+            _mangaItemsToLoad = DefaultItemsPerCategory;
+            _manhwaItemsToLoad = DefaultItemsPerCategory;
+            _newReleasesItemsToLoad = DefaultItemsPerCategory;
+            _staffPicksItemsToLoad = DefaultItemsPerCategory;
+
+            OnPropertyChanged(nameof(CanShowMoreTrending));
+            OnPropertyChanged(nameof(CanShowMoreManga));
+            OnPropertyChanged(nameof(CanShowMoreManhwa));
+            OnPropertyChanged(nameof(CanShowMoreNewReleases));
+            OnPropertyChanged(nameof(CanShowMoreStaffPicks));
+            OnPropertyChanged(nameof(HasRecommendations));
+        }
+
         private void UpdateCollection(ObservableCollection<AniListMedia> target, IReadOnlyList<AniListMedia> items)
         {
             target.Clear();
@@ -179,6 +206,60 @@ namespace MSCS.ViewModels
             }
         }
 
+
+        public Task<bool> EnsureCategoryLoadedAsync(AniListRecommendationCategory category)
+        {
+            return EnsureCategoryLoadedAsyncInternal(category, true);
+        }
+
+        private Task<bool> EnsureCategoryLoadedSilentlyAsync(AniListRecommendationCategory category)
+        {
+            return EnsureCategoryLoadedAsyncInternal(category, false);
+        }
+
+        private Task<bool> EnsureCategoryLoadedAsyncInternal(AniListRecommendationCategory category, bool showStatus)
+        {
+            Task<bool> loadTask;
+            lock (_categoryLoadLock)
+            {
+                if (_loadedCategories.Contains(category))
+                {
+                    return Task.FromResult(true);
+                }
+
+                if (!_categoryLoadTasks.TryGetValue(category, out loadTask))
+                {
+                    var desiredCount = GetRequestedItemCount(category);
+                    loadTask = LoadCategoryAsync(category, desiredCount, showStatus);
+                    _categoryLoadTasks[category] = loadTask;
+                }
+                else if (showStatus)
+                {
+                    StatusMessage = GetLoadingMessage(category);
+                }
+            }
+
+            return AwaitAndFinalizeLoadAsync(category, loadTask);
+        }
+
+        private async Task<bool> AwaitAndFinalizeLoadAsync(AniListRecommendationCategory category, Task<bool> loadTask)
+        {
+            var loaded = await loadTask.ConfigureAwait(true);
+
+            lock (_categoryLoadLock)
+            {
+                if (loaded)
+                {
+                    _loadedCategories.Add(category);
+                }
+
+                _categoryLoadTasks.Remove(category);
+            }
+
+            return loaded;
+        }
+
+
         private async Task ShowMoreAsync(AniListRecommendationCategory category)
         {
             if (_disposed)
@@ -186,16 +267,13 @@ namespace MSCS.ViewModels
                 return;
             }
 
-            var currentRequested = category switch
+            var baseLoaded = await EnsureCategoryLoadedSilentlyAsync(category).ConfigureAwait(true);
+            if (!baseLoaded)
             {
-                AniListRecommendationCategory.Manga => _mangaItemsToLoad,
-                AniListRecommendationCategory.Manhwa => _manhwaItemsToLoad,
-                AniListRecommendationCategory.Trending => _trendingItemsToLoad,
-                AniListRecommendationCategory.NewReleases => _newReleasesItemsToLoad,
-                AniListRecommendationCategory.StaffPicks => _staffPicksItemsToLoad,
-                _ => DefaultItemsPerCategory
-            };
+                return;
+            }
 
+            var currentRequested = GetRequestedItemCount(category);
             if (currentRequested >= MaxItemsPerCategory)
             {
                 return;
@@ -204,73 +282,159 @@ namespace MSCS.ViewModels
             var desiredCount = Math.Min(currentRequested + ItemsIncrement, MaxItemsPerCategory);
 
             IsLoading = true;
-            StatusMessage = category switch
-            {
-                AniListRecommendationCategory.Manga => "Loading more manga recommendations...",
-                AniListRecommendationCategory.Manhwa => "Loading more manhwa recommendations...",
-                AniListRecommendationCategory.Trending => "Loading more trending series...",
-                AniListRecommendationCategory.NewReleases => "Loading more new releases...",
-                AniListRecommendationCategory.StaffPicks => "Loading more staff picks...",
-                _ => "Loading more recommendations..."
-            };
+            StatusMessage = GetLoadingMessage(category);
 
             try
             {
-                var items = await _aniListService.GetTopSeriesAsync(category, desiredCount, _cts.Token).ConfigureAwait(true);
-
-                var target = category switch
-                {
-                    AniListRecommendationCategory.Manga => TopManga,
-                    AniListRecommendationCategory.Manhwa => TopManhwa,
-                    AniListRecommendationCategory.Trending => Trending,
-                    AniListRecommendationCategory.NewReleases => NewReleases,
-                    AniListRecommendationCategory.StaffPicks => StaffPicks,
-                    _ => TopManga
-                };
-
-                UpdateCollection(target, items);
-
-
-                switch (category)
-                {
-                    case AniListRecommendationCategory.Manga:
-                        _mangaItemsToLoad = desiredCount;
-                        OnPropertyChanged(nameof(CanShowMoreManga));
-                        break;
-                    case AniListRecommendationCategory.Manhwa:
-                        _manhwaItemsToLoad = desiredCount;
-                        OnPropertyChanged(nameof(CanShowMoreManhwa));
-                        break;
-                    case AniListRecommendationCategory.Trending:
-                        _trendingItemsToLoad = desiredCount;
-                        OnPropertyChanged(nameof(CanShowMoreTrending));
-                        break;
-                    case AniListRecommendationCategory.NewReleases:
-                        _newReleasesItemsToLoad = desiredCount;
-                        OnPropertyChanged(nameof(CanShowMoreNewReleases));
-                        break;
-                    case AniListRecommendationCategory.StaffPicks:
-                        _staffPicksItemsToLoad = desiredCount;
-                        OnPropertyChanged(nameof(CanShowMoreStaffPicks));
-                        break;
-                }
-
-                StatusMessage = HasRecommendations ? null : "No recommendations available right now.";
-            }
-            catch (OperationCanceledException)
-            {
-                // Ignore cancellation when the view model is disposed.
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Failed to load additional AniList recommendations: {ex}");
-                StatusMessage = "Failed to load recommendations. Please try again.";
+                await LoadCategoryAsync(category, desiredCount, true).ConfigureAwait(true);
             }
             finally
             {
                 IsLoading = false;
-                OnPropertyChanged(nameof(HasRecommendations));
+                NotifyShowMoreState(category);
             }
+        }
+
+        private int GetRequestedItemCount(AniListRecommendationCategory category)
+        {
+            return category switch
+            {
+                AniListRecommendationCategory.Manga => _mangaItemsToLoad,
+                AniListRecommendationCategory.Manhwa => _manhwaItemsToLoad,
+                AniListRecommendationCategory.Trending => _trendingItemsToLoad,
+                AniListRecommendationCategory.NewReleases => _newReleasesItemsToLoad,
+                AniListRecommendationCategory.StaffPicks => _staffPicksItemsToLoad,
+                _ => DefaultItemsPerCategory
+            };
+        }
+
+        private async Task<bool> LoadCategoryAsync(AniListRecommendationCategory category, int desiredCount, bool showStatus)
+        {
+            if (_disposed)
+            {
+                return false;
+            }
+
+            if (showStatus)
+            {
+                StatusMessage = GetLoadingMessage(category);
+            }
+
+            try
+            {
+                var items = await _aniListService.GetTopSeriesAsync(category, desiredCount, _cts.Token).ConfigureAwait(true);
+                UpdateCollection(GetCollection(category), items);
+                UpdateRequestedCount(category, desiredCount);
+                OnPropertyChanged(nameof(HasRecommendations));
+
+                if (showStatus)
+                {
+                    StatusMessage = HasRecommendations
+                        ? "Expand a category to load more recommendations."
+                        : "No recommendations available right now.";
+                }
+
+                return true;
+            }
+            catch (OperationCanceledException)
+            {
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to load AniList {category}: {ex}");
+                if (showStatus)
+                {
+                    StatusMessage = GetFailureMessage(category);
+                }
+
+                return false;
+            }
+        }
+
+        private ObservableCollection<AniListMedia> GetCollection(AniListRecommendationCategory category)
+        {
+            return category switch
+            {
+                AniListRecommendationCategory.Manga => TopManga,
+                AniListRecommendationCategory.Manhwa => TopManhwa,
+                AniListRecommendationCategory.Trending => Trending,
+                AniListRecommendationCategory.NewReleases => NewReleases,
+                AniListRecommendationCategory.StaffPicks => StaffPicks,
+                _ => TopManga
+            };
+        }
+
+        private void UpdateRequestedCount(AniListRecommendationCategory category, int desiredCount)
+        {
+            switch (category)
+            {
+                case AniListRecommendationCategory.Manga:
+                    _mangaItemsToLoad = desiredCount;
+                    break;
+                case AniListRecommendationCategory.Manhwa:
+                    _manhwaItemsToLoad = desiredCount;
+                    break;
+                case AniListRecommendationCategory.Trending:
+                    _trendingItemsToLoad = desiredCount;
+                    break;
+                case AniListRecommendationCategory.NewReleases:
+                    _newReleasesItemsToLoad = desiredCount;
+                    break;
+                case AniListRecommendationCategory.StaffPicks:
+                    _staffPicksItemsToLoad = desiredCount;
+                    break;
+            }
+
+            NotifyShowMoreState(category);
+        }
+
+        private void NotifyShowMoreState(AniListRecommendationCategory category)
+        {
+            switch (category)
+            {
+                case AniListRecommendationCategory.Manga:
+                    OnPropertyChanged(nameof(CanShowMoreManga));
+                    break;
+                case AniListRecommendationCategory.Manhwa:
+                    OnPropertyChanged(nameof(CanShowMoreManhwa));
+                    break;
+                case AniListRecommendationCategory.Trending:
+                    OnPropertyChanged(nameof(CanShowMoreTrending));
+                    break;
+                case AniListRecommendationCategory.NewReleases:
+                    OnPropertyChanged(nameof(CanShowMoreNewReleases));
+                    break;
+                case AniListRecommendationCategory.StaffPicks:
+                    OnPropertyChanged(nameof(CanShowMoreStaffPicks));
+                    break;
+            }
+        }
+
+        private static string GetLoadingMessage(AniListRecommendationCategory category)
+        {
+            return category switch
+            {
+                AniListRecommendationCategory.Manga => "Loading manga recommendations...",
+                AniListRecommendationCategory.Manhwa => "Loading manhwa recommendations...",
+                AniListRecommendationCategory.Trending => "Loading trending series...",
+                AniListRecommendationCategory.NewReleases => "Loading new releases...",
+                AniListRecommendationCategory.StaffPicks => "Loading staff picks...",
+                _ => "Loading recommendations..."
+            };
+        }
+
+        private static string GetFailureMessage(AniListRecommendationCategory category)
+        {
+            return category switch
+            {
+                AniListRecommendationCategory.Manga => "Unable to load manga recommendations right now.",
+                AniListRecommendationCategory.Manhwa => "Unable to load manhwa recommendations right now.",
+                AniListRecommendationCategory.Trending => "Unable to load trending series right now.",
+                AniListRecommendationCategory.NewReleases => "Unable to load new releases right now.",
+                AniListRecommendationCategory.StaffPicks => "Unable to load staff picks right now.",
+                _ => "Unable to load recommendations right now."
+            };
         }
 
         private async Task ChangeStatusAsync(object? parameter)

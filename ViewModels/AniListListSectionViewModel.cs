@@ -50,6 +50,71 @@ namespace MSCS.ViewModels
             OnItemsCollectionChanged(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
         }
 
+        public void Upsert(AniListMedia media)
+        {
+            if (media == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < Items.Count; i++)
+            {
+                if (Items[i]?.Id == media.Id)
+                {
+                    Items[i] = media;
+                    RepositionItem(i);
+                    return;
+                }
+            }
+
+            var insertIndex = GetInsertIndex(media);
+            Items.Insert(insertIndex, media);
+        }
+
+        public bool RemoveById(int mediaId)
+        {
+            for (var i = 0; i < Items.Count; i++)
+            {
+                if (Items[i]?.Id == mediaId)
+                {
+                    Items.RemoveAt(i);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void RepositionItem(int index)
+        {
+            if (index < 0 || index >= Items.Count)
+            {
+                return;
+            }
+
+            var item = Items[index];
+            Items.RemoveAt(index);
+
+            var insertIndex = GetInsertIndex(item);
+            Items.Insert(insertIndex, item);
+        }
+
+        private int GetInsertIndex(AniListMedia? media)
+        {
+            var updatedAt = media?.UserUpdatedAt ?? DateTimeOffset.MinValue;
+            for (var i = 0; i < Items.Count; i++)
+            {
+                var other = Items[i];
+                var otherUpdated = other?.UserUpdatedAt ?? DateTimeOffset.MinValue;
+                if (updatedAt >= otherUpdated)
+                {
+                    return i;
+                }
+            }
+
+            return Items.Count;
+        }
+
         private void OnItemsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
             OnPropertyChanged(nameof(ItemCount));

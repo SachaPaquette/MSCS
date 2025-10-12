@@ -26,6 +26,19 @@ namespace MSCS.Services
     progress
     score
     updatedAt
+    media {
+      id
+      title {
+        romaji
+        english
+        native
+      }
+      coverImage {
+        large
+      }
+      siteUrl
+      chapters
+    }
   }
 }";
         private const string DeleteMediaListEntryMutation = @"mutation($id: Int) {
@@ -54,7 +67,7 @@ namespace MSCS.Services
         public string? UserName => _userName;
 
         public event EventHandler? AuthenticationChanged;
-        public event EventHandler? TrackingChanged;
+        public event EventHandler<AniListTrackingChangedEventArgs>? TrackingChanged;
 
         public async Task<bool> AuthenticateAsync(Window? owner)
         {
@@ -329,7 +342,7 @@ namespace MSCS.Services
                 DateTimeOffset.UtcNow,
                 null);
             _userSettings.SetAniListTracking(mangaTitle, fallback);
-            TrackingChanged?.Invoke(this, EventArgs.Empty);
+            TrackingChanged?.Invoke(this, new AniListTrackingChangedEventArgs(mangaTitle, fallback.MediaId, fallback));
             return fallback;
         }
 
@@ -370,7 +383,7 @@ namespace MSCS.Services
                     DateTimeOffset.UtcNow,
                     trackingInfo.MediaListEntryId);
                 _userSettings.SetAniListTracking(mangaTitle, fallback);
-                TrackingChanged?.Invoke(this, EventArgs.Empty);
+                TrackingChanged?.Invoke(this, new AniListTrackingChangedEventArgs(mangaTitle, fallback.MediaId, fallback));
             }
         }
 
@@ -437,7 +450,7 @@ namespace MSCS.Services
                 DateTimeOffset.UtcNow,
                 trackingInfo.MediaListEntryId);
             _userSettings.SetAniListTracking(mangaTitle, fallback);
-            TrackingChanged?.Invoke(this, EventArgs.Empty);
+            TrackingChanged?.Invoke(this, new AniListTrackingChangedEventArgs(mangaTitle, fallback.MediaId, fallback));
             return fallback;
         }
 
@@ -462,7 +475,7 @@ namespace MSCS.Services
                 if (entryId == null)
                 {
                     _userSettings.RemoveAniListTracking(mangaTitle);
-                    TrackingChanged?.Invoke(this, EventArgs.Empty);
+                    TrackingChanged?.Invoke(this, new AniListTrackingChangedEventArgs(mangaTitle, trackingInfo.MediaId, null));
                     return true;
                 }
             }
@@ -478,7 +491,7 @@ namespace MSCS.Services
                 Debug.WriteLine("AniList: Unable to remove tracking entry due to missing connection. Removing local entry only.");
             }
             _userSettings.RemoveAniListTracking(mangaTitle);
-            TrackingChanged?.Invoke(this, EventArgs.Empty);
+            TrackingChanged?.Invoke(this, new AniListTrackingChangedEventArgs(mangaTitle, trackingInfo.MediaId, null));
             return true;
         }
 
@@ -713,7 +726,7 @@ namespace MSCS.Services
             if (refreshed != null)
             {
                 _userSettings.SetAniListTracking(mangaTitle, refreshed);
-                TrackingChanged?.Invoke(this, EventArgs.Empty);
+                TrackingChanged?.Invoke(this, new AniListTrackingChangedEventArgs(mangaTitle, refreshed.MediaId, refreshed));
             }
 
             return refreshed;
@@ -730,7 +743,7 @@ namespace MSCS.Services
             _userSettings.ClearAniListTracking();
 
             AuthenticationChanged?.Invoke(this, EventArgs.Empty);
-            TrackingChanged?.Invoke(this, EventArgs.Empty);
+            TrackingChanged?.Invoke(this, new AniListTrackingChangedEventArgs(null, 0, null));
             return Task.CompletedTask;
         }
 
@@ -985,14 +998,107 @@ namespace MSCS.Services
             {
                 return null;
             }
+
+            var parsed = ParseSavedEntryTrackingInfo(document, fallbackTitle, fallbackCoverImage);
+            if (parsed != null)
+            {
+                _userSettings.SetAniListTracking(mangaTitle, parsed);
+                TrackingChanged?.Invoke(this, new AniListTrackingChangedEventArgs(mangaTitle, parsed.MediaId, parsed));
+                return parsed;
+            }
+
             var refreshed = await FetchTrackingInfoByMediaIdAsync(mediaId, fallbackTitle, fallbackCoverImage, cancellationToken).ConfigureAwait(false);
             if (refreshed != null)
             {
                 _userSettings.SetAniListTracking(mangaTitle, refreshed);
-                TrackingChanged?.Invoke(this, EventArgs.Empty);
+                TrackingChanged?.Invoke(this, new AniListTrackingChangedEventArgs(mangaTitle, refreshed.MediaId, refreshed));
             }
 
             return refreshed;
+        }
+
+
+        private AniListTrackingInfo? ParseSavedEntryTrackingInfo(JsonDocument document, string fallbackTitle, string? fallbackCoverImage)
+        {
+            if (!document.RootElement.TryGetProperty("data", out var dataElement) ||
+                !dataElement.TryGetProperty("SaveMediaListEntry", out var entryElement) ||
+                entryElement.ValueKind != JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            if (!entryElement.TryGetProperty("media", out var mediaElement) ||
+                mediaElement.ValueKind != JsonValueKind.Object ||
+                !mediaElement.TryGetProperty("id", out var mediaIdElement) ||
+                mediaIdElement.ValueKind != JsonValueKind.Number)
+            {
+                return null;
+            }
+
+            var mediaId = mediaIdElement.GetInt32();
+            if (mediaId <= 0)
+            {
+                return null;
+            }
+
+            var titleElement = mediaElement.TryGetProperty("title", out var titleJson) ? titleJson : default;
+            var title = ResolveTitle(titleElement, fallbackTitle);
+            var cover = mediaElement.TryGetProperty("coverImage", out var coverElement) &&
+                        coverElement.TryGetProperty("large", out var coverUrl)
+                ? coverUrl.GetString()
+                : fallbackCoverImage;
+            var siteUrl = mediaElement.TryGetProperty("siteUrl", out var siteUrlElement) ? siteUrlElement.GetString() : null;
+            var chapters = mediaElement.TryGetProperty("chapters", out var chaptersElement) && chaptersElement.ValueKind == JsonValueKind.Number
+                ? chaptersElement.GetInt32()
+                : (int?)null;
+
+            var status = AniListFormatting.FromApiValue(entryElement.TryGetProperty("status", out var statusElement) ? statusElement.GetString() : null);
+
+            int? progress = null;
+            if (entryElement.TryGetProperty("progress", out var progressElement) && progressElement.ValueKind == JsonValueKind.Number)
+            {
+                var progressValue = progressElement.GetInt32();
+                if (progressValue > 0)
+                {
+                    progress = progressValue;
+                }
+            }
+
+            double? score = null;
+            if (entryElement.TryGetProperty("score", out var scoreElement) && scoreElement.ValueKind == JsonValueKind.Number)
+            {
+                var scoreValue = scoreElement.GetDouble();
+                if (scoreValue > 0)
+                {
+                    score = scoreValue;
+                }
+            }
+
+            DateTimeOffset? updatedAt = null;
+            if (entryElement.TryGetProperty("updatedAt", out var updatedElement) && updatedElement.ValueKind == JsonValueKind.Number)
+            {
+                var seconds = updatedElement.GetInt64();
+                if (seconds > 0)
+                {
+                    updatedAt = DateTimeOffset.FromUnixTimeSeconds(seconds);
+                }
+            }
+
+            var entryId = entryElement.TryGetProperty("id", out var entryIdElement) && entryIdElement.ValueKind == JsonValueKind.Number
+                ? entryIdElement.GetInt32()
+                : (int?)null;
+
+            return new AniListTrackingInfo(
+                mediaId,
+                title,
+                cover,
+                status,
+                progress,
+                score,
+                chapters,
+                siteUrl,
+                updatedAt,
+                entryId);
         }
 
         private async Task<AniListTrackingInfo?> FetchTrackingInfoByMediaIdAsync(int mediaId, string fallbackTitle, string? fallbackCover, CancellationToken cancellationToken)

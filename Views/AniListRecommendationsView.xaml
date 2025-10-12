@@ -247,7 +247,6 @@
         </DataTemplate>
     </UserControl.Resources>
 
-
     <Grid>
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="24">
@@ -308,110 +307,122 @@
                                 Style="{StaticResource AccentButton}"/>
                     </StackPanel>
 
-                    <StackPanel Margin="0,24,0,0">
-                        <TextBlock Text="Top Manga"
-                                   FontSize="18"
-                                   FontWeight="SemiBold"
-                                   Foreground="{StaticResource Fg}"
-                                   Margin="0,0,0,8"/>
-                        <ItemsControl ItemsSource="{Binding TopManga}"
-                                      ItemTemplate="{StaticResource RecommendationCardTemplate}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel/>
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
-                        <Button Content="Show more"
-                                Margin="0,8,0,0"
-                                Command="{Binding ShowMoreMangaCommand}"
-                                Visibility="{Binding CanShowMoreManga, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Style="{StaticResource AccentButton}"/>
-                    </StackPanel>
+                    <Expander Margin="0,24,0,0"
+                              Background="Transparent"
+                              Foreground="{StaticResource Fg}"
+                              BorderBrush="{x:Null}"
+                              Tag="{x:Static enums:AniListRecommendationCategory.Manga}"
+                              Expanded="OnDeferredSectionExpanded">
+                        <Expander.Header>
+                            <TextBlock Text="Top Manga"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource Fg}"/>
+                        </Expander.Header>
+                        <StackPanel Margin="0,12,0,0">
+                            <ItemsControl ItemsSource="{Binding TopManga}"
+                                          ItemTemplate="{StaticResource RecommendationCardTemplate}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                            <Button Content="Show more"
+                                    Margin="0,8,0,0"
+                                    Command="{Binding ShowMoreMangaCommand}"
+                                    Visibility="{Binding CanShowMoreManga, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    Style="{StaticResource AccentButton}"/>
+                        </StackPanel>
+                    </Expander>
 
-                    <StackPanel Margin="0,24,0,0">
-                        <TextBlock Text="Top Manhwa"
-                                   FontSize="18"
-                                   FontWeight="SemiBold"
-                                   Foreground="{StaticResource Fg}"
-                                   Margin="0,0,0,8"/>
-                        <ItemsControl ItemsSource="{Binding TopManhwa}"
-                                      ItemTemplate="{StaticResource RecommendationCardTemplate}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel/>
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
-                        <Button Content="Show more"
-                                Margin="0,8,0,0"
-                                Command="{Binding ShowMoreManhwaCommand}"
-                                Visibility="{Binding CanShowMoreManhwa, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Style="{StaticResource AccentButton}"/>
-                    </StackPanel>
+                    <Expander Margin="0,24,0,0"
+                              Background="Transparent"
+                              Foreground="{StaticResource Fg}"
+                              BorderBrush="{x:Null}"
+                              Tag="{x:Static enums:AniListRecommendationCategory.Manhwa}"
+                              Expanded="OnDeferredSectionExpanded">
+                        <Expander.Header>
+                            <TextBlock Text="Top Manhwa"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource Fg}"/>
+                        </Expander.Header>
+                        <StackPanel Margin="0,12,0,0">
+                            <ItemsControl ItemsSource="{Binding TopManhwa}"
+                                          ItemTemplate="{StaticResource RecommendationCardTemplate}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                            <Button Content="Show more"
+                                    Margin="0,8,0,0"
+                                    Command="{Binding ShowMoreManhwaCommand}"
+                                    Visibility="{Binding CanShowMoreManhwa, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    Style="{StaticResource AccentButton}"/>
+                        </StackPanel>
+                    </Expander>
 
-                    <StackPanel Margin="0,24,0,0">
-                        <TextBlock Text="New Releases"
-                                   FontSize="18"
-                                   FontWeight="SemiBold"
-                                   Foreground="{StaticResource Fg}"
-                                   Margin="0,0,0,8"/>
-                        <ItemsControl ItemsSource="{Binding NewReleases}"
-                                      ItemTemplate="{StaticResource RecommendationCardTemplate}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel/>
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
-                        <Button Content="Show more"
-                                Margin="0,8,0,0"
-                                Command="{Binding ShowMoreNewReleasesCommand}"
-                                Visibility="{Binding CanShowMoreNewReleases, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Style="{StaticResource AccentButton}"/>
-                    </StackPanel>
+                    <Expander Margin="0,24,0,0"
+                              Background="Transparent"
+                              Foreground="{StaticResource Fg}"
+                              BorderBrush="{x:Null}"
+                              Tag="{x:Static enums:AniListRecommendationCategory.NewReleases}"
+                              Expanded="OnDeferredSectionExpanded">
+                        <Expander.Header>
+                            <TextBlock Text="New Releases"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource Fg}"/>
+                        </Expander.Header>
+                        <StackPanel Margin="0,12,0,0">
+                            <ItemsControl ItemsSource="{Binding NewReleases}"
+                                          ItemTemplate="{StaticResource RecommendationCardTemplate}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                            <Button Content="Show more"
+                                    Margin="0,8,0,0"
+                                    Command="{Binding ShowMoreNewReleasesCommand}"
+                                    Visibility="{Binding CanShowMoreNewReleases, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    Style="{StaticResource AccentButton}"/>
+                        </StackPanel>
+                    </Expander>
 
-                    <StackPanel Margin="0,24,0,0">
-                        <TextBlock Text="Staff Picks"
-                                   FontSize="18"
-                                   FontWeight="SemiBold"
-                                   Foreground="{StaticResource Fg}"
-                                   Margin="0,0,0,8"/>
-                        <ItemsControl ItemsSource="{Binding StaffPicks}"
-                                      ItemTemplate="{StaticResource RecommendationCardTemplate}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel/>
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
-                        <Button Content="Show more"
-                                Margin="0,8,0,0"
-                                Command="{Binding ShowMoreStaffPicksCommand}"
-                                Visibility="{Binding CanShowMoreStaffPicks, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                Style="{StaticResource AccentButton}"/>
-                    </StackPanel>
-                </StackPanel>
-
-                <StackPanel Margin="0,24,0,0">
-                    <TextBlock Text="Top Manhwa"
-                               FontSize="18"
-                               FontWeight="SemiBold"
-                               Foreground="{StaticResource Fg}"
-                               Margin="0,0,0,8"/>
-                    <ItemsControl ItemsSource="{Binding TopManhwa}"
-                                  ItemTemplate="{StaticResource RecommendationCardTemplate}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <WrapPanel/>
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                    </ItemsControl>
-                    <Button Content="Show more"
-                            Margin="0,8,0,0"
-                            Command="{Binding ShowMoreManhwaCommand}"
-                            Visibility="{Binding CanShowMoreManhwa, Converter={StaticResource BooleanToVisibilityConverter}}"
-                            Style="{StaticResource AccentButton}"/>
+                    <!-- Staff Picks Expander -->
+                    <Expander Margin="0,24,0,0"
+                              Background="Transparent"
+                              Foreground="{StaticResource Fg}"
+                              BorderBrush="{x:Null}"
+                              Tag="{x:Static enums:AniListRecommendationCategory.StaffPicks}"
+                              Expanded="OnDeferredSectionExpanded">
+                        <Expander.Header>
+                            <TextBlock Text="Staff Picks"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource Fg}"/>
+                        </Expander.Header>
+                        <StackPanel Margin="0,12,0,0">
+                            <ItemsControl ItemsSource="{Binding StaffPicks}"
+                                          ItemTemplate="{StaticResource RecommendationCardTemplate}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                            <Button Content="Show more"
+                                    Margin="0,8,0,0"
+                                    Command="{Binding ShowMoreStaffPicksCommand}"
+                                    Visibility="{Binding CanShowMoreStaffPicks, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    Style="{StaticResource AccentButton}"/>
+                        </StackPanel>
+                    </Expander>
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>
