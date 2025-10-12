@@ -347,7 +347,8 @@ namespace MSCS.Sources
             return await base.FetchChapterImages(chapterUrl, ct).ConfigureAwait(false);
         }
 
-        private void CollectChaptersFromJson(JsonElement element, Dictionary<string, Chapter> accumulator, string? currentHref)
+
+        private void CollectChaptersFromJson(JsonElement element, Dictionary<string, Chapter> accumulator, Uri pageUri, string? currentHref)
         {
             switch (element.ValueKind)
             {
@@ -364,7 +365,7 @@ namespace MSCS.Sources
 
                     foreach (var property in element.EnumerateObject())
                     {
-                        CollectChaptersFromJson(property.Value, accumulator, hrefCandidate);
+                        CollectChaptersFromJson(property.Value, accumulator, pageUri, hrefCandidate);
                     }
 
                     break;
@@ -378,30 +379,38 @@ namespace MSCS.Sources
                             !string.IsNullOrWhiteSpace(label) &&
                             label.Contains("Chapter", StringComparison.OrdinalIgnoreCase) &&
                             !string.IsNullOrWhiteSpace(currentHref) &&
-                            currentHref.IndexOf("/read/", StringComparison.OrdinalIgnoreCase) >= 0)
+                            (currentHref.IndexOf("/read/", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                             currentHref.IndexOf("/chapter/", StringComparison.OrdinalIgnoreCase) >= 0))
                         {
                             var title = BuildChapterTitle(label, element);
-                            var url = ToAbsolute(currentHref!).ToString();
-
-                            if (!accumulator.ContainsKey(url))
+                            var url = NormalizeChapterHref(currentHref!, pageUri);
+                            if (string.IsNullOrWhiteSpace(url))
                             {
-                                accumulator[url] = new Chapter
-                                {
-                                    Title = string.IsNullOrWhiteSpace(title) ? label.Trim() : title,
-                                    Url = url
-                                };
+                                break;
+                            }
+
+                            if (!accumulator.TryGetValue(url, out var chapter))
+                            {
+                                chapter = new Chapter { Url = url };
+                                accumulator[url] = chapter;
+                            }
+
+                            if (string.IsNullOrWhiteSpace(chapter.Title))
+                            {
+                                chapter.Title = string.IsNullOrWhiteSpace(title) ? label.Trim() : title;
                             }
                         }
                     }
 
                     foreach (var item in element.EnumerateArray())
                     {
-                        CollectChaptersFromJson(item, accumulator, currentHref);
+                        CollectChaptersFromJson(item, accumulator, pageUri, currentHref);
                     }
 
                     break;
             }
         }
+
 
         private static string BuildChapterTitle(string prefix, JsonElement array)
         {

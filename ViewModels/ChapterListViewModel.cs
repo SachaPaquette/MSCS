@@ -142,10 +142,23 @@ namespace MSCS.ViewModels
 
             Debug.WriteLine($"Opening chapter: {chapterToOpen.Title} ({chapterToOpen.Url})");
             int index = Chapters.IndexOf(chapterToOpen);
+            if (index < 0)
+            {
+                Debug.WriteLine($"Selected chapter {chapterToOpen.Title} was not found in the chapter list.");
+                return;
+            }
 
             var images = await GetChapterImagesAsync(index);
             if (images != null && images.Any())
             {
+                var initialProgress = _initialProgress ?? new MangaReadingProgress(
+                    index,
+                    chapterToOpen.Title,
+                    0,
+                    DateTimeOffset.UtcNow,
+                    string.IsNullOrWhiteSpace(Manga?.Url) ? null : Manga.Url,
+                    string.IsNullOrWhiteSpace(SourceKey) ? null : SourceKey);
+
                 var readerVM = new ReaderViewModel(
                     images,
                     chapterToOpen.Title,
@@ -154,7 +167,7 @@ namespace MSCS.ViewModels
                     index,
                     _aniListService,
                     _userSettings,
-                    _initialProgress);
+                    initialProgress);
 
                 _initialProgress = null;
 
