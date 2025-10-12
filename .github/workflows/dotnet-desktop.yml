@@ -46,11 +46,6 @@ jobs:
           $exe = Get-ChildItem publish\*.exe | Select-Object -First 1
           Rename-Item $exe.FullName MSCS-win-x64.exe
 
-      - name: Create ZIP (optional, friendlier download)
-        shell: pwsh
-        run: |
-          Compress-Archive -Path publish\MSCS-win-x64.exe -DestinationPath MSCS-win-x64-singlefile.zip -Force
-
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
