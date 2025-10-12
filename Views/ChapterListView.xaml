@@ -7,16 +7,25 @@
              Height="Auto" Width="Auto">
 
     <UserControl.Resources>
-        <SolidColorBrush x:Key="SurfaceBrush" Color="#F3F4F6"/>
-        <SolidColorBrush x:Key="CardBorderBrush" Color="#E5E7EB"/>
+        <!-- Reuse app theme colors -->
         <Style x:Key="MetadataTextStyle" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#4B5563"/>
+            <Setter Property="Foreground" Value="{DynamicResource FgSubtle}"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Margin" Value="0,0,0,6"/>
         </Style>
+
+        <!-- Per-item card for the chapter row -->
+        <Style x:Key="ChapterRowBorderStyle" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource Surface}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderSoft}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="14"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+        </Style>
     </UserControl.Resources>
 
-    <Grid Background="{StaticResource SurfaceBrush}">
+    <Grid Background="{DynamicResource SurfaceLow}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -25,14 +34,9 @@
         <!-- Header / Hero -->
         <Border Grid.Row="0"
                 Margin="16"
-                CornerRadius="16"
+                Style="{StaticResource SurfaceSectionStyle}"
                 Padding="24"
-                Background="White"
-                BorderBrush="{StaticResource CardBorderBrush}"
-                BorderThickness="1">
-            <Border.Effect>
-                <DropShadowEffect ShadowDepth="0" BlurRadius="18" Opacity="0.08"/>
-            </Border.Effect>
+                Effect="{x:Null}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -40,18 +44,14 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
+                <!-- Back button uses Accent style -->
                 <Button Grid.Column="0"
-                        MinWidth="96"
-                        Height="32"
+                        MinWidth="110"
+                        Height="38"
                         HorizontalAlignment="Left"
                         VerticalAlignment="Top"
-                        Padding="12,4"
-                        Background="#111827"
-                        Foreground="White"
-                        BorderBrush="#111827"
-                        FontSize="12"
-                        FontWeight="SemiBold"
-                        Command="{Binding BackCommand}">
+                        Command="{Binding BackCommand}"
+                        Style="{StaticResource AccentButtonStyle}">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="" FontFamily="Segoe MDL2 Assets" Margin="0,0,6,0"/>
                         <TextBlock Text="Back"/>
@@ -60,13 +60,13 @@
 
                 <StackPanel Grid.Column="2">
                     <TextBlock Text="{Binding Manga.Title}"
-                               Foreground="#111827"
+                               Foreground="{DynamicResource Fg}"
                                FontSize="24"
                                FontWeight="Bold"
                                TextWrapping="Wrap"/>
 
                     <TextBlock Text="{Binding Manga.AlternativeTitles, Converter={StaticResource ListToStringConverter}}"
-                               Foreground="#6B7280"
+                               Foreground="{DynamicResource FgMuted}"
                                FontSize="12"
                                Margin="0,6,0,0"
                                TextWrapping="Wrap"
@@ -86,6 +86,7 @@
                                 </Style>
                             </TextBlock.Style>
                         </TextBlock>
+
                         <TextBlock Text="{Binding Manga.LastUpdated, StringFormat=Last updated\: {0:d}}"
                                    Margin="0">
                             <TextBlock.Style>
@@ -108,14 +109,8 @@
         <Border Grid.Row="1"
                 Margin="16"
                 Padding="20"
-                Background="White"
-                CornerRadius="18"
-                BorderBrush="{StaticResource CardBorderBrush}"
-                BorderThickness="1">
-            <Border.Effect>
-                <DropShadowEffect ShadowDepth="0" BlurRadius="25" Opacity="0.1"/>
-            </Border.Effect>
-
+                Style="{StaticResource SurfaceSectionStyle}"
+                Effect="{x:Null}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -126,10 +121,10 @@
                     <TextBlock Text="Chapters"
                                FontSize="18"
                                FontWeight="SemiBold"
-                               Foreground="#111827"/>
+                               Foreground="{DynamicResource Fg}"/>
                     <TextBlock Text="Pick a chapter to start reading"
                                FontSize="12"
-                               Foreground="#6B7280"
+                               Foreground="{DynamicResource FgMuted}"
                                Margin="0,4,0,0"/>
                 </StackPanel>
 
@@ -155,12 +150,7 @@
                     <!-- Item template -->
                     <ListView.ItemTemplate>
                         <DataTemplate DataType="{x:Type local:Chapter}">
-                            <Border Padding="14"
-                                    Margin="0,4"
-                                    CornerRadius="12"
-                                    Background="White"
-                                    BorderBrush="{StaticResource CardBorderBrush}"
-                                    BorderThickness="1">
+                            <Border Style="{StaticResource ChapterRowBorderStyle}" Margin="0,4,0,0">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
@@ -169,30 +159,32 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
 
+                                    <!-- Number badge -->
                                     <Border Width="42"
                                             Height="42"
                                             CornerRadius="12"
-                                            Background="#F3F4F6"
-                                            BorderBrush="{StaticResource CardBorderBrush}"
+                                            Background="{DynamicResource SurfaceLow}"
+                                            BorderBrush="{DynamicResource SurfaceBorderSoft}"
                                             BorderThickness="1"
                                             VerticalAlignment="Center">
                                         <TextBlock Text="{Binding Number, StringFormat=\{0:0.##\}}"
                                                    FontWeight="SemiBold"
-                                                   Foreground="#111827"
+                                                   Foreground="{DynamicResource Fg}"
                                                    HorizontalAlignment="Center"
                                                    VerticalAlignment="Center"/>
                                     </Border>
 
+                                    <!-- Title + hint -->
                                     <StackPanel Grid.Column="2" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding Title}"
                                                    FontSize="14"
                                                    FontWeight="SemiBold"
-                                                   Foreground="#1F2937"
+                                                   Foreground="{DynamicResource Fg}"
                                                    TextWrapping="Wrap"
                                                    TextTrimming="CharacterEllipsis"/>
                                         <TextBlock Text="Double click to open"
                                                    FontSize="11"
-                                                   Foreground="#9CA3AF"
+                                                   Foreground="{DynamicResource FgSubtle}"
                                                    Margin="0,4,0,0"/>
                                     </StackPanel>
                                 </Grid>
@@ -211,18 +203,10 @@
                             <Setter Property="SnapsToDevicePixels" Value="True"/>
                             <Style.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter Property="Effect">
-                                        <Setter.Value>
-                                            <DropShadowEffect BlurRadius="14" ShadowDepth="0" Opacity="0.08"/>
-                                        </Setter.Value>
-                                    </Setter>
+                                    <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorder}"/>
                                 </Trigger>
                                 <Trigger Property="IsSelected" Value="True">
-                                    <Setter Property="Effect">
-                                        <Setter.Value>
-                                            <DropShadowEffect BlurRadius="16" ShadowDepth="0" Opacity="0.12" Color="#111827"/>
-                                        </Setter.Value>
-                                    </Setter>
+                                    <Setter Property="BorderBrush" Value="{DynamicResource Accent}"/>
                                 </Trigger>
                             </Style.Triggers>
                         </Style>
