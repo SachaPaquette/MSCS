@@ -19,6 +19,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Determine build version
+        shell: pwsh
+        run: |
+          $version = "1.0.${{ github.run_number }}"
+          $assemblyVersion = "$version.0"
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "ASSEMBLY_VERSION=$assemblyVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "RELEASE_TAG=v$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -39,6 +48,9 @@ jobs:
           -p:EnableCompressionInSingleFile=true
           -p:PublishTrimmed=false
           -o publish
+          -p:Version=${{ env.VERSION }}
+          -p:FileVersion=${{ env.ASSEMBLY_VERSION }}
+          -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }}
 
       - name: Rename EXE
         shell: pwsh
@@ -51,8 +63,8 @@ jobs:
         with:
           artifacts: publish/MSCS-win-x64.exe
           artifactErrorsFailBuild: true
-          tag: 'master-${{ github.run_number }}'
-          name: 'Main build ${{ github.run_number }}'
+          tag: ${{ env.RELEASE_TAG }}
+          name: MSCS ${{ env.VERSION }}
           generateReleaseNotes: true
           makeLatest: true
           token: ${{ secrets.GITHUB_TOKEN }}
