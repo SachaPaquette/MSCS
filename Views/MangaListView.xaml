@@ -3,58 +3,33 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:MSCS.Models"
              Height="Auto" Width="Auto">
-
     <UserControl.Resources>
-        <SolidColorBrush x:Key="PanelBackground" Color="#1A2130"/>
-        <SolidColorBrush x:Key="PanelBorder" Color="#262F42"/>
-        <SolidColorBrush x:Key="AccentBrush" Color="#7C9CFF"/>
-        <SolidColorBrush x:Key="TextMuted" Color="#A8B3C5"/>
-        <SolidColorBrush x:Key="MangaHoverBrush" Color="#2A3750"/>
-
-        <Style x:Key="CardBorderStyle" TargetType="Border">
-            <Setter Property="Background" Value="{StaticResource PanelBackground}"/>
-            <Setter Property="BorderBrush" Value="{StaticResource PanelBorder}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="12"/>
-            <Setter Property="Padding" Value="16"/>
-            <Setter Property="SnapsToDevicePixels" Value="True"/>
-            <Setter Property="Effect">
-                <Setter.Value>
-                    <DropShadowEffect BlurRadius="18" ShadowDepth="0" Opacity="0.18"/>
-                </Setter.Value>
-            </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="{StaticResource MangaHoverBrush}"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <Style x:Key="AccentButton" TargetType="Button">
-            <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderBrush" Value="{x:Null}"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Padding" Value="18,0"/>
-            <Setter Property="Cursor" Value="Hand"/>
+        <Style x:Key="ResultItemContainerStyle" TargetType="ListViewItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0,0,0,14"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="background"
-                                Background="{TemplateBinding Background}"
-                                CornerRadius="8"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <ControlTemplate TargetType="ListViewItem">
+                        <Border x:Name="ItemBorder"
+                                Background="{DynamicResource Surface}"
+                                BorderBrush="{DynamicResource SurfaceBorderSoft}"
+                                BorderThickness="1"
+                                CornerRadius="12">
+                            <Border Padding="16">
+                                <ContentPresenter Margin="0"/>
+                            </Border>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="background" Property="Background" Value="#91ACFF"/>
+                                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SurfaceAlt}"/>
+                                <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource SurfaceBorder}"/>
                             </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="background" Property="Background" Value="#6987F7"/>
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="background" Property="Opacity" Value="0.45"/>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SurfaceAlt}"/>
+                                <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource Accent}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -62,50 +37,50 @@
             </Setter>
         </Style>
 
-        <Style x:Key="InputBase" TargetType="Control">
-            <Setter Property="Height" Value="38"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="Margin" Value="0"/>
+        <Style x:Key="EmptyStatePanelStyle" TargetType="StackPanel">
+            <Setter Property="Orientation" Value="Vertical"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,32,0,0"/>
         </Style>
     </UserControl.Resources>
 
-    <DockPanel Margin="0,0,0,0">
+    <DockPanel>
         <!-- Search Bar -->
-        <DockPanel DockPanel.Dock="Top" LastChildFill="False" Margin="0,0,0,16" HorizontalAlignment="Center">
-            <Border Style="{StaticResource CardBorderStyle}">
+        <DockPanel DockPanel.Dock="Top" LastChildFill="False" Margin="0,0,0,20" HorizontalAlignment="Center">
+            <Border Style="{StaticResource SurfaceSectionStyle}" Padding="16" CornerRadius="16" Effect="{x:Null}">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="220"/>
-                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="240"/>
+                        <ColumnDefinition Width="16"/>
                         <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="16"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
                     <ComboBox Grid.Column="0"
-                              Style="{StaticResource InputBase}"
+                              Style="{StaticResource InputComboBoxStyle}"
                               ItemsSource="{Binding AvailableSources}"
                               DisplayMemberPath="DisplayName"
                               SelectedValuePath="Key"
-                              SelectedValue="{Binding SelectedSourceKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                              SelectedValue="{Binding SelectedSourceKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                              Foreground="Black"/>
 
                     <TextBox Grid.Column="2"
-                             Style="{StaticResource InputBase}"
-                             Padding="12,0"
-                             MinWidth="240"
+                             Style="{StaticResource InputTextBoxStyle}"
+                             MinWidth="260"
                              Text="{Binding SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                              ToolTip="Search by manga title"/>
 
                     <Button Grid.Column="4"
                             Content="Search Manga"
-                            Style="{StaticResource AccentButton}"
-                            MinWidth="140"
-                            Height="38"
+                            Style="{StaticResource AccentButtonStyle}"
+                            MinWidth="150"
                             Command="{Binding SearchCommand}"/>
                 </Grid>
             </Border>
         </DockPanel>
+
         <!-- Manga Results List -->
         <Grid>
             <ListView x:Name="ResultList"
@@ -114,6 +89,7 @@
                       Background="Transparent"
                       ItemsSource="{Binding MangaResults}"
                       SelectedItem="{Binding SelectedManga, Mode=TwoWay}"
+                      ItemContainerStyle="{StaticResource ResultItemContainerStyle}"
                       SelectionChanged="ResultList_SelectionChanged">
                 <ListView.ItemsPanel>
                     <ItemsPanelTemplate>
@@ -121,77 +97,54 @@
                     </ItemsPanelTemplate>
                 </ListView.ItemsPanel>
 
-                <ListView.ItemContainerStyle>
-                    <Style TargetType="ListViewItem">
-                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                        <Setter Property="Padding" Value="0"/>
-                        <Setter Property="Margin" Value="0,0,0,10"/>
-                        <Setter Property="Background" Value="Transparent"/>
-                        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
-                        <Setter Property="Template">
-                            <Setter.Value>
-                                <ControlTemplate TargetType="ListViewItem">
-                                    <Border x:Name="ItemBorder"
-                                            Background="Transparent"
-                                            CornerRadius="12">
-                                        <ContentPresenter Margin="0"/>
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource MangaHoverBrush}"/>
-                                        </Trigger>
-                                        <Trigger Property="IsSelected" Value="True">
-                                            <Setter TargetName="ItemBorder" Property="Background" Value="#252F46"/>
-                                            <Setter Property="Foreground" Value="White"/>
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Setter.Value>
-                        </Setter>
-                    </Style>
-                </ListView.ItemContainerStyle>
-
                 <ListView.ItemTemplate>
                     <DataTemplate DataType="{x:Type local:Manga}">
-                        <Border Style="{StaticResource CardBorderStyle}" Padding="12">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="16"/>
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="16"/>
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
 
-                                <Border Width="86" Height="120" CornerRadius="10" ClipToBounds="True">
-                                    <Image Source="{Binding CoverImageUrl}"
-                                           Stretch="UniformToFill"
-                                           SnapsToDevicePixels="True"/>
-                                </Border>
+                            <Border Width="86" Height="120" CornerRadius="10" ClipToBounds="True">
+                                <Image Source="{Binding CoverImageUrl}"
+                                       Stretch="UniformToFill"
+                                       SnapsToDevicePixels="True"/>
+                            </Border>
 
-                                <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Title}"
-                                               FontWeight="SemiBold"
-                                               FontSize="16"
-                                               TextWrapping="Wrap"
-                                               Foreground="White"/>
-                                    <TextBlock Text="{Binding Url}"
-                                               FontSize="12"
-                                               Foreground="{StaticResource TextMuted}"
-                                               TextWrapping="Wrap"
-                                               Margin="0,6,0,0"/>
-                                </StackPanel>
-                            </Grid>
-                        </Border>
+                            <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Title}"
+                                           FontWeight="SemiBold"
+                                           FontSize="18"
+                                           TextWrapping="Wrap"
+                                           Foreground="{DynamicResource Fg}"/>
+                                <TextBlock Text="{Binding Url}"
+                                           FontSize="14"
+                                           Foreground="{DynamicResource FgMuted}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,8,0,0"/>
+                            </StackPanel>
+                        </Grid>
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
 
-            <TextBlock Text="Start searching to discover new manga."
-                       Foreground="{StaticResource TextMuted}"
-                       FontSize="14"
-                       FontStyle="Italic"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"
-                       Visibility="{Binding ElementName=ResultList, Path=Items.IsEmpty, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+            <StackPanel Style="{StaticResource EmptyStatePanelStyle}"
+                        Visibility="{Binding ElementName=ResultList, Path=Items.IsEmpty, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <TextBlock Text=""
+                           FontFamily="Segoe MDL2 Assets"
+                           FontSize="32"
+                           Foreground="{DynamicResource FgSubtle}"
+                           Opacity="0.6"
+                           HorizontalAlignment="Center"/>
+                <TextBlock Text="Start searching to discover new manga."
+                           Foreground="{DynamicResource FgMuted}"
+                           FontSize="14"
+                           Margin="0,12,0,0"
+                           TextAlignment="Center"
+                           TextWrapping="Wrap"
+                           MaxWidth="320"/>
+            </StackPanel>
         </Grid>
     </DockPanel>
 </UserControl>

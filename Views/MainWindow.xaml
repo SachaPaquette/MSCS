@@ -12,30 +12,77 @@
         <ResourceDictionary>
             <!-- Main tabs -->
             <Style x:Key="MainTabItemStyle" TargetType="ListBoxItem">
-                <Setter Property="Padding" Value="18,10"/>
-                <Setter Property="Margin" Value="0,0,12,0"/>
+                <Setter Property="Padding" Value="18,8"/>
+                <Setter Property="Margin" Value="0,0,16,0"/>
                 <Setter Property="Foreground" Value="{DynamicResource FgMuted}"/>
                 <Setter Property="Background" Value="Transparent"/>
-                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                 <Setter Property="VerticalContentAlignment" Value="Center"/>
                 <Setter Property="Cursor" Value="Hand"/>
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ListBoxItem">
-                            <Border x:Name="Bd"
-                                Background="{TemplateBinding Background}"
-                                CornerRadius="10"
-                                Padding="{TemplateBinding Padding}">
-                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Border>
+                            <Grid>
+                                <Border x:Name="BackgroundHost"
+                                        Background="{TemplateBinding Background}"
+                                        CornerRadius="6"
+                                        Padding="{TemplateBinding Padding}">
+                                    <Border.RenderTransform>
+                                        <ScaleTransform x:Name="TabScale" ScaleX="1" ScaleY="1"/>
+                                    </Border.RenderTransform>
+                                    <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                </Border>
+                                <Border x:Name="Underline"
+                                        Height="2"
+                                        Margin="20,0,20,0"
+                                        VerticalAlignment="Bottom"
+                                        Background="{DynamicResource SurfaceBorderSoft}"
+                                        CornerRadius="1"
+                                        Opacity="0">
+                                    <Border.RenderTransform>
+                                        <ScaleTransform ScaleX="0.2" ScaleY="1"/>
+                                    </Border.RenderTransform>
+                                </Border>
+                            </Grid>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceAlt}"/>
+                                    <Setter TargetName="BackgroundHost" Property="Background" Value="{DynamicResource SurfaceAlt}"/>
                                     <Setter Property="Foreground" Value="{DynamicResource Fg}"/>
+                                    <Trigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Underline" Storyboard.TargetProperty="Opacity" To="0.5" Duration="0:0:0.15"/>
+                                                <DoubleAnimation Storyboard.TargetName="Underline" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" To="1" Duration="0:0:0.15">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <SineEase EasingMode="EaseOut"/>
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.EnterActions>
+                                    <Trigger.ExitActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Underline" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.15"/>
+                                                <DoubleAnimation Storyboard.TargetName="Underline" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" To="0.2" Duration="0:0:0.15">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <SineEase EasingMode="EaseOut"/>
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.ExitActions>
                                 </Trigger>
                                 <Trigger Property="IsSelected" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceAlt}"/>
                                     <Setter Property="Foreground" Value="{DynamicResource Fg}"/>
+                                    <Setter TargetName="Underline" Property="Background" Value="{DynamicResource Accent}"/>
+                                    <Setter TargetName="Underline" Property="Opacity" Value="1"/>
+                                    <Setter TargetName="Underline" Property="RenderTransform">
+                                        <Setter.Value>
+                                            <ScaleTransform ScaleX="1" ScaleY="1"/>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Setter TargetName="BackgroundHost" Property="Background" Value="Transparent"/>
                                 </Trigger>
                                 <Trigger Property="IsEnabled" Value="False">
                                     <Setter Property="Foreground" Value="#445066"/>
@@ -53,6 +100,7 @@
                            Margin="0,0,6,0"
                            Foreground="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=Foreground}"/>
                     <TextBlock Text="{Binding Title}"
+
                            Foreground="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=Foreground}"/>
                 </StackPanel>
             </DataTemplate>
@@ -64,8 +112,8 @@
         <!-- soft vignette -->
         <Rectangle>
             <Rectangle.Fill>
-                <RadialGradientBrush Center="0.25,0.1" RadiusX="1.2" RadiusY="1.2">
-                    <GradientStop Color="#12FFFFFF" Offset="0"/>
+                <RadialGradientBrush Center="0.3,0.12" RadiusX="1.2" RadiusY="1.2">
+                    <GradientStop Color="#08000000" Offset="0"/>
                     <GradientStop Color="#00FFFFFF" Offset="1"/>
                 </RadialGradientBrush>
             </Rectangle.Fill>
@@ -81,7 +129,7 @@
             </Grid.RowDefinitions>
             <!-- Tab menu -->
             <Border Grid.Row="0"
-                    Margin="0,12,0,0"
+                    Margin="24,12,24,0"
                     Background="{x:Null}">
                 <ListBox ItemsSource="{Binding Tabs}"
                          SelectedItem="{Binding SelectedTab, Mode=TwoWay}"
@@ -89,7 +137,7 @@
                          ItemContainerStyle="{StaticResource MainTabItemStyle}"
                          Background="Transparent"
                          BorderThickness="0"
-                         HorizontalAlignment="Center">
+                         HorizontalAlignment="Left">
                     <ListBox.ItemsPanel>
                         <ItemsPanelTemplate>
                             <StackPanel Orientation="Horizontal"/>
@@ -100,13 +148,14 @@
 
             <!-- Content host, centered, width not driven by content -->
             <Border Grid.Row="2"
-                    Style="{DynamicResource CardStyle}"
+                    Style="{DynamicResource SurfaceSectionStyle}"
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Stretch"
                     Padding="0"
-                    Background="{x:Null}">
+                    CornerRadius="20"
+                    Effect="{x:Null}">
                 <!-- MainWindow.xaml -->
-                <Grid Background="{DynamicResource AppBackground}">
+                <Grid Background="{DynamicResource SurfaceLow}">
                     <ContentControl Content="{Binding CurrentViewModel}"
                   HorizontalAlignment="Stretch"
                   VerticalAlignment="Stretch"
