@@ -1,4 +1,4 @@
-name: Build and Release
+name: Build and Release (Single EXE)
 
 on:
   push:
@@ -10,6 +10,11 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+
+    env:
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+      DOTNET_NOLOGO: 1
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -23,13 +28,33 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
 
-      - name: Publish Windows Release build
-        run: dotnet publish MSCS.csproj -c Release -r win-x64 --self-contained false -o publish
+      - name: Publish self-contained single-file
+        run: >
+          dotnet publish MSCS.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeAllContentForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -p:PublishTrimmed=false
+          -o publish
 
-      - name: Upload release asset
+      - name: Rename EXE
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem publish\*.exe | Select-Object -First 1
+          Rename-Item $exe.FullName MSCS-win-x64.exe
+
+      - name: Create ZIP (optional, friendlier download)
+        shell: pwsh
+        run: |
+          Compress-Archive -Path publish\MSCS-win-x64.exe -DestinationPath MSCS-win-x64-singlefile.zip -Force
+
+      - name: Create Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: publish/MSCS.exe
+          artifacts: publish/MSCS-win-x64.exe,MSCS-win-x64-singlefile.zip
           artifactErrorsFailBuild: true
           tag: 'master-${{ github.run_number }}'
           name: 'Main build ${{ github.run_number }}'
