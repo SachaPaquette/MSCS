@@ -1,10 +1,11 @@
-﻿using System;
+﻿using MSCS.Models;
+using System;
+using System.Diagnostics;
 using System.Net.Http;
 using System.Reflection;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using MSCS.Models;
 
 namespace MSCS.Services;
 
@@ -85,17 +86,38 @@ public sealed class UpdateService
         return client;
     }
 
+
     private static Version GetCurrentVersion()
     {
         var assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
-        var informationalVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
 
-        if (TryParseVersion(informationalVersion, out var infoVersion))
+        if (TryParseVersion(assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion,
+                out var infoVersion))
         {
             return infoVersion;
         }
 
-        return assembly.GetName().Version ?? new Version(0, 0, 0, 0);
+        if (TryParseVersion(assembly.GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version, out var fileVersion))
+        {
+            return fileVersion;
+        }
+
+        var assemblyVersion = assembly.GetName().Version;
+        if (assemblyVersion is not null)
+        {
+            return assemblyVersion;
+        }
+
+        if (!string.IsNullOrWhiteSpace(assembly.Location))
+        {
+            var fileVersionInfo = FileVersionInfo.GetVersionInfo(assembly.Location);
+            if (TryParseVersion(fileVersionInfo.ProductVersion, out var productVersion))
+            {
+                return productVersion;
+            }
+        }
+
+        return new Version(0, 0, 0, 0);
     }
 
     private static string? GetVersionText(JsonElement root)
