@@ -1,0 +1,150 @@
+﻿using System;
+using System.Net.Http;
+using System.Reflection;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+using MSCS.Models;
+
+namespace MSCS.Services;
+
+public sealed class UpdateService
+{
+    private const string DefaultLatestReleaseApiEndpoint = "https://api.github.com/repos/MSCS-Project/MSCS/releases/latest";
+    private const string DefaultReleasePageUrl = "https://github.com/MSCS-Project/MSCS/releases/latest";
+    private const string LatestReleaseApiEnvironmentVariable = "MSCS_UPDATE_LATEST_API";
+    private const string ReleasePageEnvironmentVariable = "MSCS_UPDATE_DOWNLOAD_URL";
+
+    private static readonly HttpClient HttpClient = CreateHttpClient();
+
+    public async Task<UpdateCheckResult?> CheckForUpdatesAsync(CancellationToken cancellationToken = default)
+    {
+        var currentVersion = GetCurrentVersion();
+
+        var apiEndpoint = Environment.GetEnvironmentVariable(LatestReleaseApiEnvironmentVariable) ?? DefaultLatestReleaseApiEndpoint;
+        var downloadPage = Environment.GetEnvironmentVariable(ReleasePageEnvironmentVariable) ?? DefaultReleasePageUrl;
+
+        if (string.IsNullOrWhiteSpace(apiEndpoint))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var response = await HttpClient.GetAsync(apiEndpoint, cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            await using var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            using var document = await JsonDocument.ParseAsync(responseStream, cancellationToken: cancellationToken).ConfigureAwait(false);
+            var root = document.RootElement;
+
+            var versionText = GetVersionText(root);
+            if (!TryParseVersion(versionText, out var latestVersion))
+            {
+                return null;
+            }
+
+            if (latestVersion <= currentVersion)
+            {
+                return null;
+            }
+
+            var releasePage = root.TryGetProperty("html_url", out var htmlUrlElement) && htmlUrlElement.ValueKind == JsonValueKind.String
+                ? htmlUrlElement.GetString()
+                : null;
+
+            releasePage ??= downloadPage;
+
+            return new UpdateCheckResult(currentVersion, latestVersion, releasePage);
+        }
+        catch (HttpRequestException)
+        {
+            return null;
+        }
+        catch (TaskCanceledException)
+        {
+            return null;
+        }
+    }
+
+    private static HttpClient CreateHttpClient()
+    {
+        var client = new HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(10)
+        };
+
+        if (!client.DefaultRequestHeaders.UserAgent.TryParseAdd("MSCS Update Service"))
+        {
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("MSCS");
+        }
+
+        return client;
+    }
+
+    private static Version GetCurrentVersion()
+    {
+        var assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
+        var informationalVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+
+        if (TryParseVersion(informationalVersion, out var infoVersion))
+        {
+            return infoVersion;
+        }
+
+        return assembly.GetName().Version ?? new Version(0, 0, 0, 0);
+    }
+
+    private static string? GetVersionText(JsonElement root)
+    {
+        if (root.TryGetProperty("tag_name", out var tagElement) && tagElement.ValueKind == JsonValueKind.String)
+        {
+            return tagElement.GetString();
+        }
+
+        if (root.TryGetProperty("name", out var nameElement) && nameElement.ValueKind == JsonValueKind.String)
+        {
+            return nameElement.GetString();
+        }
+
+        return null;
+    }
+
+    private static bool TryParseVersion(string? versionText, out Version version)
+    {
+        version = new Version(0, 0, 0, 0);
+        if (string.IsNullOrWhiteSpace(versionText))
+        {
+            return false;
+        }
+
+        versionText = versionText.Trim();
+        if (versionText.StartsWith("v", StringComparison.OrdinalIgnoreCase))
+        {
+            versionText = versionText[1..];
+        }
+
+        var separatorIndex = versionText.IndexOfAny(new[] { '-', '+' });
+        if (separatorIndex > 0)
+        {
+            versionText = versionText[..separatorIndex];
+        }
+
+        if (Version.TryParse(versionText, out version))
+        {
+            return true;
+        }
+
+        var parts = versionText.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 2)
+        {
+            var expandedVersion = string.Join('.', parts[0], parts[1], "0");
+            return Version.TryParse(expandedVersion, out version);
+        }
+
+        return false;
+    }
+}
