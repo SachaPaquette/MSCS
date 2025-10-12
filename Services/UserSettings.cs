@@ -108,6 +108,38 @@ namespace MSCS.Services
             }
         }
 
+
+        public long? LastSeenUpdateId
+        {
+            get => _data.LastSeenUpdateId;
+            set
+            {
+                if (_data.LastSeenUpdateId == value)
+                {
+                    return;
+                }
+
+                _data.LastSeenUpdateId = value;
+                SaveInternal();
+            }
+        }
+
+        public DateTimeOffset? LastSeenUpdateTimestamp
+        {
+            get => _data.LastSeenUpdateTimestamp;
+            set
+            {
+                if (_data.LastSeenUpdateTimestamp == value)
+                {
+                    return;
+                }
+
+                _data.LastSeenUpdateTimestamp = value;
+                SaveInternal();
+            }
+        }
+
+
         public bool TryGetAniListTracking(string mangaTitle, out AniListTrackingInfo? trackingInfo)
         {
             trackingInfo = null;
@@ -451,6 +483,8 @@ namespace MSCS.Services
             public DateTimeOffset? AniListAccessTokenExpiry { get; set; }
             public string? AniListUserName { get; set; }
             public AppTheme AppTheme { get; set; } = AppTheme.Dark;
+            public long? LastSeenUpdateId { get; set; }
+            public DateTimeOffset? LastSeenUpdateTimestamp { get; set; }
             public Dictionary<string, TrackedSeriesData> AniListTrackedSeries { get; set; } = new();
             public Dictionary<string, ReadingProgressData> ReadingProgress { get; set; } = new();
             public ReaderProfileData? DefaultReaderProfile { get; set; } = new();
