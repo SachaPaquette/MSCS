@@ -49,7 +49,7 @@ jobs:
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: publish/MSCS-win-x64.exe,MSCS-win-x64-singlefile.zip
+          artifacts: publish/MSCS-win-x64.exe
           artifactErrorsFailBuild: true
           tag: 'master-${{ github.run_number }}'
           name: 'Main build ${{ github.run_number }}'
