@@ -165,7 +165,16 @@ namespace MSCS.ViewModels
             _autoOpenOnLoad = autoOpenOnLoad;
             _initialProgress = initialProgress;
 
-            OpenChapterCommand = new RelayCommand(_ => OpenChapter(), _ => SelectedChapter != null);
+            OpenChapterCommand = new RelayCommand(
+                async parameter =>
+                {
+                    if (parameter is Chapter chapter)
+                        await OpenChapterAsync(chapter);
+                    else
+                        await OpenChapterAsync();
+                },
+                parameter => CanOpenChapter(parameter));
+
             BackCommand = new RelayCommand(_ => _navigationService.GoBack(), _ => _navigationService.CanGoBack);
             WeakEventManager<INavigationService, EventArgs>.AddHandler(_navigationService, nameof(INavigationService.CanGoBackChanged), OnNavigationStateChanged);
             ToggleChapterListLengthCommand = new RelayCommand(_ => ToggleChapterListMode(), _ => HasChapterOverflow);
@@ -296,6 +305,17 @@ namespace MSCS.ViewModels
                 Debug.WriteLine($"Chapter load cancelled for {Manga?.Title}");
             }
         }
+
+        private bool CanOpenChapter(object? parameter)
+        {
+            if (parameter is Chapter chapter)
+            {
+                return chapter != null && !string.IsNullOrWhiteSpace(chapter.Url);
+            }
+
+            return SelectedChapter != null && !string.IsNullOrWhiteSpace(SelectedChapter.Url);
+        }
+
         private void MaybeAutoOpenChapter()
         {
             if (!_autoOpenOnLoad || _hasAutoOpened)
@@ -310,32 +330,39 @@ namespace MSCS.ViewModels
             }
 
             _hasAutoOpened = true;
-            OpenChapter();
+            _ = OpenChapterAsync(targetChapter);
         }
 
 
-        private void OpenChapter()
+
+        private async Task OpenChapterAsync(Chapter? explicitChapter = null)
         {
-            var chapterToOpen = EnsureSelectedChapter();
+            var chapterToOpen = explicitChapter ?? EnsureSelectedChapter();
             if (chapterToOpen == null || string.IsNullOrEmpty(chapterToOpen.Url))
-            {
                 return;
-            }
+
+            if (!ReferenceEquals(SelectedChapter, chapterToOpen))
+                SelectedChapter = chapterToOpen;
+
+            var index = Chapters.IndexOf(chapterToOpen);
+            if (index < 0) return;
 
             Debug.WriteLine($"Opening chapter: {chapterToOpen.Title} ({chapterToOpen.Url})");
-            int index = Chapters.IndexOf(chapterToOpen);
-            if (index < 0)
+
+            // 1) Ensure we have images for THIS index before navigating
+            IReadOnlyList<ChapterImage> images;
+            if (!TryGetCachedChapterImages(index, out var cachedImages) || cachedImages == null)
             {
-                Debug.WriteLine($"Selected chapter {chapterToOpen.Title} was not found in the chapter list.");
-                return;
+                // kick off and await the fetch for the selected index
+                images = await GetChapterImagesAsync(index).ConfigureAwait(false);
+            }
+            else
+            {
+                images = cachedImages;
             }
 
-            IReadOnlyList<ChapterImage>? cachedImages = null;
-            if (TryGetCachedChapterImages(index, out var cached))
-            {
-                cachedImages = cached;
-            }
-
+            // 2) Build initial progress (same as before)
+            var isUsingExistingProgress = _initialProgress != null;
             var initialProgress = _initialProgress ?? new MangaReadingProgress(
                 index,
                 chapterToOpen.Title,
@@ -344,8 +371,16 @@ namespace MSCS.ViewModels
                 string.IsNullOrWhiteSpace(Manga?.Url) ? null : Manga.Url,
                 string.IsNullOrWhiteSpace(SourceKey) ? null : SourceKey);
 
+            if (!isUsingExistingProgress &&
+                _userSettings != null &&
+                !string.IsNullOrWhiteSpace(Manga?.Title))
+            {
+                _userSettings.SetReadingProgress(Manga.Title, initialProgress);
+            }
+
+            // 3) Navigate with the correct images and locked index
             var readerVM = new ReaderViewModel(
-                cachedImages,
+                images,
                 chapterToOpen.Title,
                 _navigationService,
                 this,
@@ -358,9 +393,35 @@ namespace MSCS.ViewModels
 
             _navigationService.NavigateToViewModel(readerVM);
             Debug.WriteLine("Navigating to ReaderViewModel.");
+
+            // 4) Prefetch *after* navigation (and only here OR only inside ReaderVM; not both)
             _ = PrefetchChapterAsync(index + 1);
         }
 
+
+        private bool ShouldUseInitialProgressForChapter(Chapter chapterToOpen, int index)
+        {
+            if (_initialProgress == null)
+            {
+                return false;
+            }
+
+            if (index == _initialProgress.ChapterIndex)
+            {
+                return true;
+            }
+
+            if (index >= 0 && index < Chapters.Count && !string.IsNullOrWhiteSpace(_initialProgress.ChapterTitle))
+            {
+                if (IsChapterMatchForProgress(chapterToOpen, _initialProgress))
+                {
+                    UpdateInitialProgressIndex(_initialProgress, index, chapterToOpen);
+                    return true;
+                }
+            }
+
+            return false;
+        }
 
         public bool TryGetCachedChapterImages(int index, out IReadOnlyList<ChapterImage>? images)
         {
