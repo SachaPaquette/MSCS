@@ -281,12 +281,28 @@ namespace MSCS.Views
                     e.Handled = true;
                     break;
                 case Key.Right:
-                    ScrollForward();
-                    e.Handled = true;
+                    if (ViewModel.NextChapterCommand?.CanExecute(null) == true)
+                    {
+                        ViewModel.NextChapterCommand.Execute(null);
+                        e.Handled = true;
+                    }
+                    else
+                    {
+                        ScrollForward();
+                        e.Handled = true;
+                    }
                     break;
                 case Key.Left:
-                    ScrollBackward();
-                    e.Handled = true;
+                    if (ViewModel.PreviousChapterCommand?.CanExecute(null) == true)
+                    {
+                        ViewModel.PreviousChapterCommand.Execute(null);
+                        e.Handled = true;
+                    }
+                    else
+                    {
+                        ScrollBackward();
+                        e.Handled = true;
+                    }
                     break;
             }
         }
