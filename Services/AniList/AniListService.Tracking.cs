@@ -54,6 +54,15 @@ namespace MSCS.Services
             RaiseTrackingChanged(new AniListTrackingChangedEventArgs(mangaTitle, fallback.MediaId, fallback));
             return fallback;
         }
+
+        private void EnsureAuthenticated()
+        {
+            if (!IsAuthenticated)
+            {
+                throw new InvalidOperationException("AniList authentication is required for this operation.");
+            }
+        }
+
         public async Task UpdateProgressAsync(string mangaTitle, int progress, CancellationToken cancellationToken = default)
         {
             if (progress <= 0)
