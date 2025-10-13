@@ -16,6 +16,7 @@ namespace MSCS.ViewModels
         private readonly UserSettings _userSettings;
         private readonly LocalLibraryService _localLibraryService;
         private readonly AniListService _aniListService;
+        private readonly ReadingListService _readingListService;
         private readonly LocalSource _LocalSource;
         private readonly ThemeService _themeService;
         private readonly Dictionary<BaseViewModel, MainMenuTab> _tabLookup = new();
@@ -34,6 +35,7 @@ namespace MSCS.ViewModels
             _themeService.ApplyTheme(_userSettings.AppTheme);
             _localLibraryService = new LocalLibraryService(_userSettings);
             _aniListService = new AniListService(_userSettings);
+            _readingListService = new ReadingListService(_userSettings);
             _LocalSource = new LocalSource(_localLibraryService);
             MangaListVM = new MangaListViewModel(SourceKeyConstants.DefaultExternal, _navigationService);
             MangaListVM.MangaSelected += OnExternalMangaSelected;
@@ -45,7 +47,7 @@ namespace MSCS.ViewModels
             LocalLibraryVM = new LocalLibraryViewModel(_localLibraryService);
             LocalLibraryVM.MangaSelected += OnLocalMangaSelected;
 
-            ContinueReadingVM = new ContinueReadingViewModel(_userSettings);
+            ContinueReadingVM = new ContinueReadingViewModel(_userSettings, _readingListService);
             ContinueReadingVM.ContinueReadingRequested += OnContinueReadingRequested;
 
             SettingsVM = new SettingsViewModel(_localLibraryService, _userSettings, _aniListService, _themeService);
