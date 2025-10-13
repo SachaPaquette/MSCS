@@ -372,32 +372,15 @@ namespace MSCS.ViewModels
                 string.IsNullOrWhiteSpace(SourceKey) ? null : SourceKey);
 
             if (!isUsingExistingProgress &&
-                _userSettings != null &&
-                !string.IsNullOrWhiteSpace(Manga?.Title))
+                _userSettings != null)
             {
-                _userSettings.SetReadingProgress(Manga.Title, initialProgress);
+                var key = CreateProgressKey();
+                if (!key.IsEmpty)
+                {
+                    _userSettings.SetReadingProgress(key, initialProgress);
+                }
             }
-
-            // 3) Navigate with the correct images and locked index
-            var readerVM = new ReaderViewModel(
-                images,
-                chapterToOpen.Title,
-                _navigationService,
-                this,
-                index,
-                _aniListService,
-                _userSettings,
-                initialProgress);
-
-            _initialProgress = null;
-
-            _navigationService.NavigateToViewModel(readerVM);
-            Debug.WriteLine("Navigating to ReaderViewModel.");
-
-            // 4) Prefetch *after* navigation (and only here OR only inside ReaderVM; not both)
-            _ = PrefetchChapterAsync(index + 1);
         }
-
 
         private bool ShouldUseInitialProgressForChapter(Chapter chapterToOpen, int index)
         {
@@ -470,12 +453,13 @@ namespace MSCS.ViewModels
 
         private Chapter? GetLastReadChapter()
         {
-            if (_userSettings == null || string.IsNullOrWhiteSpace(Manga?.Title))
+            if (_userSettings == null)
             {
                 return null;
             }
 
-            if (_userSettings.TryGetReadingProgress(Manga.Title, out var progress))
+            var key = CreateProgressKey();
+            if (_userSettings.TryGetReadingProgress(key, out var progress))
             {
                 var index = progress.ChapterIndex;
                 if (index >= 0 && index < Chapters.Count)
@@ -591,10 +575,19 @@ namespace MSCS.ViewModels
 
             _initialProgress = updated;
 
-            if (_userSettings != null && !string.IsNullOrWhiteSpace(Manga?.Title))
+            if (_userSettings != null)
             {
-                _userSettings.SetReadingProgress(Manga.Title, updated);
+                var key = CreateProgressKey();
+                if (!key.IsEmpty)
+                {
+                    _userSettings.SetReadingProgress(key, updated);
+                }
             }
+        }
+
+        private ReadingProgressKey CreateProgressKey()
+        {
+            return new ReadingProgressKey(Manga?.Title, SourceKey, Manga?.Url);
         }
 
         private static string NormalizeChapterTitle(string? title)

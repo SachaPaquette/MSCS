@@ -15,6 +15,7 @@ namespace MSCS.Services
         private static readonly JsonSerializerOptions SerializerOptions = CreateSerializerOptions();
         private readonly object _syncLock = new();
         private SettingsData _data;
+        private const string TitlePrefix = "title::";
 
         public event EventHandler? SettingsChanged;
         public event EventHandler? ReadingProgressChanged;
@@ -300,94 +301,126 @@ namespace MSCS.Services
             }
         }
 
-        public bool TryGetReadingProgress(string mangaTitle, out MangaReadingProgress? progress)
+        public bool TryGetReadingProgress(ReadingProgressKey key, out MangaReadingProgress? progress)
         {
             progress = null;
-            if (string.IsNullOrWhiteSpace(mangaTitle))
+            if (key.IsEmpty)
             {
                 return false;
             }
 
-            if (_data.ReadingProgress != null &&
-                _data.ReadingProgress.TryGetValue(mangaTitle, out var stored))
+            if (_data.ReadingProgress == null || _data.ReadingProgress.Count == 0)
             {
-                progress = new MangaReadingProgress(
-                    stored.ChapterIndex,
-                    stored.ChapterTitle,
-                    stored.ScrollProgress,
-                    stored.LastUpdatedUtc,
-                    stored.MangaUrl,
-                    stored.SourceKey,
-                    stored.ScrollOffset);
+                return false;
+            }
+
+            var storageKey = CreateStorageKey(key);
+            if (!string.IsNullOrEmpty(storageKey) &&
+                _data.ReadingProgress.TryGetValue(storageKey, out var stored))
+            {
+                progress = ConvertToProgress(stored);
                 return true;
+            }
+
+            if (!string.IsNullOrEmpty(key.Title))
+            {
+                return TryGetReadingProgressByTitle(key.Title, out progress);
             }
 
             return false;
         }
 
-        public void SetReadingProgress(string mangaTitle, MangaReadingProgress progress)
+
+        public void SetReadingProgress(ReadingProgressKey key, MangaReadingProgress progress)
         {
-            if (string.IsNullOrWhiteSpace(mangaTitle) || progress == null)
+            if (key.IsEmpty || progress == null)
             {
                 return;
             }
 
-            _data.ReadingProgress[mangaTitle] = new ReadingProgressData
+            var storageKey = CreateStorageKey(key);
+            if (string.IsNullOrEmpty(storageKey))
+            {
+                return;
+            }
+
+            var sanitizedProgress = new ReadingProgressData
             {
                 ChapterIndex = progress.ChapterIndex,
                 ChapterTitle = progress.ChapterTitle,
                 ScrollProgress = Math.Clamp(progress.ScrollProgress, 0.0, 1.0),
                 LastUpdatedUtc = progress.LastUpdatedUtc,
-                MangaUrl = string.IsNullOrWhiteSpace(progress.MangaUrl) ? null : progress.MangaUrl,
-                SourceKey = string.IsNullOrWhiteSpace(progress.SourceKey) ? null : progress.SourceKey,
+                MangaUrl = string.IsNullOrWhiteSpace(progress.MangaUrl) ? null : progress.MangaUrl.Trim(),
+                SourceKey = string.IsNullOrWhiteSpace(progress.SourceKey) ? null : progress.SourceKey.Trim(),
                 ScrollOffset = progress.ScrollOffset.HasValue
                     ? Math.Max(0, progress.ScrollOffset.Value)
                     : null,
+                Title = string.IsNullOrEmpty(key.Title) ? null : key.Title,
             };
+
+            _data.ReadingProgress[storageKey] = sanitizedProgress;
 
             SaveInternal();
             ReadingProgressChanged?.Invoke(this, EventArgs.Empty);
         }
 
-        public void ClearReadingProgress(string mangaTitle)
+        public void ClearReadingProgress(ReadingProgressKey key)
         {
-            if (string.IsNullOrWhiteSpace(mangaTitle))
+            if (key.IsEmpty)
             {
                 return;
             }
 
-            if (_data.ReadingProgress.Remove(mangaTitle))
+            var storageKey = CreateStorageKey(key);
+            if (!string.IsNullOrEmpty(storageKey) && _data.ReadingProgress.Remove(storageKey))
+            {
+                SaveInternal();
+                ReadingProgressChanged?.Invoke(this, EventArgs.Empty);
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(key.Title) &&
+                TryRemoveReadingProgressByTitle(key.Title))
             {
                 SaveInternal();
                 ReadingProgressChanged?.Invoke(this, EventArgs.Empty);
             }
         }
 
-        public IReadOnlyList<KeyValuePair<string, MangaReadingProgress>> GetAllReadingProgress()
+        public void ClearReadingProgress(string storageKey)
+        {
+            if (string.IsNullOrWhiteSpace(storageKey))
+            {
+                return;
+            }
+
+            if (_data.ReadingProgress.Remove(storageKey))
+            {
+                SaveInternal();
+                ReadingProgressChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        public IReadOnlyList<ReadingProgressEntry> GetAllReadingProgress()
         {
             if (_data.ReadingProgress == null || _data.ReadingProgress.Count == 0)
             {
-                return Array.Empty<KeyValuePair<string, MangaReadingProgress>>();
+                return Array.Empty<ReadingProgressEntry>();
             }
 
-            var results = new List<KeyValuePair<string, MangaReadingProgress>>(_data.ReadingProgress.Count);
+            var results = new List<ReadingProgressEntry>(_data.ReadingProgress.Count);
             foreach (var entry in _data.ReadingProgress)
             {
                 var stored = entry.Value;
-                var record = new MangaReadingProgress(
-                    stored.ChapterIndex,
-                    stored.ChapterTitle,
-                    stored.ScrollProgress,
-                    stored.LastUpdatedUtc,
-                    stored.MangaUrl,
-                    stored.SourceKey,
-                    stored.ScrollOffset);
-                results.Add(new KeyValuePair<string, MangaReadingProgress>(entry.Key, record));
+                var record = ConvertToProgress(stored);
+                var title = !string.IsNullOrWhiteSpace(stored.Title)
+                    ? stored.Title!
+                    : ExtractTitleFromKey(entry.Key);
+                results.Add(new ReadingProgressEntry(entry.Key, title ?? string.Empty, record));
             }
 
             return results;
         }
-
 
         private static ReaderProfile ConvertToProfile(ReaderProfileData? data)
         {
@@ -432,6 +465,7 @@ namespace MSCS.Services
                 var data = JsonSerializer.Deserialize<SettingsData>(json, SerializerOptions) ?? new SettingsData();
                 data.AniListTrackedSeries ??= new Dictionary<string, TrackedSeriesData>();
                 data.ReadingProgress ??= new Dictionary<string, ReadingProgressData>();
+                MigrateReadingProgressKeys(data);
                 data.ReaderProfiles ??= new Dictionary<string, ReaderProfileData>();
                 data.DefaultReaderProfile ??= new ReaderProfileData();
                 return data;
@@ -476,6 +510,179 @@ namespace MSCS.Services
             return options;
         }
 
+
+
+        private static MangaReadingProgress ConvertToProgress(ReadingProgressData stored)
+        {
+            return new MangaReadingProgress(
+                stored.ChapterIndex,
+                stored.ChapterTitle,
+                stored.ScrollProgress,
+                stored.LastUpdatedUtc,
+                stored.MangaUrl,
+                stored.SourceKey,
+                stored.ScrollOffset);
+        }
+
+        private static void MigrateReadingProgressKeys(SettingsData data)
+        {
+            if (data.ReadingProgress == null || data.ReadingProgress.Count == 0)
+            {
+                return;
+            }
+
+            var updated = new Dictionary<string, ReadingProgressData>();
+            var changed = false;
+
+            foreach (var entry in data.ReadingProgress)
+            {
+                var stored = entry.Value ?? new ReadingProgressData();
+                var normalizedTitle = !string.IsNullOrWhiteSpace(stored.Title)
+                    ? stored.Title!.Trim()
+                    : entry.Key?.Trim();
+
+                if (!string.IsNullOrWhiteSpace(normalizedTitle))
+                {
+                    stored.Title = normalizedTitle;
+                }
+                else
+                {
+                    stored.Title = null;
+                }
+
+                stored.SourceKey = string.IsNullOrWhiteSpace(stored.SourceKey) ? null : stored.SourceKey.Trim();
+                stored.MangaUrl = string.IsNullOrWhiteSpace(stored.MangaUrl) ? null : stored.MangaUrl.Trim();
+
+                var newKey = CreateStorageKey(new ReadingProgressKey(stored.Title, stored.SourceKey, stored.MangaUrl));
+                if (string.IsNullOrEmpty(newKey))
+                {
+                    continue;
+                }
+
+                if (!string.Equals(newKey, entry.Key, StringComparison.Ordinal))
+                {
+                    changed = true;
+                }
+
+                if (updated.TryGetValue(newKey, out var existing))
+                {
+                    if (existing != null && existing.LastUpdatedUtc >= stored.LastUpdatedUtc)
+                    {
+                        continue;
+                    }
+                }
+
+                updated[newKey] = stored;
+            }
+
+            if (changed || updated.Count != data.ReadingProgress.Count)
+            {
+                data.ReadingProgress = updated;
+            }
+        }
+
+        private bool TryGetReadingProgressByTitle(string title, out MangaReadingProgress? progress)
+        {
+            progress = null;
+            if (string.IsNullOrWhiteSpace(title) ||
+                _data.ReadingProgress == null ||
+                _data.ReadingProgress.Count == 0)
+            {
+                return false;
+            }
+
+            var normalizedTitle = title.Trim();
+            var dictionary = _data.ReadingProgress;
+
+            if (dictionary.TryGetValue(CreateTitleStorageKey(normalizedTitle), out var storedByTitle))
+            {
+                progress = ConvertToProgress(storedByTitle);
+                return true;
+            }
+
+            var legacyKey = CreateLegacyKey(normalizedTitle);
+            if (!string.IsNullOrEmpty(legacyKey) &&
+                dictionary.TryGetValue(legacyKey, out var legacyStored))
+            {
+                progress = ConvertToProgress(legacyStored);
+                return true;
+            }
+
+            return false;
+        }
+
+        private static string? ExtractTitleFromKey(string key)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return null;
+            }
+
+            if (key.StartsWith(TitlePrefix, StringComparison.Ordinal))
+            {
+                return key.Substring(TitlePrefix.Length);
+            }
+
+            return key;
+        }
+
+        private static string CreateStorageKey(ReadingProgressKey key)
+        {
+            if (key.HasStableIdentifier)
+            {
+                return $"source::{key.SourceKey}::{key.MangaUrl}";
+            }
+
+            if (!string.IsNullOrEmpty(key.Title))
+            {
+                return CreateTitleStorageKey(key.Title);
+            }
+
+            return string.Empty;
+        }
+
+        private static string CreateTitleStorageKey(string title)
+        {
+            return string.IsNullOrWhiteSpace(title)
+                ? string.Empty
+                : $"{TitlePrefix}{title.Trim()}";
+        }
+
+        private static string CreateLegacyKey(string title)
+        {
+            return string.IsNullOrWhiteSpace(title) ? string.Empty : title.Trim();
+        }
+
+        private bool TryRemoveReadingProgressByTitle(string title)
+        {
+            if (string.IsNullOrWhiteSpace(title) ||
+                _data.ReadingProgress == null ||
+                _data.ReadingProgress.Count == 0)
+            {
+                return false;
+            }
+
+            var normalizedTitle = title.Trim();
+            if (string.IsNullOrEmpty(normalizedTitle))
+            {
+                return false;
+            }
+
+            var titleKey = CreateTitleStorageKey(normalizedTitle);
+            if (!string.IsNullOrEmpty(titleKey) && _data.ReadingProgress.Remove(titleKey))
+            {
+                return true;
+            }
+
+            var legacyKey = CreateLegacyKey(normalizedTitle);
+            if (!string.IsNullOrEmpty(legacyKey) && _data.ReadingProgress.Remove(legacyKey))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
         private class SettingsData
         {
             public string? LocalLibraryPath { get; set; }
@@ -516,6 +723,7 @@ namespace MSCS.Services
             public string? SourceKey { get; set; }
             public string? CoverImageUrl { get; set; }
             public double? ScrollOffset { get; internal set; }
+            public string? Title { get; set; }
         }
 
         private class ReaderProfileData

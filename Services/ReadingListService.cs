@@ -35,7 +35,7 @@ namespace MSCS.Services
 
             foreach (var entry in allEntries)
             {
-                var progress = entry.Value;
+                var progress = entry.Progress;
 
                 if (string.Equals(progress.SourceKey, SourceKeyConstants.LocalLibrary, StringComparison.OrdinalIgnoreCase))
                 {
@@ -51,7 +51,7 @@ namespace MSCS.Services
 
                 records.Add(new ReadingListRecord
                 {
-                    Title = entry.Key,
+                    Title = entry.Title,
                     ChapterIndex = progress.ChapterIndex,
                     ChapterTitle = progress.ChapterTitle,
                     MangaUrl = progress.MangaUrl!,
@@ -139,7 +139,7 @@ namespace MSCS.Services
                     record.SourceKey,
                     sanitizedOffset);
 
-                _userSettings.SetReadingProgress(record.Title, progress);
+                _userSettings.SetReadingProgress(new ReadingProgressKey(record.Title, record.SourceKey, record.MangaUrl), progress);
                 imported++;
             }
 

@@ -83,13 +83,13 @@ namespace MSCS.ViewModels
 
             var allEntries = _userSettings
                 .GetAllReadingProgress()
-                .OrderByDescending(entry => entry.Value.LastUpdatedUtc)
+                .OrderByDescending(entry => entry.Progress.LastUpdatedUtc)
                 .ToList();
 
             Entries.Clear();
             foreach (var entry in allEntries)
             {
-                Entries.Add(new ContinueReadingEntryViewModel(entry.Key, entry.Value, OnContinueRequested, RemoveEntryCommand));
+                Entries.Add(new ContinueReadingEntryViewModel(entry, OnContinueRequested, RemoveEntryCommand));
             }
 
             OnPropertyChanged(nameof(HasEntries));
@@ -98,7 +98,7 @@ namespace MSCS.ViewModels
 
         private void OnContinueRequested(ContinueReadingEntryViewModel entry)
         {
-            ContinueReadingRequested?.Invoke(this, new ContinueReadingRequestedEventArgs(entry.MangaTitle, entry.Progress));
+            ContinueReadingRequested?.Invoke(this, new ContinueReadingRequestedEventArgs(entry.StorageKey, entry.MangaTitle, entry.Progress));
         }
 
         public void RemoveEntry(ContinueReadingEntryViewModel entry)
@@ -108,7 +108,7 @@ namespace MSCS.ViewModels
                 return;
             }
 
-            _userSettings.ClearReadingProgress(entry.MangaTitle);
+            _userSettings.ClearReadingProgress(entry.StorageKey);
             ReloadEntries();
         }
 
@@ -268,18 +268,25 @@ namespace MSCS.ViewModels
         private readonly Action<ContinueReadingEntryViewModel> _onContinue;
 
         public ContinueReadingEntryViewModel(
-            string mangaTitle,
-            MangaReadingProgress progress,
+            ReadingProgressEntry entry,
             Action<ContinueReadingEntryViewModel> onContinue,
             ICommand removeCommand)
         {
-            MangaTitle = mangaTitle ?? string.Empty;
-            Progress = progress ?? throw new ArgumentNullException(nameof(progress));
+            if (entry == null)
+            {
+                throw new ArgumentNullException(nameof(entry));
+            }
+
+            StorageKey = entry.StorageKey ?? string.Empty;
+            MangaTitle = entry.Title ?? string.Empty;
+            Progress = entry.Progress;
             _onContinue = onContinue ?? throw new ArgumentNullException(nameof(onContinue));
             RemoveCommand = removeCommand ?? throw new ArgumentNullException(nameof(removeCommand));
 
             ContinueCommand = new RelayCommand(_ => _onContinue(this), _ => CanContinue);
         }
+
+        public string StorageKey { get; }
 
         public string MangaTitle { get; }
 
@@ -306,11 +313,14 @@ namespace MSCS.ViewModels
 
     public class ContinueReadingRequestedEventArgs : EventArgs
     {
-        public ContinueReadingRequestedEventArgs(string mangaTitle, MangaReadingProgress progress)
+        public ContinueReadingRequestedEventArgs(string storageKey, string mangaTitle, MangaReadingProgress progress)
         {
-            MangaTitle = mangaTitle;
+            StorageKey = storageKey ?? string.Empty;
+            MangaTitle = mangaTitle ?? string.Empty;
             Progress = progress;
         }
+
+        public string StorageKey { get; }
 
         public string MangaTitle { get; }
 

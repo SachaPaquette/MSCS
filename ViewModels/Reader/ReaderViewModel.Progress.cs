@@ -127,7 +127,11 @@ namespace MSCS.ViewModels
                 string.IsNullOrWhiteSpace(mangaUrl) ? null : mangaUrl,
                 string.IsNullOrWhiteSpace(sourceKey) ? null : sourceKey,
                 currentOffset);
-            _userSettings.SetReadingProgress(MangaTitle, progress);
+            var key = CreateProgressKey();
+            if (!key.IsEmpty)
+            {
+                _userSettings.SetReadingProgress(key, progress);
+            }
             _lastPersistedScrollProgress = normalizedProgress;
             _lastPersistedScrollOffset = currentOffset;
             _lastProgressSaveUtc = now;
@@ -149,7 +153,7 @@ namespace MSCS.ViewModels
                 return;
             }
 
-            if (_userSettings != null && _userSettings.TryGetReadingProgress(MangaTitle, out var progress) && progress != null)
+            if (_userSettings != null && _userSettings.TryGetReadingProgress(CreateProgressKey(), out var progress) && progress != null)
             {
                 _hasRestoredInitialProgress = true;
                 _ = RestoreReadingProgressAsync(progress);
@@ -236,6 +240,12 @@ namespace MSCS.ViewModels
                 _queuedScrollRestoreRequest = request;
                 _scrollRestoreRequested?.Invoke(this, request);
             }
+        }
+        private ReadingProgressKey CreateProgressKey()
+        {
+            var sourceKey = _chapterListViewModel?.SourceKey;
+            var mangaUrl = _chapterListViewModel?.Manga?.Url;
+            return new ReadingProgressKey(MangaTitle, sourceKey, mangaUrl);
         }
 
         internal void NotifyScrollRestoreCompleted()
