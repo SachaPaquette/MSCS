@@ -334,18 +334,24 @@ namespace MSCS.ViewModels
         }
 
 
-
         private async Task OpenChapterAsync(Chapter? explicitChapter = null)
         {
             var chapterToOpen = explicitChapter ?? EnsureSelectedChapter();
             if (chapterToOpen == null || string.IsNullOrEmpty(chapterToOpen.Url))
+            {
                 return;
+            }
 
             if (!ReferenceEquals(SelectedChapter, chapterToOpen))
+            {
                 SelectedChapter = chapterToOpen;
+            }
 
             var index = Chapters.IndexOf(chapterToOpen);
-            if (index < 0) return;
+            if (index < 0)
+            {
+                return;
+            }
 
             Debug.WriteLine($"Opening chapter: {chapterToOpen.Title} ({chapterToOpen.Url})");
 
@@ -361,25 +367,46 @@ namespace MSCS.ViewModels
                 images = cachedImages;
             }
 
-            // 2) Build initial progress (same as before)
-            var isUsingExistingProgress = _initialProgress != null;
-            var initialProgress = _initialProgress ?? new MangaReadingProgress(
-                index,
-                chapterToOpen.Title,
-                0,
-                DateTimeOffset.UtcNow,
-                string.IsNullOrWhiteSpace(Manga?.Url) ? null : Manga.Url,
-                string.IsNullOrWhiteSpace(SourceKey) ? null : SourceKey);
+            // 2) Decide whether to reuse the initial progress or create a new one
+            var shouldUseInitialProgress = ShouldUseInitialProgressForChapter(chapterToOpen, index);
+            MangaReadingProgress? progressForReader;
 
-            if (!isUsingExistingProgress &&
-                _userSettings != null)
+            if (shouldUseInitialProgress)
             {
-                var key = CreateProgressKey();
-                if (!key.IsEmpty)
+                progressForReader = _initialProgress;
+            }
+            else
+            {
+                progressForReader = new MangaReadingProgress(
+                    index,
+                    chapterToOpen.Title,
+                    0,
+                    DateTimeOffset.UtcNow,
+                    string.IsNullOrWhiteSpace(Manga?.Url) ? null : Manga.Url,
+                    string.IsNullOrWhiteSpace(SourceKey) ? null : SourceKey);
+
+                if (_userSettings != null)
                 {
-                    _userSettings.SetReadingProgress(key, initialProgress);
+                    var key = CreateProgressKey();
+                    if (!key.IsEmpty)
+                    {
+                        _userSettings.SetReadingProgress(key, progressForReader);
+                    }
                 }
             }
+
+            // 3) Navigate to the reader with the prepared context
+            var readerViewModel = new ReaderViewModel(
+                images,
+                chapterToOpen.Title ?? string.Empty,
+                _navigationService,
+                this,
+                index,
+                _aniListService,
+                _userSettings,
+                progressForReader);
+
+            _navigationService.NavigateToViewModel(readerViewModel);
         }
 
         private bool ShouldUseInitialProgressForChapter(Chapter chapterToOpen, int index)
