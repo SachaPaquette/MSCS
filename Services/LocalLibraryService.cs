@@ -57,32 +57,14 @@ namespace MSCS.Services
             _settings.LocalLibraryPath = path;
         }
 
-        [Obsolete("Use GetMangaEntriesAsync to avoid blocking the UI thread.")]
-        public IReadOnlyList<LocalMangaEntry> GetMangaEntries()
-        {
-            return GetMangaEntriesAsync().GetAwaiter().GetResult();
-        }
-
         public Task<IReadOnlyList<LocalMangaEntry>> GetMangaEntriesAsync(CancellationToken ct = default)
         {
             return Task.Run(() => GetMangaEntriesInternal(ct), ct);
         }
 
-        [Obsolete("Use GetChaptersAsync to avoid blocking the UI thread.")]
-        public IReadOnlyList<Chapter> GetChapters(string mangaPath)
-        {
-            return GetChaptersAsync(mangaPath).GetAwaiter().GetResult();
-        }
-
         public Task<IReadOnlyList<Chapter>> GetChaptersAsync(string mangaPath, CancellationToken ct = default)
         {
             return Task.Run(() => GetChaptersInternal(mangaPath, ct), ct);
-        }
-
-        [Obsolete("Use GetChapterImagesAsync to avoid blocking the UI thread.")]
-        public IReadOnlyList<ChapterImage> GetChapterImages(string chapterPath)
-        {
-            return GetChapterImagesAsync(chapterPath).GetAwaiter().GetResult();
         }
 
         public Task<IReadOnlyList<ChapterImage>> GetChapterImagesAsync(string chapterPath, CancellationToken ct = default)
@@ -112,37 +94,24 @@ namespace MSCS.Services
             LibraryPathChanged?.Invoke(this, EventArgs.Empty);
         }
 
-        private static IEnumerable<string> EnumerateImageFiles(string directory)
-        {
-            try
-            {
-                return Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly)
-                    .Where(IsImageFile)
-                    .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Failed to enumerate images in '{directory}': {ex.Message}");
-                return Array.Empty<string>();
-            }
-        }
+        private static List<string> EnumerateImageFiles(string directory) => EnumerateFilteredFiles(directory, IsImageFile, "images");
+
         private static bool ContainsChapterContent(DirectoryInfo directory)
         {
             try
             {
-                if (EnumerateArchiveFiles(directory.FullName).Any())
+                if (EnumerateArchiveFiles(directory.FullName).Count > 0)
                 {
                     return true;
                 }
 
-                if (EnumerateImageFiles(directory.FullName).Any())
+                if (EnumerateImageFiles(directory.FullName).Count > 0)
                 {
                     return true;
                 }
 
                 return directory.GetDirectories()
-                    .Any(sub => EnumerateImageFiles(sub.FullName).Any());
+                    .Any(sub => EnumerateImageFiles(sub.FullName).Count > 0);
             }
             catch (Exception ex)
             {
@@ -150,19 +119,21 @@ namespace MSCS.Services
                 return false;
             }
         }
-        private static IEnumerable<string> EnumerateArchiveFiles(string directory)
+        private static List<string> EnumerateArchiveFiles(string directory) => EnumerateFilteredFiles(directory, IsArchive, "archives");
+
+        private static List<string> EnumerateFilteredFiles(string directory, Func<string, bool> predicate, string description)
         {
             try
             {
                 return Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly)
-                    .Where(IsArchive)
+                    .Where(predicate)
                     .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
                     .ToList();
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Failed to enumerate archives in '{directory}': {ex.Message}");
-                return Array.Empty<string>();
+                Debug.WriteLine($"Failed to enumerate {description} in '{directory}': {ex.Message}");
+                return new List<string>();
             }
         }
 
@@ -171,7 +142,7 @@ namespace MSCS.Services
         {
             try
             {
-                var archives = EnumerateArchiveFiles(info.FullName).ToList();
+                var archives = EnumerateArchiveFiles(info.FullName);
                 if (archives.Count > 0)
                 {
                     return archives.Count;
@@ -183,7 +154,7 @@ namespace MSCS.Services
                     var chapterDirectories = 0;
                     foreach (var dir in subDirs)
                     {
-                        if (EnumerateArchiveFiles(dir.FullName).Any() || EnumerateImageFiles(dir.FullName).Any())
+                        if (EnumerateArchiveFiles(dir.FullName).Count > 0 || EnumerateImageFiles(dir.FullName).Count > 0)
                         {
                             chapterDirectories++;
                         }
@@ -197,7 +168,7 @@ namespace MSCS.Services
                     return subDirs.Length;
                 }
 
-                return EnumerateImageFiles(info.FullName).Any() ? 1 : 0;
+                return EnumerateImageFiles(info.FullName).Count > 0 ? 1 : 0;
             }
             catch
             {
@@ -311,9 +282,7 @@ namespace MSCS.Services
             {
                 ct.ThrowIfCancellationRequested();
                 var directory = new DirectoryInfo(mangaPath);
-                var archives = EnumerateArchiveFiles(directory.FullName)
-                    .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-                    .ToList();
+                var archives = EnumerateArchiveFiles(directory.FullName);
 
                 if (archives.Count > 0)
                 {
@@ -343,7 +312,7 @@ namespace MSCS.Services
                         .ToList();
                 }
 
-                var images = EnumerateImageFiles(directory.FullName).ToList();
+                var images = EnumerateImageFiles(directory.FullName);
                 if (images.Count > 0)
                 {
                     return new List<Chapter>
@@ -503,7 +472,6 @@ namespace MSCS.Services
             var safeName = SanitizeFileName(Path.GetFileNameWithoutExtension(fileInfo.Name));
             var suffix = fileInfo.LastWriteTimeUtc.Ticks.ToString(CultureInfo.InvariantCulture);
             var tempRoot = Path.Combine(Path.GetTempPath(), "MSCS", "LocalCache");
-            Directory.CreateDirectory(tempRoot);
             var extractionRoot = Path.Combine(tempRoot, $"{safeName}_{suffix}");
             Directory.CreateDirectory(extractionRoot);
             ScheduleExtractionCleanup(tempRoot);
