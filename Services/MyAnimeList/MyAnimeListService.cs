@@ -25,7 +25,7 @@ namespace MSCS.Services.MyAnimeList
         private const string ApiBaseUrl = "https://api.myanimelist.net/v2/";
         private const string AuthorizationEndpoint = "https://myanimelist.net/v1/oauth2/authorize";
         private const string TokenEndpoint = "https://myanimelist.net/v1/oauth2/token";
-        private const string RedirectUri = "http://127.0.0.1:51789/callback";
+        private const string RedirectUri = "http://127.0.0.1:51789/callback/";
         private static readonly TimeSpan TokenRefreshSkew = TimeSpan.FromMinutes(1);
 
         private readonly Dictionary<string, MyAnimeListTrackingInfo> _trackedSeries = new(StringComparer.OrdinalIgnoreCase);
@@ -88,7 +88,7 @@ namespace MSCS.Services.MyAnimeList
 
             // PKCE
             var codeVerifier = GenerateCodeVerifier();
-            var codeChallenge = CreateCodeChallenge(codeVerifier);
+            var codeChallenge = codeVerifier;
             var state = GenerateState();
 
             var authorizationUri = BuildAuthorizationUri(codeChallenge, state);
@@ -134,6 +134,8 @@ namespace MSCS.Services.MyAnimeList
 
             var req = ctx.Request;
             var query = System.Web.HttpUtility.ParseQueryString(req.Url.Query);
+            Debug.WriteLine("query: "  + query);
+            Debug.WriteLine("code: " + query["code"]);
             var code = query["code"];
             var st = query["state"];
 
@@ -160,6 +162,9 @@ namespace MSCS.Services.MyAnimeList
                 ["code_verifier"] = codeVerifier,
                 ["redirect_uri"] = RedirectUri
             }, CancellationToken.None);
+
+            Debug.WriteLine("redirect url:" + RedirectUri);
+
 
             if (token == null)
             {
@@ -730,12 +735,13 @@ namespace MSCS.Services.MyAnimeList
                 .Append("&client_id=").Append(Uri.EscapeDataString(_clientId))
                 .Append("&redirect_uri=").Append(Uri.EscapeDataString(RedirectUri))
                 .Append("&code_challenge=").Append(Uri.EscapeDataString(codeChallenge))
-                .Append("&code_challenge_method=S256")
+                .Append("&code_challenge_method=plain") 
                 .Append("&state=").Append(Uri.EscapeDataString(state))
                 .Append("&scope=").Append(Uri.EscapeDataString("read write"));
 
             return new Uri(builder.ToString());
         }
+
 
         private static string GenerateCodeVerifier()
         {
