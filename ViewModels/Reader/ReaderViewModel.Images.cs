@@ -35,27 +35,21 @@ namespace MSCS.ViewModels
                 int countToLoad = desiredCount.HasValue
                     ? Math.Min(remaining, Math.Max(1, desiredCount.Value))
                     : Math.Min(Constants.DefaultLoadedBatchSize, remaining);
-                var batch = new List<ChapterImage>(countToLoad);
-                for (int i = 0; i < countToLoad; i++)
-                {
-                    token.ThrowIfCancellationRequested();
-                    batch.Add(_allImages[_loadedCount + i]);
-                }
 
+                token.ThrowIfCancellationRequested();
+
+                int startIndex = _loadedCount;
                 var dispatcher = System.Windows.Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
                 await dispatcher.InvokeAsync(() =>
                 {
-                    foreach (var image in batch)
+                    for (int offset = 0; offset < countToLoad; offset++)
                     {
-                        ImageUrls.Add(image);
+                        ImageUrls.Add(_allImages[startIndex + offset]);
                     }
 
-                    _loadedCount += batch.Count;
-                    OnPropertyChanged(nameof(RemainingImages));
-                    OnPropertyChanged(nameof(LoadedImages));
-                    OnPropertyChanged(nameof(TotalImages));
-                    OnPropertyChanged(nameof(LoadingProgress));
-                }, DispatcherPriority.Background);
+                    _loadedCount += countToLoad;
+                    NotifyLoadingMetricsChanged();
+                }, DispatcherPriority.Background, token);
 
                 Debug.WriteLine($"Loaded {_loadedCount} / {_allImages.Count} images");
             }
@@ -146,16 +140,21 @@ namespace MSCS.ViewModels
                     }
                 }
 
-                OnPropertyChanged(nameof(RemainingImages));
-                OnPropertyChanged(nameof(LoadedImages));
-                OnPropertyChanged(nameof(TotalImages));
-                OnPropertyChanged(nameof(LoadingProgress));
+                NotifyLoadingMetricsChanged();
             }, DispatcherPriority.Background);
 
             if (_allImages.Count > 0)
             {
                 await LoadMoreImagesAsync().ConfigureAwait(false);
             }
+        }
+
+        private void NotifyLoadingMetricsChanged()
+        {
+            OnPropertyChanged(nameof(RemainingImages));
+            OnPropertyChanged(nameof(LoadedImages));
+            OnPropertyChanged(nameof(TotalImages));
+            OnPropertyChanged(nameof(LoadingProgress));
         }
     }
 }
