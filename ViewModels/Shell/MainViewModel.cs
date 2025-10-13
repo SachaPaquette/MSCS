@@ -1,6 +1,8 @@
 ﻿using MSCS.Interfaces;
 using MSCS.Models;
 using MSCS.Services;
+using MSCS.Services.Kitsu;
+using MSCS.Services.MyAnimeList;
 using MSCS.Sources;
 using System;
 using System.Collections.Generic;
@@ -16,6 +18,7 @@ namespace MSCS.ViewModels
         private readonly UserSettings _userSettings;
         private readonly LocalLibraryService _localLibraryService;
         private readonly AniListService _aniListService;
+        private readonly MediaTrackingServiceRegistry _mediaTrackingRegistry;
         private readonly ReadingListService _readingListService;
         private readonly LocalSource _LocalSource;
         private readonly ThemeService _themeService;
@@ -26,6 +29,7 @@ namespace MSCS.ViewModels
         private bool _disposed;
         private bool _suppressTabActivation;
 
+
         public MainViewModel(INavigationService navigationService)
         {
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
@@ -34,7 +38,11 @@ namespace MSCS.ViewModels
             _themeService = new ThemeService();
             _themeService.ApplyTheme(_userSettings.AppTheme);
             _localLibraryService = new LocalLibraryService(_userSettings);
+            _mediaTrackingRegistry = new MediaTrackingServiceRegistry();
             _aniListService = new AniListService(_userSettings);
+            _mediaTrackingRegistry.Register(_aniListService);
+            _mediaTrackingRegistry.Register(new MyAnimeListService(_userSettings));
+            _mediaTrackingRegistry.Register(new KitsuService(_userSettings));
             _readingListService = new ReadingListService(_userSettings);
             _LocalSource = new LocalSource(_localLibraryService);
             MangaListVM = new MangaListViewModel(SourceKeyConstants.DefaultExternal, _navigationService);
@@ -50,8 +58,7 @@ namespace MSCS.ViewModels
             ContinueReadingVM = new ContinueReadingViewModel(_userSettings, _readingListService);
             ContinueReadingVM.ContinueReadingRequested += OnContinueReadingRequested;
 
-            SettingsVM = new SettingsViewModel(_localLibraryService, _userSettings, _aniListService, _themeService);
-
+            SettingsVM = new SettingsViewModel(_localLibraryService, _userSettings, _themeService, _mediaTrackingRegistry);
 
             Tabs = new ObservableCollection<MainMenuTab>
             {
@@ -83,6 +90,7 @@ namespace MSCS.ViewModels
         public SettingsViewModel SettingsVM { get; }
         public ContinueReadingViewModel ContinueReadingVM { get; }
         public ObservableCollection<MainMenuTab> Tabs { get; }
+        public MediaTrackingServiceRegistry MediaTrackingRegistry => _mediaTrackingRegistry;
 
         public BaseViewModel CurrentViewModel
         {

@@ -15,30 +15,40 @@ namespace MSCS.ViewModels
     {
         private readonly LocalLibraryService _libraryService;
         private readonly UserSettings _userSettings;
-        private readonly IAniListService _aniListService;
+        private readonly ThemeService _themeService;
+        private readonly List<TrackingProviderViewModel> _trackingProviders;
         private bool _disposed;
         private string? _libraryPath;
         private bool _suppressUpdate;
         private bool _isAniListConnected;
         private string? _aniListUserName;
         private bool _suppressSettingsUpdate;
-        private readonly ThemeService _themeService;
         private AppTheme _selectedTheme;
 
-        public SettingsViewModel(LocalLibraryService libraryService, UserSettings userSettings, IAniListService aniListService, ThemeService themeService)
+        public SettingsViewModel(
+            LocalLibraryService libraryService,
+            UserSettings userSettings,
+            ThemeService themeService,
+            MediaTrackingServiceRegistry trackingRegistry)
         {
             _libraryService = libraryService ?? throw new ArgumentNullException(nameof(libraryService));
             _userSettings = userSettings ?? throw new ArgumentNullException(nameof(userSettings));
-            _aniListService = aniListService ?? throw new ArgumentNullException(nameof(aniListService));
+            _themeService = themeService ?? throw new ArgumentNullException(nameof(themeService));
+
+            if (trackingRegistry == null)
+            {
+                throw new ArgumentNullException(nameof(trackingRegistry));
+            }
+
+            _trackingProviders = trackingRegistry.Services
+                .OrderBy(service => service.DisplayName, StringComparer.OrdinalIgnoreCase)
+                .Select(service => new TrackingProviderViewModel(service))
+                .ToList();
 
             _libraryService.LibraryPathChanged += OnLibraryPathChanged;
             _userSettings.SettingsChanged += OnUserSettingsChanged;
-            _aniListService.AuthenticationChanged += OnAniListAuthenticationChanged;
-            _themeService = themeService ?? throw new ArgumentNullException(nameof(themeService));
 
             _libraryPath = _libraryService.LibraryPath;
-            _isAniListConnected = _aniListService.IsAuthenticated;
-            _aniListUserName = _aniListService.UserName;
 
             ThemeOptions = new List<ThemeOption>
             {
@@ -54,8 +64,6 @@ namespace MSCS.ViewModels
 
             BrowseCommand = new RelayCommand(_ => BrowseForFolder());
             ClearCommand = new RelayCommand(_ => LibraryPath = null, _ => !string.IsNullOrWhiteSpace(LibraryPath));
-            AniListAuthenticateCommand = new AsyncRelayCommand(_ => AuthenticateAniListAsync());
-            AniListLogoutCommand = new AsyncRelayCommand(() => LogoutAniListAsync(), () => _aniListService.IsAuthenticated);
         }
 
         public string? LibraryPath
@@ -84,9 +92,8 @@ namespace MSCS.ViewModels
 
         public ICommand BrowseCommand { get; }
         public ICommand ClearCommand { get; }
-        public ICommand AniListAuthenticateCommand { get; }
-        public ICommand AniListLogoutCommand { get; }
         public IReadOnlyList<ThemeOption> ThemeOptions { get; }
+        public IReadOnlyList<TrackingProviderViewModel> TrackingProviders => _trackingProviders;
 
         public AppTheme SelectedTheme
         {
@@ -104,44 +111,6 @@ namespace MSCS.ViewModels
             }
         }
 
-        public bool IsAniListConnected
-        {
-            get => _isAniListConnected;
-            private set
-            {
-                if (SetProperty(ref _isAniListConnected, value, nameof(IsAniListConnected)))
-                {
-                    OnPropertyChanged(nameof(AniListStatusText));
-                }
-            }
-        }
-
-        public string? AniListUserName
-        {
-            get => _aniListUserName;
-            private set
-            {
-                if (SetProperty(ref _aniListUserName, value, nameof(AniListUserName)))
-                {
-                    OnPropertyChanged(nameof(AniListStatusText));
-                }
-            }
-        }
-
-        public string AniListStatusText
-        {
-            get
-            {
-                if (IsAniListConnected)
-                {
-                    return !string.IsNullOrWhiteSpace(AniListUserName)
-                        ? $"Connected as {AniListUserName}"
-                        : "Connected";
-                }
-
-                return "Not connected";
-            }
-        }
 
         public void Dispose()
         {
@@ -153,7 +122,11 @@ namespace MSCS.ViewModels
             _disposed = true;
             _libraryService.LibraryPathChanged -= OnLibraryPathChanged;
             _userSettings.SettingsChanged -= OnUserSettingsChanged;
-            _aniListService.AuthenticationChanged -= OnAniListAuthenticationChanged;
+
+            foreach (var provider in _trackingProviders)
+            {
+                provider.Dispose();
+            }
         }
 
         private void BrowseForFolder()
@@ -168,36 +141,6 @@ namespace MSCS.ViewModels
             if (dialog.ShowDialog() == Forms.DialogResult.OK)
             {
                 LibraryPath = dialog.SelectedPath;
-            }
-        }
-
-        private async Task AuthenticateAniListAsync()
-        {
-            try
-            {
-                var owner = System.Windows.Application.Current?.MainWindow;
-                var success = await _aniListService.AuthenticateAsync(owner).ConfigureAwait(true);
-                if (success)
-                {
-                    UpdateAniListState();
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Windows.MessageBox.Show(ex.Message, "AniList", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-        private async Task LogoutAniListAsync()
-        {
-            try
-            {
-                await _aniListService.LogoutAsync().ConfigureAwait(true);
-                UpdateAniListState();
-            }
-            catch (Exception ex)
-            {
-                System.Windows.MessageBox.Show(ex.Message, "AniList", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -225,18 +168,6 @@ namespace MSCS.ViewModels
             {
                 _suppressSettingsUpdate = false;
             }
-        }
-
-        private void OnAniListAuthenticationChanged(object? sender, EventArgs e)
-        {
-            UpdateAniListState();
-        }
-
-        private void UpdateAniListState()
-        {
-            IsAniListConnected = _aniListService.IsAuthenticated;
-            AniListUserName = _aniListService.UserName;
-            CommandManager.InvalidateRequerySuggested();
         }
 
         public record ThemeOption(AppTheme Value, string DisplayName);

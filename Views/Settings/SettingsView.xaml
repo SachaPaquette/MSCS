@@ -128,49 +128,74 @@
                     </StackPanel>
                 </settings:SettingsSection>
 
-                <settings:SettingsSection Title="AniList integration"
-                                          Description="Connect your AniList account to track chapters and update your reading list."
-                                          Margin="0,20,0,0">
-                    <StackPanel>
-                        <StackPanel Orientation="Horizontal">
-                            <Button Content="Connect AniList"
-                                    Padding="20,8"
-                                    Style="{StaticResource AccentButton}"
-                                    Command="{Binding AniListAuthenticateCommand}"/>
-                            <Button Content="Disconnect AniList"
-                                    Padding="20,8"
-                                    Margin="12,0,0,0"
-                                    Style="{StaticResource AccentButton}"
-                                    Command="{Binding AniListLogoutCommand}"
-                                    Visibility="{Binding IsAniListConnected, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                        </StackPanel>
 
-                        <Border Background="{DynamicResource Surface}"
-                                BorderBrush="{DynamicResource SurfaceAlt}"
-                                BorderThickness="1"
-                                CornerRadius="8"
-                                Padding="12"
-                                Margin="0,12,0,0">
-                            <StackPanel>
-                                <TextBlock Text="Connection status"
-                                           Foreground="{DynamicResource FgMuted}"
-                                           FontSize="12"/>
-                                <TextBlock Text="{Binding AniListStatusText}"
-                                           FontWeight="SemiBold">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Foreground" Value="#F08A7E"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsAniListConnected}" Value="True">
-                                                    <Setter Property="Foreground" Value="#7BD88F"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
+                <settings:SettingsSection Title="Tracking integrations"
+                                          Description="Connect your media-tracking accounts to sync reading progress across services."
+                                          Margin="0,20,0,0">
+                    <ItemsControl ItemsSource="{Binding TrackingProviders}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{DynamicResource Surface}"
+                                        BorderBrush="{DynamicResource SurfaceAlt}"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="16"
+                                        Margin="0,0,0,12">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding DisplayName}"
+                                                       FontSize="16"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource Fg}"/>
+                                            <TextBlock Text="{Binding StatusText}"
+                                                       Margin="0,6,0,0">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="#F08A7E"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                                                <Setter Property="Foreground" Value="#7BD88F"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </StackPanel>
+
+                                        <StackPanel Orientation="Horizontal"
+                                                    Grid.Column="1"
+                                                    VerticalAlignment="Center">
+                                            <Button Content="Connect"
+                                                    Padding="20,8"
+                                                    Command="{Binding ConnectCommand}">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource AccentButton}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+
+                                            <Button Content="Disconnect"
+                                                    Padding="20,8"
+                                                    Margin="12,0,0,0"
+                                                    Command="{Binding DisconnectCommand}"
+                                                    Visibility="{Binding IsConnected, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                    Style="{StaticResource AccentButton}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                 </settings:SettingsSection>
             </StackPanel>
         </ScrollViewer>

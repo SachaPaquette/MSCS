@@ -77,6 +77,41 @@ namespace MSCS.Services
             }
         }
 
+        public bool IsTrackingProviderConnected(string serviceId)
+        {
+            if (string.IsNullOrWhiteSpace(serviceId))
+            {
+                return false;
+            }
+
+            if (_data.TrackingProviderConnections != null &&
+                _data.TrackingProviderConnections.TryGetValue(serviceId, out var connected))
+            {
+                return connected;
+            }
+
+            return false;
+        }
+
+        public void SetTrackingProviderConnection(string serviceId, bool isConnected)
+        {
+            if (string.IsNullOrWhiteSpace(serviceId))
+            {
+                return;
+            }
+
+            _data.TrackingProviderConnections ??= new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+
+            if (_data.TrackingProviderConnections.TryGetValue(serviceId, out var existing) && existing == isConnected)
+            {
+                return;
+            }
+
+            _data.TrackingProviderConnections[serviceId] = isConnected;
+            SaveInternal();
+            SettingsChanged?.Invoke(this, EventArgs.Empty);
+        }
+
         public string? AniListUserName
         {
             get => _data.AniListUserName;
@@ -168,6 +203,102 @@ namespace MSCS.Services
             }
 
             return false;
+        }
+
+
+        public bool TryGetExternalTracking(string serviceId, string mangaTitle, out MediaTrackingEntry? entry)
+        {
+            entry = null;
+            if (string.IsNullOrWhiteSpace(serviceId) || string.IsNullOrWhiteSpace(mangaTitle))
+            {
+                return false;
+            }
+
+            if (_data.ExternalTrackedSeries != null &&
+                _data.ExternalTrackedSeries.TryGetValue(serviceId, out var byTitle) &&
+                byTitle != null &&
+                byTitle.TryGetValue(mangaTitle, out var stored) && stored != null)
+            {
+                entry = ConvertToEntry(stored, mangaTitle);
+                return true;
+            }
+
+            return false;
+        }
+
+        public IReadOnlyDictionary<string, MediaTrackingEntry> GetExternalTrackingSnapshot(string serviceId)
+        {
+            if (string.IsNullOrWhiteSpace(serviceId) || _data.ExternalTrackedSeries == null)
+            {
+                return new Dictionary<string, MediaTrackingEntry>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            if (!_data.ExternalTrackedSeries.TryGetValue(serviceId, out var byTitle) || byTitle == null)
+            {
+                return new Dictionary<string, MediaTrackingEntry>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            return byTitle
+                .Where(kvp => kvp.Value != null)
+                .ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => ConvertToEntry(kvp.Value!, kvp.Key),
+                    StringComparer.OrdinalIgnoreCase);
+        }
+
+        public void SetExternalTracking(string serviceId, string mangaTitle, MediaTrackingEntry entry)
+        {
+            if (string.IsNullOrWhiteSpace(serviceId) || string.IsNullOrWhiteSpace(mangaTitle) || entry == null)
+            {
+                return;
+            }
+
+            if (_data.ExternalTrackedSeries == null)
+            {
+                _data.ExternalTrackedSeries = new Dictionary<string, Dictionary<string, ExternalTrackedSeriesData>>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            if (!_data.ExternalTrackedSeries.TryGetValue(serviceId, out var byTitle) || byTitle == null)
+            {
+                byTitle = new Dictionary<string, ExternalTrackedSeriesData>(StringComparer.OrdinalIgnoreCase);
+                _data.ExternalTrackedSeries[serviceId] = byTitle;
+            }
+
+            byTitle[mangaTitle] = ConvertFromEntry(entry);
+            SaveInternal();
+        }
+
+        public bool RemoveExternalTracking(string serviceId, string mangaTitle)
+        {
+            if (string.IsNullOrWhiteSpace(serviceId) || string.IsNullOrWhiteSpace(mangaTitle) ||
+                _data.ExternalTrackedSeries == null ||
+                !_data.ExternalTrackedSeries.TryGetValue(serviceId, out var byTitle) ||
+                byTitle == null)
+            {
+                return false;
+            }
+
+            var removed = byTitle.Remove(mangaTitle);
+            if (removed)
+            {
+                SaveInternal();
+            }
+
+            return removed;
+        }
+
+        public void ClearExternalTracking(string serviceId)
+        {
+            if (string.IsNullOrWhiteSpace(serviceId) || _data.ExternalTrackedSeries == null)
+            {
+                return;
+            }
+
+            if (_data.ExternalTrackedSeries.TryGetValue(serviceId, out var byTitle) && byTitle != null && byTitle.Count > 0)
+            {
+                byTitle.Clear();
+                SaveInternal();
+            }
         }
 
         public ReaderProfile GetReaderProfile(string? mangaTitle)
@@ -452,6 +583,37 @@ namespace MSCS.Services
         }
 
 
+        private static MediaTrackingEntry ConvertToEntry(ExternalTrackedSeriesData data, string fallbackTitle)
+        {
+            return new MediaTrackingEntry(
+                data.MediaId,
+                string.IsNullOrWhiteSpace(data.Title) ? fallbackTitle : data.Title,
+                data.CoverImageUrl,
+                data.Status,
+                data.Progress,
+                data.Score,
+                data.TotalChapters,
+                data.SiteUrl,
+                data.UpdatedAt);
+        }
+
+        private static ExternalTrackedSeriesData ConvertFromEntry(MediaTrackingEntry entry)
+        {
+            return new ExternalTrackedSeriesData
+            {
+                MediaId = entry.MediaId,
+                Title = entry.Title,
+                CoverImageUrl = entry.CoverImageUrl,
+                Status = entry.Status,
+                Progress = entry.Progress,
+                Score = entry.Score,
+                TotalChapters = entry.TotalChapters,
+                SiteUrl = entry.SiteUrl,
+                UpdatedAt = entry.UpdatedAt
+            };
+        }
+
+
         private SettingsData LoadInternal()
         {
             try
@@ -464,6 +626,7 @@ namespace MSCS.Services
                 var json = File.ReadAllText(_settingsPath);
                 var data = JsonSerializer.Deserialize<SettingsData>(json, SerializerOptions) ?? new SettingsData();
                 data.AniListTrackedSeries ??= new Dictionary<string, TrackedSeriesData>();
+                data.ExternalTrackedSeries ??= new Dictionary<string, Dictionary<string, ExternalTrackedSeriesData>>(StringComparer.OrdinalIgnoreCase);
                 data.ReadingProgress ??= new Dictionary<string, ReadingProgressData>();
                 MigrateReadingProgressKeys(data);
                 data.ReaderProfiles ??= new Dictionary<string, ReaderProfileData>();
@@ -693,9 +856,11 @@ namespace MSCS.Services
             public long? LastSeenUpdateId { get; set; }
             public DateTimeOffset? LastSeenUpdateTimestamp { get; set; }
             public Dictionary<string, TrackedSeriesData> AniListTrackedSeries { get; set; } = new();
+            public Dictionary<string, Dictionary<string, ExternalTrackedSeriesData>> ExternalTrackedSeries { get; set; } = new(StringComparer.OrdinalIgnoreCase);
             public Dictionary<string, ReadingProgressData> ReadingProgress { get; set; } = new();
             public ReaderProfileData? DefaultReaderProfile { get; set; } = new();
             public Dictionary<string, ReaderProfileData> ReaderProfiles { get; set; } = new();
+            public Dictionary<string, bool> TrackingProviderConnections { get; set; } = new(StringComparer.OrdinalIgnoreCase);
         }
 
         private class TrackedSeriesData
@@ -712,6 +877,18 @@ namespace MSCS.Services
             public int? MediaListEntryId { get; set; }
         }
 
+        private class ExternalTrackedSeriesData
+        {
+            public string? MediaId { get; set; }
+            public string? Title { get; set; }
+            public string? CoverImageUrl { get; set; }
+            public string? Status { get; set; }
+            public int? Progress { get; set; }
+            public double? Score { get; set; }
+            public int? TotalChapters { get; set; }
+            public string? SiteUrl { get; set; }
+            public DateTimeOffset? UpdatedAt { get; set; }
+        }
 
         private class ReadingProgressData
         {
