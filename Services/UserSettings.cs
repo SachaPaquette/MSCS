@@ -77,6 +77,70 @@ namespace MSCS.Services
             }
         }
 
+        public string? MyAnimeListAccessToken
+        {
+            get => _data.MyAnimeListAccessToken;
+            set
+            {
+                if (string.Equals(_data.MyAnimeListAccessToken, value, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                _data.MyAnimeListAccessToken = value;
+                SaveInternal();
+                SettingsChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        public string? MyAnimeListRefreshToken
+        {
+            get => _data.MyAnimeListRefreshToken;
+            set
+            {
+                if (string.Equals(_data.MyAnimeListRefreshToken, value, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                _data.MyAnimeListRefreshToken = value;
+                SaveInternal();
+                SettingsChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        public DateTimeOffset? MyAnimeListAccessTokenExpiry
+        {
+            get => _data.MyAnimeListAccessTokenExpiry;
+            set
+            {
+                if (_data.MyAnimeListAccessTokenExpiry == value)
+                {
+                    return;
+                }
+
+                _data.MyAnimeListAccessTokenExpiry = value;
+                SaveInternal();
+                SettingsChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        public string? MyAnimeListUserName
+        {
+            get => _data.MyAnimeListUserName;
+            set
+            {
+                if (string.Equals(_data.MyAnimeListUserName, value, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                _data.MyAnimeListUserName = value;
+                SaveInternal();
+                SettingsChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
         public bool IsTrackingProviderConnected(string serviceId)
         {
             if (string.IsNullOrWhiteSpace(serviceId))
@@ -422,6 +486,29 @@ namespace MSCS.Services
                 _data.AniListAccessToken = null;
                 _data.AniListAccessTokenExpiry = null;
                 _data.AniListUserName = null;
+                changed = true;
+            }
+
+            if (changed)
+            {
+                SaveInternal();
+                SettingsChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        public void ClearMyAnimeListAuthentication()
+        {
+            var changed = false;
+
+            if (!string.IsNullOrEmpty(_data.MyAnimeListAccessToken) ||
+                !string.IsNullOrEmpty(_data.MyAnimeListRefreshToken) ||
+                _data.MyAnimeListAccessTokenExpiry.HasValue ||
+                !string.IsNullOrEmpty(_data.MyAnimeListUserName))
+            {
+                _data.MyAnimeListAccessToken = null;
+                _data.MyAnimeListRefreshToken = null;
+                _data.MyAnimeListAccessTokenExpiry = null;
+                _data.MyAnimeListUserName = null;
                 changed = true;
             }
 
@@ -852,6 +939,10 @@ namespace MSCS.Services
             public string? AniListAccessToken { get; set; }
             public DateTimeOffset? AniListAccessTokenExpiry { get; set; }
             public string? AniListUserName { get; set; }
+            public string? MyAnimeListAccessToken { get; set; }
+            public string? MyAnimeListRefreshToken { get; set; }
+            public DateTimeOffset? MyAnimeListAccessTokenExpiry { get; set; }
+            public string? MyAnimeListUserName { get; set; }
             public AppTheme AppTheme { get; set; } = AppTheme.Dark;
             public long? LastSeenUpdateId { get; set; }
             public DateTimeOffset? LastSeenUpdateTimestamp { get; set; }

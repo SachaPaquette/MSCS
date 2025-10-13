@@ -15,5 +15,9 @@ namespace MSCS.Helpers
         public const int DefaultSmoothScrollDuration = 250; // default duration for smooth scroll in ms
         public const double DefaultSmoothScrollPageFraction = 0.85; // factor for smooth scroll
         public const string ClientID = "30966";
+
+        private static string? _myAnimeListClientId;
+
+        public static string MyAnimeListClientId = "5273226fb0886cf8df7e66a576374a98";
     }
 }

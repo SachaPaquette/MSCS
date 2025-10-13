@@ -1,0 +1,74 @@
+﻿<Window x:Class="MSCS.Views.MyAnimeList.MyAnimeListOAuthWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Link MyAnimeList"
+        Height="380"
+        Width="520"
+        WindowStartupLocation="CenterOwner"
+        Background="#0F151F">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="Link MyAnimeList"
+                   FontSize="22"
+                   FontWeight="SemiBold"
+                   Foreground="White" />
+
+        <TextBlock Grid.Row="1"
+                   Margin="0,12,0,0"
+                   TextWrapping="Wrap"
+                   Foreground="#D0D7E3">
+            <Run Text="Click &quot;Proceed&quot; to open MyAnimeList in your browser. Sign in, approve access, and copy the authorization code shown on the success page." />
+            <LineBreak />
+            <Run Text="Paste the code below to finish linking your account." />
+        </TextBlock>
+
+        <Button Grid.Row="2"
+                Margin="0,20,0,0"
+                Height="36"
+                Width="160"
+                HorizontalAlignment="Left"
+                Content="Proceed"
+                Foreground="White"
+                Background="#1F5AA8"
+                BorderBrush="#2C6CC7"
+                Click="ProceedButton_OnClick" />
+
+        <TextBlock Grid.Row="3"
+                   Margin="0,24,0,8"
+                   Foreground="#D0D7E3"
+                   Text="Paste authorization code:" />
+
+        <StackPanel Grid.Row="4">
+            <TextBox x:Name="CodeTextBox"
+                     Height="32"
+                     Background="#1A2333"
+                     Foreground="White"
+                     BorderBrush="#263149"
+                     Padding="6"
+                     KeyDown="CodeTextBox_OnKeyDown" />
+            <TextBlock Margin="0,8,0,0"
+                       Foreground="#9AA6BF"
+                       TextWrapping="Wrap"
+                       Text="The code usually starts with letters and numbers and is provided after authorizing the application." />
+        </StackPanel>
+
+        <Button Grid.Row="5"
+                Margin="0,20,0,0"
+                Height="32"
+                Width="120"
+                HorizontalAlignment="Left"
+                Content="Submit"
+                Foreground="White"
+                Background="#1F5AA8"
+                BorderBrush="#2C6CC7"
+                Click="SubmitButton_OnClick" />
+    </Grid>
+</Window>
