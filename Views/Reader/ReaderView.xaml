@@ -143,7 +143,7 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <Image Stretch="Uniform"
-                               Margin="0,0,0,16"
+                               Margin="0"
                                SnapsToDevicePixels="True"
                                UseLayoutRounding="True"
                                RenderOptions.BitmapScalingMode="HighQuality"

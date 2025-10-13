@@ -5,6 +5,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows.Input;
+using System.Windows.Threading;
 
 namespace MSCS.ViewModels
 {
@@ -46,6 +47,25 @@ namespace MSCS.ViewModels
         }
 
         private void ReloadEntries()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+
+            if (dispatcher == null || dispatcher.CheckAccess())
+            {
+                ReloadEntriesCore();
+            }
+            else
+            {
+                dispatcher.InvokeAsync(ReloadEntriesCore, DispatcherPriority.DataBind);
+            }
+        }
+
+        private void ReloadEntriesCore()
         {
             if (_disposed)
             {
