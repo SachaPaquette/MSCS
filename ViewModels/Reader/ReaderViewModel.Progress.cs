@@ -250,15 +250,15 @@ namespace MSCS.ViewModels
 
         internal void NotifyScrollRestoreCompleted()
         {
-            if (!_isRestoringProgress)
+            if (_isRestoringProgress)
             {
-                return;
+                _isRestoringProgress = false;
+                _pendingRestoreProgress = null;
+                _pendingRestoreOffset = null;
+                _lastProgressSaveUtc = DateTime.MinValue;
             }
 
-            _isRestoringProgress = false;
-            _pendingRestoreProgress = null;
-            _pendingRestoreOffset = null;
-            _lastProgressSaveUtc = DateTime.MinValue;
+            _queuedScrollRestoreRequest = null;
         }
     }
 }
