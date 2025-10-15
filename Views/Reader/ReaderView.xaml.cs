@@ -114,23 +114,29 @@ namespace MSCS.Views
             }
 
             double targetOffset;
+            double? targetProgress;
             if (_pendingScrollOffset.HasValue)
             {
                 targetOffset = Math.Clamp(_pendingScrollOffset.Value, 0, scrollableLength);
+                targetProgress = scrollableLength > 0
+                    ? targetOffset / scrollableLength
+                    : null;
             }
             else
             {
-                targetOffset = Math.Clamp(_pendingScrollProgress!.Value * scrollableLength, 0, scrollableLength);
+                var requestedProgress = Math.Clamp(_pendingScrollProgress!.Value, 0.0, 1.0);
+                targetOffset = requestedProgress * scrollableLength;
+                targetProgress = requestedProgress;
             }
             ScrollView.ScrollToVerticalOffset(targetOffset);
 
             var currentOffset = ScrollView.VerticalOffset;
             var currentProgress = scrollableLength > 0 ? currentOffset / scrollableLength : 0;
             var offsetMatch = _pendingScrollOffset.HasValue
-                ? Math.Abs(currentOffset - _pendingScrollOffset.Value) <= Math.Max(1.0, ScrollView.ViewportHeight * 0.01)
+                ? Math.Abs(currentOffset - targetOffset) <= Math.Max(1.0, ScrollView.ViewportHeight * 0.01)
                 : false;
-            var progressMatch = _pendingScrollProgress.HasValue
-                ? Math.Abs(currentProgress - _pendingScrollProgress.Value) <= 0.01
+            var progressMatch = targetProgress.HasValue
+                ? Math.Abs(currentProgress - targetProgress.Value) <= 0.02
                 : false;
             if (offsetMatch || progressMatch)
             {
