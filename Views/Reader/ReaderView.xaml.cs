@@ -44,7 +44,13 @@ namespace MSCS.Views
 
             if (readerViewModel != null)
             {
-                const double threshold = 100;
+                double viewport = scrollViewer.ViewportHeight;
+                if (viewport <= 0)
+                {
+                    viewport = scrollViewer.ActualHeight;
+                }
+
+                double threshold = Math.Max(400, viewport * 1.25);
                 double distanceToBottom = Math.Max(0, scrollViewer.ScrollableHeight - scrollViewer.VerticalOffset);
                 if (distanceToBottom <= threshold)
                 {
