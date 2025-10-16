@@ -4,7 +4,7 @@ using System;
 using System.Windows;
 using System.Windows.Input;
 
-namespace MSCS.ViewModels
+namespace MSCS.ViewModels.Settings
 {
     public class TrackingProviderViewModel : BaseViewModel, IDisposable
     {

@@ -1,29 +1,14 @@
-﻿using MSCS.Commands;
-using MSCS.Enums;
-using MSCS.Interfaces;
-using MSCS.Services;
+﻿using MSCS.Services;
+using MSCS.ViewModels.Settings;
 using System;
-using System.IO;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Input;
-using Forms = System.Windows.Forms;
+using System.Collections.ObjectModel;
+using System.Linq;
 
 namespace MSCS.ViewModels
 {
     public class SettingsViewModel : BaseViewModel, IDisposable
     {
-        private readonly LocalLibraryService _libraryService;
-        private readonly UserSettings _userSettings;
-        private readonly ThemeService _themeService;
-        private readonly List<TrackingProviderViewModel> _trackingProviders;
         private bool _disposed;
-        private string? _libraryPath;
-        private bool _suppressUpdate;
-        private bool _isAniListConnected;
-        private string? _aniListUserName;
-        private bool _suppressSettingsUpdate;
-        private AppTheme _selectedTheme;
 
         public SettingsViewModel(
             LocalLibraryService libraryService,
@@ -31,86 +16,63 @@ namespace MSCS.ViewModels
             ThemeService themeService,
             MediaTrackingServiceRegistry trackingRegistry)
         {
-            _libraryService = libraryService ?? throw new ArgumentNullException(nameof(libraryService));
-            _userSettings = userSettings ?? throw new ArgumentNullException(nameof(userSettings));
-            _themeService = themeService ?? throw new ArgumentNullException(nameof(themeService));
+            if (libraryService == null)
+            {
+                throw new ArgumentNullException(nameof(libraryService));
+            }
+
+            if (userSettings == null)
+            {
+                throw new ArgumentNullException(nameof(userSettings));
+            }
+
+            if (themeService == null)
+            {
+                throw new ArgumentNullException(nameof(themeService));
+            }
 
             if (trackingRegistry == null)
             {
                 throw new ArgumentNullException(nameof(trackingRegistry));
             }
 
-            _trackingProviders = trackingRegistry.Services
-                .OrderBy(service => service.DisplayName, StringComparer.OrdinalIgnoreCase)
-                .Select(service => new TrackingProviderViewModel(service))
-                .ToList();
-
-            _libraryService.LibraryPathChanged += OnLibraryPathChanged;
-            _userSettings.SettingsChanged += OnUserSettingsChanged;
-
-            _libraryPath = _libraryService.LibraryPath;
-
-            ThemeOptions = new List<ThemeOption>
+            Sections = new ObservableCollection<SettingsSectionViewModel>
             {
-                new(AppTheme.Dark, "Dark"),
-                new(AppTheme.Light, "Light")
+                new AppearanceSettingsSectionViewModel(themeService, userSettings),
+                new ReaderDefaultsSettingsSectionViewModel(userSettings),
+                new LibraryFolderSettingsSectionViewModel(libraryService),
+                new TrackingIntegrationsSettingsSectionViewModel(trackingRegistry)
             };
-
-            _suppressSettingsUpdate = true;
-            _selectedTheme = _userSettings.AppTheme;
-            _suppressSettingsUpdate = false;
-            OnPropertyChanged(nameof(SelectedTheme));
-
-
-            BrowseCommand = new RelayCommand(_ => BrowseForFolder());
-            ClearCommand = new RelayCommand(_ => LibraryPath = null, _ => !string.IsNullOrWhiteSpace(LibraryPath));
         }
 
-        public string? LibraryPath
+        public ObservableCollection<SettingsSectionViewModel> Sections { get; }
+
+        public SettingsSectionViewModel? GetSection(string key)
         {
-            get => _libraryPath;
-            set
+            if (key == null)
             {
-                if (_suppressUpdate)
-                {
-                    SetProperty(ref _libraryPath, value, nameof(LibraryPath));
-                    OnPropertyChanged(nameof(LibraryPathExists));
-                    CommandManager.InvalidateRequerySuggested();
-                    return;
-                }
-
-                if (SetProperty(ref _libraryPath, value, nameof(LibraryPath)))
-                {
-                    _libraryService.SetLibraryPath(value);
-                    OnPropertyChanged(nameof(LibraryPathExists));
-                    CommandManager.InvalidateRequerySuggested();
-                }
+                throw new ArgumentNullException(nameof(key));
             }
+
+            return Sections.FirstOrDefault(section => string.Equals(section.Key, key, StringComparison.OrdinalIgnoreCase));
         }
 
-        public bool LibraryPathExists => !string.IsNullOrWhiteSpace(LibraryPath) && Directory.Exists(LibraryPath);
-
-        public ICommand BrowseCommand { get; }
-        public ICommand ClearCommand { get; }
-        public IReadOnlyList<ThemeOption> ThemeOptions { get; }
-        public IReadOnlyList<TrackingProviderViewModel> TrackingProviders => _trackingProviders;
-
-        public AppTheme SelectedTheme
+        public T? GetSection<T>() where T : SettingsSectionViewModel
         {
-            get => _selectedTheme;
-            set
-            {
-                if (SetProperty(ref _selectedTheme, value, nameof(SelectedTheme)))
-                {
-                    if (!_suppressSettingsUpdate)
-                    {
-                        _themeService.ApplyTheme(value);
-                        _userSettings.AppTheme = value;
-                    }
-                }
-            }
+            return Sections.OfType<T>().FirstOrDefault();
         }
 
+        public bool TrySetSectionVisibility(string key, bool isVisible)
+        {
+            var section = GetSection(key);
+            if (section == null)
+            {
+                return false;
+            }
+
+            section.IsVisible = isVisible;
+            return true;
+        }
 
         public void Dispose()
         {
@@ -120,56 +82,11 @@ namespace MSCS.ViewModels
             }
 
             _disposed = true;
-            _libraryService.LibraryPathChanged -= OnLibraryPathChanged;
-            _userSettings.SettingsChanged -= OnUserSettingsChanged;
 
-            foreach (var provider in _trackingProviders)
+            foreach (var section in Sections)
             {
-                provider.Dispose();
+                section.Dispose();
             }
         }
-
-        private void BrowseForFolder()
-        {
-            using var dialog = new Forms.FolderBrowserDialog
-            {
-                Description = "Select the folder that contains your manga library.",
-                SelectedPath = LibraryPathExists ? LibraryPath : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                ShowNewFolderButton = false
-            };
-
-            if (dialog.ShowDialog() == Forms.DialogResult.OK)
-            {
-                LibraryPath = dialog.SelectedPath;
-            }
-        }
-
-        private void OnLibraryPathChanged(object? sender, EventArgs e)
-        {
-            try
-            {
-                _suppressUpdate = true;
-                LibraryPath = _libraryService.LibraryPath;
-            }
-            finally
-            {
-                _suppressUpdate = false;
-            }
-        }
-
-        private void OnUserSettingsChanged(object? sender, EventArgs e)
-        {
-            try
-            {
-                _suppressSettingsUpdate = true;
-                SelectedTheme = _userSettings.AppTheme;
-            }
-            finally
-            {
-                _suppressSettingsUpdate = false;
-            }
-        }
-
-        public record ThemeOption(AppTheme Value, string DisplayName);
     }
 }
