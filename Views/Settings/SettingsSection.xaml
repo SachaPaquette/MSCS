@@ -33,7 +33,7 @@
                 </TextBlock.Style>
             </TextBlock>
 
-            <ContentPresenter Content="{Binding Content, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+            <ContentPresenter Content="{Binding SectionContent, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
         </StackPanel>
     </Border>
 </UserControl>

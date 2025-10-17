@@ -1,8 +1,8 @@
-﻿using MSCS.Services;
-using MSCS.ViewModels.Settings;
-using System;
+﻿using System;
 using System.Collections.ObjectModel;
 using System.Linq;
+using MSCS.Services;
+using MSCS.ViewModels.Settings;
 
 namespace MSCS.ViewModels
 {

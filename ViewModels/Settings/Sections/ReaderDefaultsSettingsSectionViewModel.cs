@@ -96,7 +96,7 @@ namespace MSCS.ViewModels.Settings
 
         private void UpdateReaderTheme(ReaderTheme value, bool persist)
         {
-            if (SetProperty(ref _selectedReaderTheme, value) && persist && !_suppressUpdate)
+            if (SetProperty(ref _selectedReaderTheme, value, nameof(SelectedReaderTheme)) && persist && !_suppressUpdate)
             {
                 PersistDefaultReaderProfile();
             }
@@ -105,7 +105,7 @@ namespace MSCS.ViewModels.Settings
         private void UpdateReaderWidthFactor(double value, bool persist)
         {
             var clamped = Math.Clamp(value, 0.3, 1.0);
-            if (SetProperty(ref _readerWidthFactor, clamped))
+            if (SetProperty(ref _readerWidthFactor, clamped, nameof(ReaderWidthFactor)))
             {
                 OnPropertyChanged(nameof(ReaderZoomPercent));
                 if (persist && !_suppressUpdate)
@@ -118,7 +118,7 @@ namespace MSCS.ViewModels.Settings
         private void UpdateReaderMaxPageWidth(double value, bool persist)
         {
             var clamped = Math.Clamp(value, 600, 1600);
-            if (SetProperty(ref _readerMaxPageWidth, clamped) && persist && !_suppressUpdate)
+            if (SetProperty(ref _readerMaxPageWidth, clamped, nameof(ReaderMaxPageWidth)) && persist && !_suppressUpdate)
             {
                 PersistDefaultReaderProfile();
             }
@@ -127,7 +127,7 @@ namespace MSCS.ViewModels.Settings
         private void UpdateReaderScrollPageFraction(double value, bool persist)
         {
             var clamped = Math.Clamp(value, 0.5, 1.2);
-            if (SetProperty(ref _readerScrollPageFraction, clamped))
+            if (SetProperty(ref _readerScrollPageFraction, clamped, nameof(ReaderScrollPageFraction)))
             {
                 OnPropertyChanged(nameof(ReaderScrollPercent));
                 if (persist && !_suppressUpdate)
@@ -140,7 +140,7 @@ namespace MSCS.ViewModels.Settings
         private void UpdateReaderScrollDuration(int value, bool persist)
         {
             var clamped = Math.Clamp(value, 100, 500);
-            if (SetProperty(ref _readerScrollDurationMs, clamped) && persist && !_suppressUpdate)
+            if (SetProperty(ref _readerScrollDurationMs, clamped, nameof(ReaderScrollDurationMs)) && persist && !_suppressUpdate)
             {
                 PersistDefaultReaderProfile();
             }
