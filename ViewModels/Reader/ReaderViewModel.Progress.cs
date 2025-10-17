@@ -248,6 +248,11 @@ namespace MSCS.ViewModels
             return new ReadingProgressKey(MangaTitle, sourceKey, mangaUrl);
         }
 
+        public bool IsRestoringProgress => _isRestoringProgress;
+
+        private DateTime _restoreCooldownUntil = DateTime.MinValue;
+        public bool IsInRestoreCooldown => DateTime.UtcNow < _restoreCooldownUntil;
+
         internal void NotifyScrollRestoreCompleted()
         {
             if (_isRestoringProgress)
@@ -257,8 +262,9 @@ namespace MSCS.ViewModels
                 _pendingRestoreOffset = null;
                 _lastProgressSaveUtc = DateTime.MinValue;
             }
-
+            _restoreCooldownUntil = DateTime.UtcNow.AddMilliseconds(300);
             _queuedScrollRestoreRequest = null;
         }
+
     }
 }

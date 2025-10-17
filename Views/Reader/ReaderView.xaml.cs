@@ -27,55 +27,32 @@ namespace MSCS.Views
 
         private async void ScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
-            if (sender is not ScrollViewer scrollViewer)
-            {
-                return;
-            }
+            if (sender is not ScrollViewer sv) return;
 
-            var readerViewModel = ViewModel;
-            if (readerViewModel != null)
-            {
-                readerViewModel.UpdateScrollPosition(
-                    scrollViewer.VerticalOffset,
-                    scrollViewer.ExtentHeight,
-                    scrollViewer.ViewportHeight);
-            }
+            var vm = ViewModel;
+            vm?.UpdateScrollPosition(sv.VerticalOffset, sv.ExtentHeight, sv.ViewportHeight);
 
             TryApplyPendingScroll();
 
-            var skipAutoAdvanceThisTick = _suppressAutoAdvance;
-            if (skipAutoAdvanceThisTick)
-            {
-                _suppressAutoAdvance = false;
-            }
+            if (vm?.IsRestoringProgress == true || vm?.IsInRestoreCooldown == true)
+                return;
 
-            if (readerViewModel != null && !skipAutoAdvanceThisTick)
-            {
-                double viewport = scrollViewer.ViewportHeight;
-                if (viewport <= 0)
-                {
-                    viewport = scrollViewer.ActualHeight;
-                }
+            double viewport = sv.ViewportHeight > 0 ? sv.ViewportHeight : sv.ActualHeight;
+            double threshold = Math.Max(400, viewport * 1.25);
+            double distanceToBottom = Math.Max(0, sv.ScrollableHeight - sv.VerticalOffset);
 
-                double threshold = Math.Max(400, viewport * 1.25);
-                double distanceToBottom = Math.Max(0, scrollViewer.ScrollableHeight - scrollViewer.VerticalOffset);
-                if (distanceToBottom <= threshold)
+            if (distanceToBottom <= threshold)
+            {
+                try
                 {
-                    try
-                    {
-                        await readerViewModel.LoadMoreImagesAsync();
-                        if (readerViewModel.RemainingImages == 0)
-                        {
-                            await GoToNextChapter(readerViewModel);
-                        }
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        Debug.WriteLine("Image loading cancelled during scroll.");
-                    }
+                    await vm!.LoadMoreImagesAsync();
+                    if (vm.RemainingImages == 0)
+                        await GoToNextChapter(vm);
                 }
+                catch (OperationCanceledException) { Debug.WriteLine("Image loading cancelled during scroll."); }
             }
         }
+
 
         private void OnScrollRestoreRequested(object? sender, ScrollRestoreRequest request)
         {
@@ -136,34 +113,33 @@ namespace MSCS.Views
             {
                 targetOffset = Math.Clamp(_pendingScrollProgress!.Value * scrollableLength, 0, scrollableLength);
             }
+
             ScrollView.ScrollToVerticalOffset(targetOffset);
 
             var currentOffset = ScrollView.VerticalOffset;
             var currentProgress = scrollableLength > 0 ? currentOffset / scrollableLength : 0;
-            var offsetMatch = _pendingScrollOffset.HasValue
-                ? Math.Abs(currentOffset - _pendingScrollOffset.Value) <= Math.Max(1.0, ScrollView.ViewportHeight * 0.01)
-                : false;
-            var progressMatch = _pendingScrollProgress.HasValue
+
+            var tolerance = Math.Max(1.0, ScrollView.ViewportHeight * 0.01);
+
+            bool offsetMatch = Math.Abs(currentOffset - targetOffset) <= tolerance;
+
+            bool progressMatch = _pendingScrollProgress.HasValue
                 ? Math.Abs(currentProgress - _pendingScrollProgress.Value) <= 0.01
                 : false;
+
             if (offsetMatch || progressMatch)
             {
                 _scrollRestoreAttemptCount = 0;
                 _pendingScrollProgress = null;
                 _pendingScrollOffset = null;
-                vm?.NotifyScrollRestoreCompleted();
+                ViewModel?.NotifyScrollRestoreCompleted();
             }
             else
             {
-                if (ShouldAbortRestore())
-                {
-                    FinalizeScrollRestore(vm);
-                }
-                else
-                {
-                    SchedulePendingScrollRetry();
-                }
+                if (ShouldAbortRestore()) FinalizeScrollRestore(ViewModel);
+                else SchedulePendingScrollRetry();
             }
+
         }
 
         private void SchedulePendingScrollRetry()
@@ -266,15 +242,12 @@ namespace MSCS.Views
 
         private void OnChapterChanged(object? sender, EventArgs e)
         {
-            if (ScrollView == null)
-            {
-                return;
-            }
+            if (ScrollView == null) return;
+            var vm = ViewModel;
+            if (vm?.IsRestoringProgress == true) return; 
 
-            ScrollView.Dispatcher.InvokeAsync(() =>
-            {
-                ScrollView.ScrollToTop();
-            }, System.Windows.Threading.DispatcherPriority.Background);
+            ScrollView.Dispatcher.InvokeAsync(() => ScrollView.ScrollToTop(),
+                System.Windows.Threading.DispatcherPriority.Background);
         }
 
         private void UserControl_Loaded(object sender, RoutedEventArgs e)

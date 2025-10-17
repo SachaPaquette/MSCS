@@ -50,6 +50,10 @@ namespace MSCS.ViewModels
                 _scrollRestoreRequested -= value;
             }
         }
+
+
+
+
         private int _loadedCount;
         private int _currentChapterIndex;
         public int RemainingImages => _allImages.Count - _loadedCount;
