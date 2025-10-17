@@ -15,6 +15,7 @@ namespace MSCS.Views
         private double? _pendingScrollOffset;
         private bool _pendingScrollRetryScheduled;
         private int _scrollRestoreAttemptCount;
+        private bool _suppressAutoAdvance;
 
         private ReaderViewModel? ViewModel => DataContext as ReaderViewModel;
 
@@ -42,7 +43,13 @@ namespace MSCS.Views
 
             TryApplyPendingScroll();
 
-            if (readerViewModel != null)
+            var skipAutoAdvanceThisTick = _suppressAutoAdvance;
+            if (skipAutoAdvanceThisTick)
+            {
+                _suppressAutoAdvance = false;
+            }
+
+            if (readerViewModel != null && !skipAutoAdvanceThisTick)
             {
                 double viewport = scrollViewer.ViewportHeight;
                 if (viewport <= 0)
@@ -82,6 +89,7 @@ namespace MSCS.Views
                 : null;
             _pendingScrollOffset = request.ScrollOffset;
             _scrollRestoreAttemptCount = 0;
+            _suppressAutoAdvance = true;
             ScrollView.Dispatcher.InvokeAsync(() =>
             {
                 TryApplyPendingScroll();
