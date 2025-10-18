@@ -56,15 +56,16 @@ namespace MSCS.Views
                 return;
 
             double viewport = sv.ViewportHeight > 0 ? sv.ViewportHeight : sv.ActualHeight;
-            double threshold = Math.Max(400, viewport * 1.25);
+            double loadMoreThreshold = Math.Max(400, viewport * 1.25);
+            double advanceThreshold = Math.Max(64, viewport * 0.1);
             double distanceToBottom = Math.Max(0, sv.ScrollableHeight - sv.VerticalOffset);
 
-            if (distanceToBottom <= threshold)
+            if (distanceToBottom <= loadMoreThreshold)
             {
                 try
                 {
                     await vm!.LoadMoreImagesAsync();
-                    if (vm.RemainingImages == 0)
+                    if (vm.RemainingImages == 0 && distanceToBottom <= advanceThreshold)
                         await GoToNextChapter(vm);
                 }
                 catch (OperationCanceledException) { Debug.WriteLine("Image loading cancelled during scroll."); }
