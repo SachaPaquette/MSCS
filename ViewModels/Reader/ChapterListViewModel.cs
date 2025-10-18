@@ -31,7 +31,7 @@ namespace MSCS.ViewModels
         private readonly Dictionary<int, LinkedListNode<int>> _cacheNodes = new();
         private readonly object _cacheLock = new();
         private bool _disposed;
-        private readonly IAniListService? _aniListService;
+        private readonly MediaTrackingServiceRegistry? _trackingRegistry;
         private readonly UserSettings? _userSettings;
         private const int MaxCachedChapters = 4;
         private readonly bool _autoOpenOnLoad;
@@ -150,7 +150,7 @@ namespace MSCS.ViewModels
             IMangaSource source,
             INavigationService navigationService,
             Manga manga,
-            IAniListService? aniListService,
+            MediaTrackingServiceRegistry? trackingRegistry,
             UserSettings userSettings,
             string? sourceKey = null,
             bool autoOpenOnLoad = false,
@@ -159,7 +159,7 @@ namespace MSCS.ViewModels
             _source = source;
             _navigationService = navigationService;
             Manga = manga;
-            _aniListService = aniListService;
+            _trackingRegistry = trackingRegistry;
             _userSettings = userSettings;
             SourceKey = sourceKey ?? string.Empty;
             _autoOpenOnLoad = autoOpenOnLoad;
@@ -402,7 +402,7 @@ namespace MSCS.ViewModels
                 _navigationService,
                 this,
                 index,
-                _aniListService,
+                _trackingRegistry,
                 _userSettings,
                 progressForReader);
 

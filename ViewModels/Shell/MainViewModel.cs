@@ -184,7 +184,7 @@ namespace MSCS.ViewModels
                 source,
                 _navigationService,
                 manga,
-                _aniListService,
+                _mediaTrackingRegistry,
                 _userSettings,
                 sanitizedKey,
                 autoOpenChapter,

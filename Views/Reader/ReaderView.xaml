@@ -1,6 +1,7 @@
 ﻿<UserControl x:Class="MSCS.Views.ReaderView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:MSCS.ViewModels"
              xmlns:conv="clr-namespace:MSCS.Converters"
              xmlns:enums="clr-namespace:MSCS.Enums"
              Background="{Binding Preferences.ReaderBackgroundBrush, FallbackValue=#0F151F}"
@@ -56,6 +57,48 @@
                     </Setter.Value>
                 </Setter>
             </Style>
+
+            <DataTemplate DataType="{x:Type vm:ReaderViewModel+TrackingProvider}">
+                <Border Background="#263149"
+                        CornerRadius="4"
+                        Padding="6,2">
+                    <TextBlock Text="{Binding DisplayName}"
+                               Foreground="#E9EEF7"
+                               FontSize="12"
+                               FontWeight="SemiBold"/>
+                </Border>
+            </DataTemplate>
+
+            <DataTemplate DataType="{x:Type vm:ReaderViewModel+AniListTrackingProvider}">
+                <Border Background="#152B4E"
+                        CornerRadius="4"
+                        Padding="6,2">
+                    <TextBlock Text="AniList"
+                               Foreground="#6EC1FF"
+                               FontSize="12"
+                               FontWeight="SemiBold"/>
+                </Border>
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:ReaderViewModel+MyAnimeListTrackingProvider}">
+                <Border Background="#1F2A44"
+                        CornerRadius="4"
+                        Padding="6,2">
+                    <TextBlock Text="MyAnimeList"
+                               Foreground="#8EC5FF"
+                               FontSize="12"
+                               FontWeight="SemiBold"/>
+                </Border>
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:ReaderViewModel+KitsuTrackingProvider}">
+                <Border Background="#34253B"
+                        CornerRadius="4"
+                        Padding="6,2">
+                    <TextBlock Text="Kitsu"
+                               Foreground="#EFA8FF"
+                               FontSize="12"
+                               FontWeight="SemiBold"/>
+                </Border>
+            </DataTemplate>
         </ResourceDictionary>
     </UserControl.Resources>
 
@@ -357,6 +400,7 @@
                     </StackPanel>
 
 
+
                     <!-- Manga info + tracking -->
                     <Grid Grid.Row="4">
                         <Grid.ColumnDefinitions>
@@ -372,19 +416,57 @@
                                        Foreground="#8F9BB4"
                                        FontSize="12"
                                        TextTrimming="CharacterEllipsis" />
+                            <StackPanel Orientation="Horizontal"
+                                        Margin="0,6,0,0"
+                                        VerticalAlignment="Center"
+                                        Visibility="{Binding HasTrackingProviders, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <ContentControl Content="{Binding ActiveTrackingProvider}"/>
+                                <ComboBox ItemsSource="{Binding TrackingProviders}"
+                                          SelectedItem="{Binding ActiveTrackingProvider}"
+                                          DisplayMemberPath="DisplayName"
+                                          Width="150"
+                                          Margin="8,0,0,0">
+                                    <ComboBox.Style>
+                                        <Style TargetType="ComboBox">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasMultipleTrackingProviders}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ComboBox.Style>
+                                </ComboBox>
+                                <TextBlock Text="{Binding ActiveTrackerName}"
+                                           Margin="8,0,0,0"
+                                           Foreground="#8F9BB4"
+                                           FontSize="12"
+                                           VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasMultipleTrackingProviders}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
                             <StackPanel Orientation="Vertical"
                                         Margin="0,6,0,0"
-                                        Visibility="{Binding IsAniListTracked, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                <TextBlock Text="{Binding AniListStatusDisplay}"
+                                        Visibility="{Binding IsTracked, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <TextBlock Text="{Binding TrackingStatusDisplay}"
                                            Foreground="#8F9BB4"
                                            FontSize="12" />
-                                <TextBlock Text="{Binding AniListProgressDisplay}"
+                                <TextBlock Text="{Binding TrackingProgressDisplay}"
                                            Foreground="#8F9BB4"
                                            FontSize="12" />
-                                <TextBlock Text="{Binding AniListScoreDisplay}"
+                                <TextBlock Text="{Binding TrackingScoreDisplay}"
                                            Foreground="#8F9BB4"
                                            FontSize="12" />
-                                <TextBlock Text="{Binding AniListUpdatedDisplay}"
+                                <TextBlock Text="{Binding TrackingUpdatedDisplay}"
                                            Foreground="#60708E"
                                            FontSize="11" />
                             </StackPanel>
@@ -392,21 +474,21 @@
                         <StackPanel Grid.Column="1"
                                     Orientation="Vertical"
                                     HorizontalAlignment="Right"
-                                    Visibility="{Binding IsAniListAvailable, Converter={StaticResource BooleanToVisibilityConverter}}">
-                            <Button Content="{Binding AniListButtonText}"
+                                    Visibility="{Binding HasTrackingProviders, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <Button Content="{Binding TrackButtonText}"
                                     Style="{StaticResource AccentButton}"
-                                    Command="{Binding AniListTrackCommand}"
-                                    ToolTip="Manage AniList tracking" />
-                            <Button Content="Open AniList"
+                                    Command="{Binding TrackCommand}"
+                                    ToolTip="{Binding ActiveTrackerName, StringFormat=Manage {0} tracking, TargetNullValue=Manage tracking}" />
+                            <Button Content="{Binding OpenTrackerButtonText}"
                                     Margin="0,6,0,0"
-                                    Command="{Binding AniListOpenInBrowserCommand}"
-                                    Visibility="{Binding IsAniListTracked, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                    ToolTip="Open this series on AniList" />
-                            <Button Content="Remove"
+                                    Command="{Binding OpenInBrowserCommand}"
+                                    Visibility="{Binding IsTracked, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    ToolTip="{Binding ActiveTrackerName, StringFormat=Open this series on {0}, TargetNullValue=Open the tracked series}" />
+                            <Button Content="{Binding RemoveTrackerButtonText}"
                                     Margin="0,6,0,0"
-                                    Command="{Binding AniListRemoveTrackingCommand}"
-                                    Visibility="{Binding IsAniListTracked, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                    ToolTip="Remove AniList tracking" />
+                                    Command="{Binding RemoveTrackingCommand}"
+                                    Visibility="{Binding IsTracked, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    ToolTip="{Binding ActiveTrackerName, StringFormat=Remove {0} tracking, TargetNullValue=Remove tracking}" />
                         </StackPanel>
                     </Grid>
 

@@ -47,7 +47,7 @@ namespace MSCS.ViewModels
 
                 if (newIndex == _currentChapterIndex + 1)
                 {
-                    await UpdateAniListProgressAsync().ConfigureAwait(false);
+                    await UpdateTrackingProgressAsync().ConfigureAwait(false);
                 }
 
                 var images = await _chapterListViewModel.GetChapterImagesAsync(newIndex);

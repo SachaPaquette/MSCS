@@ -43,13 +43,13 @@
                            FontWeight="SemiBold"/>
             </DockPanel>
 
-            <Button Content="{Binding AniListButtonText}"
+            <Button Content="{Binding TrackButtonText}"
                         Margin="0,12,0,0"
                         HorizontalAlignment="Right"
                         Style="{StaticResource AccentButton}"
-                        Command="{Binding AniListTrackCommand}"
-                        Visibility="{Binding IsAniListAvailable, Converter={StaticResource BooleanToVisibilityConverter}}"
-                        ToolTip="Track this series on AniList"/>
+                        Command="{Binding TrackCommand}"
+                        Visibility="{Binding HasTrackingProviders, Converter={StaticResource BooleanToVisibilityConverter}}"
+                        ToolTip="{Binding ActiveTrackerName, StringFormat=Manage {0} tracking, TargetNullValue=Manage tracking}"/>
 
             <!-- List -->
             <ListBox Grid.Row="4"
