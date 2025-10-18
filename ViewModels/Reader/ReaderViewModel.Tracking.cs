@@ -14,6 +14,8 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using Application = System.Windows.Application;
+using MessageBox = System.Windows.MessageBox;
 
 namespace MSCS.ViewModels
 {
@@ -202,7 +204,7 @@ namespace MSCS.ViewModels
             public virtual void Dispose() { }
         }
 
-        private sealed class AniListTrackingProvider : TrackingProvider
+        public sealed class AniListTrackingProvider : TrackingProvider
         {
             private readonly IAniListService _aniListService;
             private AniListTrackingInfo? _trackingInfo;
@@ -468,7 +470,7 @@ namespace MSCS.ViewModels
             }
         }
 
-        private sealed class MyAnimeListTrackingProvider : TrackingProvider
+        public sealed class MyAnimeListTrackingProvider : TrackingProvider
         {
             private readonly MyAnimeListService _myAnimeListService;
             private MyAnimeListTrackingInfo? _trackingInfo;
@@ -803,7 +805,7 @@ namespace MSCS.ViewModels
             }
         }
 
-        private sealed class KitsuTrackingProvider : TrackingProvider
+        public sealed class KitsuTrackingProvider : TrackingProvider
         {
             private readonly KitsuService _kitsuService;
             private KitsuTrackingInfo? _trackingInfo;

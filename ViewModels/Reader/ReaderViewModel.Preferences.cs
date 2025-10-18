@@ -16,13 +16,13 @@ namespace MSCS.ViewModels
 {
     public partial class ReaderViewModel
     {
-        private Preferences? _preferences;
-        public Preferences Preferences => _preferences ??= new Preferences(_userSettings);
+        private PreferencesVM? _preferences;
+        public PreferencesVM Preferences => _preferences ??= new PreferencesVM(_userSettings);
 
         public void InitPreferences()
         {
             if (_preferences == null)
-                _preferences = new Preferences(_userSettings);
+                _preferences = new PreferencesVM(_userSettings);
 
             _preferences.UpdateProfileKey(DetermineProfileKey());
         }
@@ -30,7 +30,7 @@ namespace MSCS.ViewModels
         public void RefreshPreferencesProfileKey()
             => _preferences?.UpdateProfileKey(DetermineProfileKey());
 
-        public sealed class Preferences : BaseViewModel
+        public sealed class PreferencesVM : BaseViewModel
         {
             private readonly UserSettings? _userSettings;
             private string? _profileKey;
@@ -53,7 +53,7 @@ namespace MSCS.ViewModels
             private static readonly SolidColorBrush HighContrastBackground = CreateFrozenBrush("#0B0B0B");
             private static readonly SolidColorBrush HighContrastSurface = CreateFrozenBrush("#1E1E1E");
 
-            public Preferences(UserSettings? userSettings)
+            public PreferencesVM(UserSettings? userSettings)
             {
                 _userSettings = userSettings;
                 InitializeCommands();
