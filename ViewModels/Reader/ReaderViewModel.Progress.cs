@@ -7,6 +7,7 @@ namespace MSCS.ViewModels
 {
     public partial class ReaderViewModel
     {
+
         public void UpdateScrollPosition(double verticalOffset, double extentHeight, double viewportHeight)
         {
             var clampedExtent = double.IsNaN(extentHeight) ? 0 : Math.Max(extentHeight, 0);

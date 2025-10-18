@@ -5,7 +5,6 @@ using MSCS.Interfaces;
 using MSCS.Models;
 using MSCS.Services;
 using MSCS.ViewModels;
-using MSCS.ViewModels.Reader.Components;
 using MSCS.Views;
 using System;
 using System.Collections.Generic;
@@ -55,9 +54,6 @@ namespace MSCS.ViewModels
             }
         }
 
-
-
-
         private int _loadedCount;
         private int _currentChapterIndex;
         public int RemainingImages => _allImages.Count - _loadedCount;
@@ -74,8 +70,7 @@ namespace MSCS.ViewModels
         private double _lastKnownScrollOffset;
         private double _lastKnownExtentHeight;
         private double _lastKnownViewportHeight;
-        private readonly ReaderPreferencesViewModel _preferences;
-        public ReaderPreferencesViewModel Preferences => _preferences;
+
         private double _scrollProgress;
         public double ScrollProgress => _scrollProgress;
         private bool _isSidebarOpen;
@@ -137,6 +132,15 @@ namespace MSCS.ViewModels
                 }
             }
         }
+
+        private string? DetermineProfileKey()
+        {
+            if (!string.IsNullOrWhiteSpace(_chapterListViewModel?.Manga?.Title))
+                return _chapterListViewModel!.Manga!.Title;
+
+            return string.IsNullOrWhiteSpace(MangaTitle) ? null : MangaTitle;
+        }
+
         public ICommand GoBackCommand { get; private set; } = new RelayCommand(_ => { }, _ => false);
         public ICommand GoHomeCommand { get; private set; } = new RelayCommand(_ => { }, _ => false);
         public ICommand PreviousChapterCommand { get; private set; } = new AsyncRelayCommand(_ => Task.CompletedTask, _ => false);
@@ -172,10 +176,9 @@ namespace MSCS.ViewModels
             ImageUrls = new ObservableCollection<ChapterImage>();
             Chapters = new ObservableCollection<Chapter>();
             _trackingProviders = new ObservableCollection<TrackingProvider>();
+            InitPreferences();
             InitializeNavigationCommands();
             InitializeTrackingProviders();
-            InitializeReaderProfile();
-            InitializePreferenceCommands();
         }
 
         public ReaderViewModel(
@@ -194,7 +197,7 @@ namespace MSCS.ViewModels
             _trackingRegistry = trackingRegistry;
             _userSettings = userSettings;
             _initialProgress = initialProgress;
-
+            InitPreferences();
             _allImages = imageUrls?.ToList() ?? new List<ChapterImage>();
             ImageUrls = new ObservableCollection<ChapterImage>();
             ChapterTitle = title ?? string.Empty;
@@ -219,8 +222,7 @@ namespace MSCS.ViewModels
 
             InitializeNavigationCommands();
             InitializeTrackingProviders();
-            InitializeReaderProfile();
-            InitializePreferenceCommands();
+            _preferences.UpdateProfileKey(DetermineProfileKey());
 
             Debug.WriteLine($"ReaderViewModel initialized with {_allImages.Count} images");
             Debug.WriteLine($"Current chapter index {_currentChapterIndex}");
@@ -237,16 +239,6 @@ namespace MSCS.ViewModels
             _ = _chapterListViewModel?.PrefetchChapterAsync(_currentChapterIndex + 1);
             _ = UpdateTrackingProgressAsync();
             RestoreReadingProgress();
-        }
-
-        private string? DetermineProfileKey()
-        {
-            if (!string.IsNullOrWhiteSpace(_chapterListViewModel?.Manga?.Title))
-            {
-                return _chapterListViewModel.Manga!.Title;
-            }
-
-            return string.IsNullOrWhiteSpace(MangaTitle) ? null : MangaTitle;
         }
     }
 }
