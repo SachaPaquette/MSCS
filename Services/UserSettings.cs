@@ -1001,8 +1001,8 @@ namespace MSCS.Services
             public string? MangaUrl { get; set; }
             public string? SourceKey { get; set; }
             public string? CoverImageUrl { get; set; }
-            public double? ScrollOffset { get; internal set; }
-            public double? ScrollableHeight { get; internal set; }
+            public double? ScrollOffset { get; set; }
+            public double? ScrollableHeight { get; set; }
             public string? Title { get; set; }
         }
 
