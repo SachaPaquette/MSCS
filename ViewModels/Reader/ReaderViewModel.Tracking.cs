@@ -346,7 +346,12 @@ namespace MSCS.ViewModels
                     initialQuery,
                     _trackingInfo,
                     suggestedProgress > 0 ? suggestedProgress : null);
-                var dialog = new AniListTrackingWindow(trackingViewModel);
+
+                var dialogViewModel = new TrackingWindowViewModel(
+                    "Add Tracking",
+                    new ITrackingDialogViewModel[] { trackingViewModel });
+                var dialog = new TrackingWindow(dialogViewModel);
+
                 if (Application.Current?.MainWindow != null)
                 {
                     dialog.Owner = Application.Current.MainWindow;

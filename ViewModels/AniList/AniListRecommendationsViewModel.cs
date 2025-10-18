@@ -1,6 +1,7 @@
 ﻿using MSCS.Commands;
 using MSCS.Enums;
 using MSCS.Helpers;
+using MSCS.Interfaces;
 using MSCS.Models;
 using MSCS.Services;
 using MSCS.Views;
@@ -552,7 +553,11 @@ namespace MSCS.ViewModels
                     existingTracking,
                     null);
 
-                var dialog = new AniListTrackingWindow(trackingViewModel);
+                var dialogViewModel = new TrackingWindowViewModel(
+                    "Manage Tracking",
+                    new ITrackingDialogViewModel[] { trackingViewModel });
+                var dialog = new TrackingWindow(dialogViewModel);
+
                 if (System.Windows.Application.Current?.MainWindow != null)
                 {
                     dialog.Owner = System.Windows.Application.Current.MainWindow;

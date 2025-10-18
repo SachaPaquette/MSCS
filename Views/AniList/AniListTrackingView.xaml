@@ -1,14 +1,7 @@
-﻿<Window x:Class="MSCS.Views.AniListTrackingWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Add Tracking"
-        Height="640"
-        Width="420"
-        Background="#0F151F"
-        WindowStartupLocation="CenterOwner"
-        ResizeMode="NoResize"
-        WindowStyle="SingleBorderWindow">
-    <Window.Resources>
+﻿<UserControl x:Class="MSCS.Views.AniListTrackingView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
         <Style x:Key="AccentButton" TargetType="Button">
             <Setter Property="Background" Value="#7C9CFF" />
             <Setter Property="Foreground" Value="White" />
@@ -41,7 +34,7 @@
                 </Setter.Value>
             </Setter>
         </Style>
-    </Window.Resources>
+    </UserControl.Resources>
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -253,4 +246,4 @@
             </StackPanel>
         </StackPanel>
     </Grid>
-</Window>
+</UserControl>

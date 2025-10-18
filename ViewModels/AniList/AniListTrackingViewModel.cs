@@ -13,7 +13,7 @@ using System.Windows.Input;
 
 namespace MSCS.ViewModels
 {
-    public class AniListTrackingViewModel : BaseViewModel, IDisposable
+    public class AniListTrackingViewModel : BaseViewModel, ITrackingDialogViewModel
     {
         private readonly IAniListService _aniListService;
         private readonly string _mangaTitle;
@@ -68,6 +68,9 @@ namespace MSCS.ViewModels
             }
         }
 
+        public string ProviderId => _aniListService.ServiceId;
+
+        public string DisplayName => _aniListService.DisplayName;
         public ObservableCollection<AniListMedia> Results { get; }
 
         public IReadOnlyList<StatusOption> StatusOptions { get; }
