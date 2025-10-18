@@ -32,7 +32,9 @@ namespace MSCS.Views
             private set => SetValue(IsFullscreenModeProperty, value);
         }
 
-        private ReaderViewModel? ViewModel => DataContext as ReaderViewModel;
+
+        private ReaderViewModel? _viewModel;
+        private ReaderViewModel? ViewModel => _viewModel;
 
         public ReaderView()
         {
@@ -267,8 +269,13 @@ namespace MSCS.Views
 
             if (e.NewValue is ReaderViewModel newViewModel)
             {
+                _viewModel = newViewModel;
                 newViewModel.ChapterChanged += OnChapterChanged;
                 newViewModel.ScrollRestoreRequested += OnScrollRestoreRequested;
+            }
+            else
+            {
+                _viewModel = null;
             }
         }
 
