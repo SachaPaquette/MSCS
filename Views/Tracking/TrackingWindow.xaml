@@ -13,6 +13,9 @@
         <DataTemplate DataType="{x:Type vm:AniListTrackingViewModel}">
             <views:AniListTrackingView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:MyAnimeListTrackingViewModel}">
+            <views:MyAnimeListTrackingView />
+        </DataTemplate>
         <Style TargetType="TabControl">
             <Setter Property="Background" Value="#0F151F" />
             <Setter Property="Foreground" Value="#E9EEF7" />
@@ -38,7 +41,11 @@
                     Margin="-1">
             <TabControl.ItemTemplate>
                 <DataTemplate>
-                    <TextBlock Text="{Binding DisplayName}" />
+                    <TextBlock Text="{Binding DisplayName}"
+                               Foreground="#F7FAFF"
+                               FontSize="14"
+                               FontWeight="SemiBold"
+                               Opacity="1" />
                 </DataTemplate>
             </TabControl.ItemTemplate>
         </TabControl>

@@ -1,0 +1,290 @@
+﻿<UserControl x:Class="MSCS.Views.MyAnimeListTrackingView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <Style x:Key="AccentButton" TargetType="Button">
+            <Setter Property="Background" Value="#7C9CFF" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderBrush" Value="{x:Null}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="8"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#91ACFF" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#6987F7" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
+        <Grid Margin="16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Text="MyAnimeList Tracking"
+                   FontSize="22"
+                   Foreground="#E9EEF7"
+                   FontWeight="SemiBold" />
+
+            <DockPanel Grid.Row="1" Margin="0,12,0,12">
+                <Button Content="Search"
+                    Width="90"
+                    Margin="8,0,0,0"
+                    Style="{DynamicResource AccentButton}"
+                    Command="{Binding SearchCommand}"
+                    DockPanel.Dock="Right" />
+                <TextBox Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                     Height="36"
+                     Padding="10,4"
+                     VerticalContentAlignment="Center"
+                     Background="#1C2434"
+                     Foreground="White"
+                     BorderBrush="#2B3448" />
+            </DockPanel>
+
+            <Border Grid.Row="2"
+                Background="#1A2230"
+                BorderBrush="#273145"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="4">
+                <ListBox ItemsSource="{Binding Results}"
+                     SelectedItem="{Binding SelectedMedia, Mode=TwoWay}"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     MouseDoubleClick="ListBox_MouseDoubleClick">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Padding" Value="4" />
+                            <Setter Property="Margin" Value="0,4" />
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <Border x:Name="ItemBorder"
+                                            Background="Transparent"
+                                            CornerRadius="6">
+                                            <ContentPresenter />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="ItemBorder" Property="Background" Value="#1F2A3D" />
+                                            </Trigger>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter TargetName="ItemBorder" Property="Background" Value="#2C3A50" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition Width="10" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0"
+                                    Width="80"
+                                    Height="110"
+                                    Background="#1F293A"
+                                    CornerRadius="4">
+                                    <Image Source="{Binding CoverImageUrl}"
+                                       Stretch="UniformToFill"
+                                       ClipToBounds="True"
+                                       SnapsToDevicePixels="True" />
+                                </Border>
+                                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Title}"
+                                           Foreground="#E9EEF7"
+                                           FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding Synopsis}"
+                                           Foreground="#8F9BB4"
+                                           FontSize="12"
+                                           TextWrapping="Wrap"
+                                           MaxHeight="48"
+                                           TextTrimming="CharacterEllipsis" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                        <TextBlock Text="Chapters:" Foreground="#60708E" FontSize="12" />
+                                        <TextBlock Text="{Binding Chapters}" Foreground="#8F9BB4" FontSize="12" Margin="4,0,0,0" />
+                                        <TextBlock Text="•" Foreground="#2F3A50" FontSize="12" Margin="8,0" />
+                                        <TextBlock Text="Score:" Foreground="#60708E" FontSize="12" />
+                                        <TextBlock Text="{Binding Score, StringFormat={}{0:0.#}}" Foreground="#8F9BB4" FontSize="12" Margin="4,0,0,0" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Border>
+
+            <Border Grid.Row="3"
+                Background="#121B29"
+                BorderBrush="#273145"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="12"
+                Margin="0,12,0,0">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Visibility" Value="Visible" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SelectedMedia}" Value="{x:Null}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel>
+                    <TextBlock Text="Selected series"
+                           Foreground="#E9EEF7"
+                           FontWeight="SemiBold" />
+                    <Grid Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border Grid.Column="0"
+                            Width="120"
+                            Height="165"
+                            Background="#1F293A"
+                            CornerRadius="6">
+                            <Image Source="{Binding SelectedMedia.CoverImageUrl}"
+                               Stretch="UniformToFill"
+                               ClipToBounds="True"
+                               SnapsToDevicePixels="True" />
+                        </Border>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="{Binding SelectedMedia.Title}"
+                                   Foreground="#8F9BB4"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding SelectedMedia.Synopsis}"
+                                   Foreground="#60708E"
+                                   FontSize="12"
+                                   TextWrapping="Wrap"
+                                   Margin="0,6,0,0" />
+                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
+                                    <TextBlock Text="Chapters:" Foreground="#60708E" FontSize="12" />
+                                    <TextBlock Text="{Binding SelectedMedia.Chapters}" Foreground="#8F9BB4" FontSize="12" Margin="4,0,0,0" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Score:" Foreground="#60708E" FontSize="12" />
+                                    <TextBlock Text="{Binding SelectedMedia.Score, StringFormat={}{0:0.#}}" Foreground="#8F9BB4" FontSize="12" Margin="4,0,0,0" />
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock Text="{Binding ExistingEntrySummary}"
+                           Foreground="#8F9BB4"
+                           FontSize="12"
+                           Margin="0,6,0,0"
+                           TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Row="4"
+                Background="#121B29"
+                BorderBrush="#273145"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="12"
+                Margin="0,12,0,0">
+                <StackPanel>
+                    <TextBlock Text="Update MyAnimeList entry"
+                           Foreground="#E9EEF7"
+                           FontWeight="SemiBold" />
+                    <ComboBox ItemsSource="{Binding StatusOptions}"
+                          SelectedValuePath="Value"
+                          DisplayMemberPath="Display"
+                          SelectedValue="{Binding SelectedStatus, Mode=TwoWay}"
+                          Margin="0,6,0,0"
+                          Height="32"
+                          Background="#1C2434"
+                          Foreground="White"
+                          BorderBrush="#2B3448" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0" VerticalAlignment="Center">
+                        <CheckBox Content="Set progress"
+                              IsChecked="{Binding UseProgress}"
+                              Foreground="#E9EEF7"
+                              Margin="0,0,8,0" />
+                        <TextBox Text="{Binding ProgressText, UpdateSourceTrigger=PropertyChanged}"
+                             Width="80"
+                             Height="28"
+                             IsEnabled="{Binding UseProgress}"
+                             Background="#1C2434"
+                             Foreground="White"
+                             BorderBrush="#2B3448" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0" VerticalAlignment="Center">
+                        <CheckBox Content="Set score"
+                              IsChecked="{Binding UseScore}"
+                              Foreground="#E9EEF7"
+                              Margin="0,0,8,0" />
+                        <Slider Minimum="0"
+                            Maximum="10"
+                            Width="180"
+                            Value="{Binding Score, Mode=TwoWay}"
+                            IsEnabled="{Binding UseScore}"
+                            TickFrequency="1"
+                            IsSnapToTickEnabled="True" />
+                        <TextBlock Text="{Binding ScoreDisplay}"
+                               Foreground="#8F9BB4"
+                               Margin="8,0,0,0" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <StackPanel Grid.Row="5" Margin="0,12,0,0">
+                <TextBlock Text="{Binding StatusMessage}"
+                       Foreground="#8F9BB4"
+                       Margin="0,0,0,12" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="Cancel"
+                        Width="90"
+                        Margin="0,0,8,0"
+                        Command="{Binding CancelCommand}" />
+                    <Button Content="Confirm"
+                        Width="90"
+                        Style="{DynamicResource AccentButton}"
+                        Command="{Binding ConfirmCommand}" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
+</UserControl>

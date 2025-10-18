@@ -114,6 +114,84 @@ namespace MSCS.ViewModels
             CommandManager.InvalidateRequerySuggested();
         }
 
+
+        internal bool CanShowTrackingDialog(TrackingProvider? provider)
+        {
+            return provider?.CanOpenTrackingDialog == true && !string.IsNullOrWhiteSpace(MangaTitle);
+        }
+
+        internal async Task ShowTrackingDialogAsync(TrackingProvider initiatingProvider)
+        {
+            if (initiatingProvider == null)
+            {
+                return;
+            }
+
+            var providerViewModels = new List<(TrackingProvider Provider, ITrackingDialogViewModel ViewModel)>();
+
+            var initiatingViewModel = await initiatingProvider
+                .CreateTrackingDialogViewModelAsync(showErrors: true)
+                .ConfigureAwait(true);
+
+            if (initiatingViewModel != null)
+            {
+                providerViewModels.Add((initiatingProvider, initiatingViewModel));
+            }
+
+            foreach (var provider in _trackingProviders)
+            {
+                if (ReferenceEquals(provider, initiatingProvider) || !provider.CanOpenTrackingDialog)
+                {
+                    continue;
+                }
+
+                var viewModel = await provider
+                    .CreateTrackingDialogViewModelAsync(showErrors: false)
+                    .ConfigureAwait(true);
+
+                if (viewModel != null)
+                {
+                    providerViewModels.Add((provider, viewModel));
+                }
+            }
+
+            if (providerViewModels.Count == 0)
+            {
+                if (initiatingViewModel == null)
+                {
+                    MessageBox.Show(
+                        "No tracking providers are available for this series.",
+                        "Tracking",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                }
+
+                return;
+            }
+
+            var dialogViewModel = new TrackingWindowViewModel(
+                initiatingProvider.IsTracked ? "Manage tracking" : "Add tracking",
+                providerViewModels.Select(p => p.ViewModel));
+
+            dialogViewModel.SelectedProvider = initiatingViewModel ?? providerViewModels[0].ViewModel;
+
+            var dialog = new TrackingWindow(dialogViewModel);
+            if (Application.Current?.MainWindow != null)
+            {
+                dialog.Owner = Application.Current.MainWindow;
+            }
+
+            var result = dialog.ShowDialog();
+            var confirmed = result == true;
+
+            foreach (var entry in providerViewModels)
+            {
+                await entry.Provider
+                    .OnTrackingDialogClosedAsync(entry.ViewModel, confirmed)
+                    .ConfigureAwait(true);
+            }
+        }
+
         private Task UpdateTrackingProgressAsync()
         {
             return ActiveTrackingProvider?.UpdateProgressAsync() ?? Task.CompletedTask;
@@ -179,11 +257,14 @@ namespace MSCS.ViewModels
             {
                 Owner = owner ?? throw new ArgumentNullException(nameof(owner));
                 Service = service ?? throw new ArgumentNullException(nameof(service));
+                _manageTrackingCommand = new AsyncRelayCommand(
+                 _ => Owner.ShowTrackingDialogAsync(this),
+                 _ => Owner.CanShowTrackingDialog(this));
             }
 
             protected ReaderViewModel Owner { get; }
             protected IMediaTrackingService Service { get; }
-
+            private readonly AsyncRelayCommand _manageTrackingCommand;
             public string ServiceId => Service.ServiceId;
             public virtual string DisplayName => Service.DisplayName;
             public virtual bool IsAvailable => true;
@@ -194,9 +275,20 @@ namespace MSCS.ViewModels
             public virtual string? ScoreDisplay => null;
             public virtual string? UpdatedDisplay => null;
             public virtual bool CanOpenInBrowser => false;
-            public abstract ICommand TrackCommand { get; }
+            public virtual bool CanOpenTrackingDialog => IsAvailable;
+            public virtual ICommand TrackCommand => _manageTrackingCommand;
             public abstract ICommand OpenInBrowserCommand { get; }
             public abstract ICommand RemoveTrackingCommand { get; }
+
+            internal virtual Task<ITrackingDialogViewModel?> CreateTrackingDialogViewModelAsync(bool showErrors)
+            {
+                return Task.FromResult<ITrackingDialogViewModel?>(null);
+            }
+
+            internal virtual Task OnTrackingDialogClosedAsync(ITrackingDialogViewModel viewModel, bool confirmed)
+            {
+                return Task.CompletedTask;
+            }
 
             public virtual Task UpdateProgressAsync() => Task.CompletedTask;
             public virtual Task RefreshAsync() => Task.CompletedTask;
@@ -208,16 +300,15 @@ namespace MSCS.ViewModels
         {
             private readonly IAniListService _aniListService;
             private AniListTrackingInfo? _trackingInfo;
-            private readonly AsyncRelayCommand _trackCommand;
             private readonly RelayCommand _openInBrowserCommand;
             private readonly AsyncRelayCommand _removeTrackingCommand;
+            private AniListTrackingViewModel? _dialogViewModel;
 
             public AniListTrackingProvider(ReaderViewModel owner, IAniListService aniListService)
                 : base(owner, aniListService)
             {
                 _aniListService = aniListService ?? throw new ArgumentNullException(nameof(aniListService));
 
-                _trackCommand = new AsyncRelayCommand(_ => TrackAsync(), _ => _aniListService != null);
                 _openInBrowserCommand = new RelayCommand(_ => OpenInBrowser(), _ => CanOpenInBrowser);
                 _removeTrackingCommand = new AsyncRelayCommand(_ => RemoveTrackingAsync(), _ => _trackingInfo != null);
 
@@ -238,6 +329,7 @@ namespace MSCS.ViewModels
             public override bool IsTracked => _trackingInfo != null;
             public override string TrackButtonText => IsTracked ? "Manage" : "Track";
             public override string? StatusDisplay => _trackingInfo?.StatusDisplay;
+            public override bool CanOpenTrackingDialog => _aniListService.IsAuthenticated;
             public override string? ProgressDisplay
             {
                 get
@@ -262,9 +354,71 @@ namespace MSCS.ViewModels
                 : null;
 
             public override bool CanOpenInBrowser => _trackingInfo != null && !string.IsNullOrWhiteSpace(_trackingInfo.SiteUrl);
-            public override ICommand TrackCommand => _trackCommand;
             public override ICommand OpenInBrowserCommand => _openInBrowserCommand;
             public override ICommand RemoveTrackingCommand => _removeTrackingCommand;
+
+            internal override Task<ITrackingDialogViewModel?> CreateTrackingDialogViewModelAsync(bool showErrors)
+            {
+                if (string.IsNullOrWhiteSpace(Owner.MangaTitle))
+                {
+                    if (showErrors)
+                    {
+                        MessageBox.Show(
+                            "Unable to determine the manga title for tracking.",
+                            "AniList",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Warning);
+                    }
+
+                }
+                else if (!_aniListService.IsAuthenticated)
+                {
+                    if (showErrors)
+                    {
+                        MessageBox.Show(
+                            "Connect your AniList account from the Settings tab before tracking a series.",
+                            "AniList",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Information);
+                    }
+                }
+                else
+                {
+                    var suggestedProgress = Owner.GetProgressForChapter(Owner.SelectedChapter);
+                    var initialQuery = _trackingInfo?.Title ?? Owner.MangaTitle;
+                    _dialogViewModel = new AniListTrackingViewModel(
+                        _aniListService,
+                        Owner.MangaTitle,
+                        initialQuery,
+                        _trackingInfo,
+                        suggestedProgress > 0 ? suggestedProgress : null);
+                    return Task.FromResult<ITrackingDialogViewModel?>(_dialogViewModel);
+                }
+
+                return Task.FromResult<ITrackingDialogViewModel?>(null);
+            }
+
+            internal override async Task OnTrackingDialogClosedAsync(ITrackingDialogViewModel viewModel, bool confirmed)
+            {
+                if (!ReferenceEquals(viewModel, _dialogViewModel))
+                {
+                    return;
+                }
+
+                try
+                {
+                    if (confirmed && _dialogViewModel?.TrackingInfo != null)
+                    {
+                        _trackingInfo = _dialogViewModel.TrackingInfo;
+                        NotifyStateChanged();
+                        await UpdateProgressAsync().ConfigureAwait(true);
+                    }
+                }
+                finally
+                {
+                    _dialogViewModel = null;
+                }
+            }
 
             public override async Task UpdateProgressAsync()
             {
@@ -322,48 +476,6 @@ namespace MSCS.ViewModels
                     _aniListService,
                     nameof(IAniListService.TrackingChanged),
                     OnTrackingChanged);
-            }
-
-            private async Task TrackAsync()
-            {
-                if (string.IsNullOrWhiteSpace(Owner.MangaTitle))
-                {
-                    MessageBox.Show("Unable to determine the manga title for tracking.", "AniList", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-
-                if (!_aniListService.IsAuthenticated)
-                {
-                    MessageBox.Show("Connect your AniList account from the Settings tab before tracking a series.", "AniList", MessageBoxButton.OK, MessageBoxImage.Information);
-                    return;
-                }
-
-                var suggestedProgress = Owner.GetProgressForChapter(Owner.SelectedChapter);
-                var initialQuery = _trackingInfo?.Title ?? Owner.MangaTitle;
-                var trackingViewModel = new AniListTrackingViewModel(
-                    _aniListService,
-                    Owner.MangaTitle,
-                    initialQuery,
-                    _trackingInfo,
-                    suggestedProgress > 0 ? suggestedProgress : null);
-
-                var dialogViewModel = new TrackingWindowViewModel(
-                    "Add Tracking",
-                    new ITrackingDialogViewModel[] { trackingViewModel });
-                var dialog = new TrackingWindow(dialogViewModel);
-
-                if (Application.Current?.MainWindow != null)
-                {
-                    dialog.Owner = Application.Current.MainWindow;
-                }
-
-                var result = dialog.ShowDialog();
-                if (result == true && trackingViewModel.TrackingInfo != null)
-                {
-                    _trackingInfo = trackingViewModel.TrackingInfo;
-                    NotifyStateChanged();
-                    await UpdateProgressAsync().ConfigureAwait(true);
-                }
             }
 
             private void OpenInBrowser()
@@ -466,6 +578,7 @@ namespace MSCS.ViewModels
             {
                 OnPropertyChanged(nameof(IsTracked));
                 OnPropertyChanged(nameof(TrackButtonText));
+                OnPropertyChanged(nameof(CanOpenTrackingDialog));
                 OnPropertyChanged(nameof(StatusDisplay));
                 OnPropertyChanged(nameof(ProgressDisplay));
                 OnPropertyChanged(nameof(ScoreDisplay));
@@ -479,16 +592,15 @@ namespace MSCS.ViewModels
         {
             private readonly MyAnimeListService _myAnimeListService;
             private MyAnimeListTrackingInfo? _trackingInfo;
-            private readonly AsyncRelayCommand _trackCommand;
             private readonly RelayCommand _openInBrowserCommand;
             private readonly AsyncRelayCommand _removeTrackingCommand;
+            private MyAnimeListTrackingViewModel? _dialogViewModel;
 
             public MyAnimeListTrackingProvider(ReaderViewModel owner, MyAnimeListService myAnimeListService)
                 : base(owner, myAnimeListService)
             {
                 _myAnimeListService = myAnimeListService ?? throw new ArgumentNullException(nameof(myAnimeListService));
 
-                _trackCommand = new AsyncRelayCommand(_ => TrackAsync());
                 _openInBrowserCommand = new RelayCommand(_ => OpenInBrowser(), _ => CanOpenInBrowser);
                 _removeTrackingCommand = new AsyncRelayCommand(_ => RemoveTrackingAsync(), _ => _trackingInfo != null);
 
@@ -546,11 +658,72 @@ namespace MSCS.ViewModels
 
             public override bool CanOpenInBrowser => _trackingInfo != null && !string.IsNullOrWhiteSpace(_trackingInfo.SiteUrl);
 
-            public override ICommand TrackCommand => _trackCommand;
 
             public override ICommand OpenInBrowserCommand => _openInBrowserCommand;
 
             public override ICommand RemoveTrackingCommand => _removeTrackingCommand;
+
+
+            internal override async Task<ITrackingDialogViewModel?> CreateTrackingDialogViewModelAsync(bool showErrors)
+            {
+                if (string.IsNullOrWhiteSpace(Owner.MangaTitle))
+                {
+                    if (showErrors)
+                    {
+                        MessageBox.Show(
+                            "Unable to determine the manga title for tracking.",
+                            "MyAnimeList",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Warning);
+                    }
+
+                    return null;
+                }
+
+                if (!_myAnimeListService.IsAuthenticated && showErrors && _trackingInfo == null)
+                {
+                    var authenticated = await _myAnimeListService
+                        .AuthenticateAsync(Application.Current?.MainWindow)
+                        .ConfigureAwait(true);
+                    if (!authenticated)
+                    {
+                        return null;
+                    }
+                }
+
+                var initialQuery = _trackingInfo?.Title ?? Owner.MangaTitle;
+                var suggestedProgress = Owner.GetProgressForChapter(Owner.SelectedChapter);
+                _dialogViewModel = new MyAnimeListTrackingViewModel(
+                    _myAnimeListService,
+                    Owner.MangaTitle,
+                    initialQuery,
+                    _trackingInfo,
+                    suggestedProgress > 0 ? suggestedProgress : null);
+
+                return _dialogViewModel;
+            }
+
+            internal override async Task OnTrackingDialogClosedAsync(ITrackingDialogViewModel viewModel, bool confirmed)
+            {
+                if (!ReferenceEquals(viewModel, _dialogViewModel))
+                {
+                    return;
+                }
+
+                try
+                {
+                    if (confirmed && _dialogViewModel?.TrackingInfo != null)
+                    {
+                        _trackingInfo = _dialogViewModel.TrackingInfo;
+                        NotifyStateChanged();
+                        await UpdateProgressAsync().ConfigureAwait(true);
+                    }
+                }
+                finally
+                {
+                    _dialogViewModel = null;
+                }
+            }
 
             public override async Task UpdateProgressAsync()
             {
@@ -613,105 +786,6 @@ namespace MSCS.ViewModels
                     _myAnimeListService,
                     nameof(MyAnimeListService.AuthenticationChanged),
                     OnAuthenticationChanged);
-            }
-
-            private async Task TrackAsync()
-            {
-                if (string.IsNullOrWhiteSpace(Owner.MangaTitle))
-                {
-                    MessageBox.Show("Unable to determine the manga title for tracking.", "MyAnimeList", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-
-                if (_trackingInfo != null)
-                {
-                    var refresh = MessageBox.Show(
-                        "Refresh tracking details from MyAnimeList?",
-                        "MyAnimeList",
-                        MessageBoxButton.YesNo,
-                        MessageBoxImage.Question);
-                    if (refresh == MessageBoxResult.Yes)
-                    {
-                        await RefreshAsync().ConfigureAwait(true);
-                    }
-
-                    return;
-                }
-
-                if (!_myAnimeListService.IsAuthenticated)
-                {
-                    var authenticated = await _myAnimeListService.AuthenticateAsync(Application.Current?.MainWindow).ConfigureAwait(true);
-                    if (!authenticated)
-                    {
-                        return;
-                    }
-                }
-
-                var query = Owner.MangaTitle;
-                MyAnimeListMedia? selectedMedia = null;
-                try
-                {
-                    var results = await _myAnimeListService.SearchSeriesAsync(query).ConfigureAwait(true);
-                    selectedMedia = results.FirstOrDefault(result => string.Equals(result.Title, query, StringComparison.OrdinalIgnoreCase))
-                        ?? results.FirstOrDefault();
-
-                    if (selectedMedia == null)
-                    {
-                        MessageBox.Show(
-                            $"No MyAnimeList results were found for '{query}'.",
-                            "MyAnimeList",
-                            MessageBoxButton.OK,
-                            MessageBoxImage.Information);
-                        return;
-                    }
-
-                    if (!string.Equals(selectedMedia.Title, query, StringComparison.OrdinalIgnoreCase))
-                    {
-                        var confirmation = MessageBox.Show(
-                            $"Track '{query}' as '{selectedMedia.Title}' on MyAnimeList?",
-                            "MyAnimeList",
-                            MessageBoxButton.YesNo,
-                            MessageBoxImage.Question);
-                        if (confirmation != MessageBoxResult.Yes)
-                        {
-                            return;
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show(
-                        $"Failed to search MyAnimeList: {ex.Message}",
-                        "MyAnimeList",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Error);
-                    return;
-                }
-
-                try
-                {
-                    var progress = Owner.GetProgressForChapter(Owner.SelectedChapter);
-                    if (selectedMedia == null)
-                    {
-                        return;
-                    }
-
-                    var tracking = await _myAnimeListService.TrackSeriesAsync(
-                        Owner.MangaTitle,
-                        selectedMedia,
-                        progress: progress > 0 ? progress : null).ConfigureAwait(true);
-                    _trackingInfo = tracking;
-                    NotifyStateChanged();
-                    await UpdateProgressAsync().ConfigureAwait(true);
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show(
-                        $"Unable to track this series on MyAnimeList: {ex.Message}",
-                        "MyAnimeList",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Error);
-                }
             }
 
             private void OpenInBrowser()
@@ -801,6 +875,7 @@ namespace MSCS.ViewModels
                 OnPropertyChanged(nameof(IsAvailable));
                 OnPropertyChanged(nameof(IsTracked));
                 OnPropertyChanged(nameof(TrackButtonText));
+                OnPropertyChanged(nameof(CanOpenTrackingDialog));
                 OnPropertyChanged(nameof(StatusDisplay));
                 OnPropertyChanged(nameof(ProgressDisplay));
                 OnPropertyChanged(nameof(ScoreDisplay));
