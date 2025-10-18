@@ -61,11 +61,10 @@ namespace MSCS.Views
                 return;
             }
 
-            _pendingScrollProgress = request.NormalizedProgress.HasValue
-                ? Math.Clamp(request.NormalizedProgress.Value, 0.0, 1.0)
-                : null;
             _pendingScrollOffset = request.ScrollOffset;
-            _scrollRestoreAttemptCount = 0;
+            _pendingScrollProgress = (!_pendingScrollOffset.HasValue && request.NormalizedProgress.HasValue)
+                ? Math.Clamp(request.NormalizedProgress.Value, 0.0, 1.0)
+                : null; _scrollRestoreAttemptCount = 0;
             _suppressAutoAdvance = true;
             ScrollView.Dispatcher.InvokeAsync(() =>
             {
@@ -75,7 +74,7 @@ namespace MSCS.Views
 
         private void TryApplyPendingScroll()
         {
-            if (ScrollView == null || (!_pendingScrollProgress.HasValue && !_pendingScrollOffset.HasValue))
+            if (ScrollView == null || (!_pendingScrollOffset.HasValue && !_pendingScrollProgress.HasValue))
             {
                 return;
             }
@@ -86,6 +85,10 @@ namespace MSCS.Views
             var viewport = ScrollView.ViewportHeight;
             if (extent <= 0 || viewport <= 0)
             {
+                if (vm?.RemainingImages > 0)
+                {
+                    _ = vm.LoadMoreImagesAsync();
+                }
                 SchedulePendingScrollRetry();
                 return;
             }
@@ -93,6 +96,11 @@ namespace MSCS.Views
             var scrollableLength = Math.Max(extent - viewport, 0);
             if (scrollableLength <= 0)
             {
+                if (vm?.RemainingImages > 0)
+                {
+                    _ = vm.LoadMoreImagesAsync();
+                }
+
                 if (ShouldAbortRestore())
                 {
                     FinalizeScrollRestore(vm);
@@ -107,7 +115,15 @@ namespace MSCS.Views
             double targetOffset;
             if (_pendingScrollOffset.HasValue)
             {
-                targetOffset = Math.Clamp(_pendingScrollOffset.Value, 0, scrollableLength);
+                var desiredOffset = _pendingScrollOffset.Value;
+                if (desiredOffset > scrollableLength && vm?.RemainingImages > 0)
+                {
+                    _ = vm.LoadMoreImagesAsync();
+                    SchedulePendingScrollRetry();
+                    return;
+                }
+
+                targetOffset = Math.Clamp(desiredOffset, 0, scrollableLength);
             }
             else
             {
@@ -127,7 +143,7 @@ namespace MSCS.Views
                 ? Math.Abs(currentProgress - _pendingScrollProgress.Value) <= 0.01
                 : false;
 
-            if (offsetMatch || progressMatch)
+            if (offsetMatch || (!_pendingScrollOffset.HasValue && progressMatch))
             {
                 _scrollRestoreAttemptCount = 0;
                 _pendingScrollProgress = null;

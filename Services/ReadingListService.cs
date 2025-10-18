@@ -49,6 +49,13 @@ namespace MSCS.Services
                     continue;
                 }
 
+                double? normalized = progress.LegacyScrollProgress;
+                if (!normalized.HasValue && progress.ScrollOffset.HasValue && progress.ScrollableHeight.HasValue && progress.ScrollableHeight.Value > 0)
+                {
+                    var ratio = progress.ScrollOffset.Value / progress.ScrollableHeight.Value;
+                    normalized = Math.Clamp(ratio, 0.0, 1.0);
+                }
+
                 records.Add(new ReadingListRecord
                 {
                     Title = entry.Title,
@@ -56,9 +63,10 @@ namespace MSCS.Services
                     ChapterTitle = progress.ChapterTitle,
                     MangaUrl = progress.MangaUrl!,
                     SourceKey = progress.SourceKey!,
-                    ScrollProgress = Math.Clamp(progress.ScrollProgress, 0.0, 1.0),
+                    ScrollProgress = normalized,
                     LastUpdatedUtc = progress.LastUpdatedUtc,
-                    ScrollOffset = progress.ScrollOffset
+                    ScrollOffset = progress.ScrollOffset,
+                    ScrollableHeight = progress.ScrollableHeight
                 });
             }
 
@@ -121,9 +129,14 @@ namespace MSCS.Services
                     continue;
                 }
 
-                var sanitizedProgress = Math.Clamp(record.ScrollProgress, 0.0, 1.0);
+                double? sanitizedProgress = record.ScrollProgress.HasValue
+                    ? Math.Clamp(record.ScrollProgress.Value, 0.0, 1.0)
+                    : null;
                 double? sanitizedOffset = record.ScrollOffset.HasValue
                     ? Math.Max(0, record.ScrollOffset.Value)
+                    : null;
+                double? sanitizedScrollable = record.ScrollableHeight.HasValue
+                    ? Math.Max(0, record.ScrollableHeight.Value)
                     : null;
 
                 var lastUpdated = record.LastUpdatedUtc == default
@@ -137,7 +150,8 @@ namespace MSCS.Services
                     lastUpdated,
                     record.MangaUrl,
                     record.SourceKey,
-                    sanitizedOffset);
+                    sanitizedOffset,
+                    sanitizedScrollable);
 
                 _userSettings.SetReadingProgress(new ReadingProgressKey(record.Title, record.SourceKey, record.MangaUrl), progress);
                 imported++;
@@ -153,9 +167,10 @@ namespace MSCS.Services
             public string? ChapterTitle { get; set; }
             public string MangaUrl { get; set; } = string.Empty;
             public string SourceKey { get; set; } = string.Empty;
-            public double ScrollProgress { get; set; }
+            public double? ScrollProgress { get; set; }
             public DateTimeOffset LastUpdatedUtc { get; set; }
             public double? ScrollOffset { get; set; }
+            public double? ScrollableHeight { get; set; }
         }
     }
 

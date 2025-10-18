@@ -562,16 +562,26 @@ namespace MSCS.Services
                 return;
             }
 
+            var normalizedProgress = progress.LegacyScrollProgress;
+            if (!normalizedProgress.HasValue && progress.ScrollOffset.HasValue && progress.ScrollableHeight.HasValue && progress.ScrollableHeight.Value > 0)
+            {
+                var ratio = progress.ScrollOffset.Value / progress.ScrollableHeight.Value;
+                normalizedProgress = Math.Clamp(ratio, 0.0, 1.0);
+            }
+
             var sanitizedProgress = new ReadingProgressData
             {
                 ChapterIndex = progress.ChapterIndex,
                 ChapterTitle = progress.ChapterTitle,
-                ScrollProgress = Math.Clamp(progress.ScrollProgress, 0.0, 1.0),
+                ScrollProgress = normalizedProgress.HasValue ? Math.Clamp(normalizedProgress.Value, 0.0, 1.0) : null,
                 LastUpdatedUtc = progress.LastUpdatedUtc,
                 MangaUrl = string.IsNullOrWhiteSpace(progress.MangaUrl) ? null : progress.MangaUrl.Trim(),
                 SourceKey = string.IsNullOrWhiteSpace(progress.SourceKey) ? null : progress.SourceKey.Trim(),
                 ScrollOffset = progress.ScrollOffset.HasValue
                     ? Math.Max(0, progress.ScrollOffset.Value)
+                    : null,
+                ScrollableHeight = progress.ScrollableHeight.HasValue
+                    ? Math.Max(0, progress.ScrollableHeight.Value)
                     : null,
                 Title = string.IsNullOrEmpty(key.Title) ? null : key.Title,
             };
@@ -771,7 +781,8 @@ namespace MSCS.Services
                 stored.LastUpdatedUtc,
                 stored.MangaUrl,
                 stored.SourceKey,
-                stored.ScrollOffset);
+                stored.ScrollOffset,
+                stored.ScrollableHeight);
         }
 
         private static void MigrateReadingProgressKeys(SettingsData data)
@@ -985,12 +996,13 @@ namespace MSCS.Services
         {
             public int ChapterIndex { get; set; }
             public string? ChapterTitle { get; set; }
-            public double ScrollProgress { get; set; }
+            public double? ScrollProgress { get; set; }
             public DateTimeOffset LastUpdatedUtc { get; set; }
             public string? MangaUrl { get; set; }
             public string? SourceKey { get; set; }
             public string? CoverImageUrl { get; set; }
             public double? ScrollOffset { get; internal set; }
+            public double? ScrollableHeight { get; internal set; }
             public string? Title { get; set; }
         }
 

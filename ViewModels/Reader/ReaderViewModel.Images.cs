@@ -109,7 +109,8 @@ namespace MSCS.ViewModels
 
                 if (restoreProgress.HasValue || restoreOffset.HasValue)
                 {
-                    RequestScrollRestore(restoreProgress, restoreOffset);
+                    var normalizedForRestore = restoreOffset.HasValue ? null : restoreProgress;
+                    RequestScrollRestore(normalizedForRestore, restoreOffset);
                 }
             }
             catch (OperationCanceledException)

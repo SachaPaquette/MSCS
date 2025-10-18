@@ -296,7 +296,13 @@ namespace MSCS.ViewModels
             ? Progress.ChapterTitle!
             : $"Chapter {Progress.ChapterIndex + 1}";
 
-        public double ScrollProgress => Math.Clamp(Progress.ScrollProgress, 0.0, 1.0);
+        public double ScrollProgress
+        {
+            get
+            {
+                return Progress.ScrollProgress;
+            }
+        }
 
         public double ScrollPercentage => Math.Round(ScrollProgress * 100, 0);
 

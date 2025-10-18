@@ -61,7 +61,6 @@ namespace MSCS.ViewModels
         public int TotalImages => _allImages.Count;
         public double LoadingProgress => _allImages.Count == 0 ? 0d : (double)_loadedCount / _allImages.Count;
         private double _widthFactor = Constants.DefaultWidthFactor;
-        private double _lastPersistedScrollProgress = double.NaN;
         private double _lastPersistedScrollOffset = double.NaN;
         private DateTime _lastProgressSaveUtc = DateTime.MinValue;
         private bool _isRestoringProgress;
