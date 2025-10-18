@@ -251,7 +251,7 @@ namespace MSCS.ViewModels
                 Chapters = _chapterListViewModel.Chapters;
                 SelectInitialChapter();
                 RestoreReadingProgress();
-                InitializeReaderProfile();
+                _preferences.UpdateProfileKey(DetermineProfileKey());
             }
         }
     }

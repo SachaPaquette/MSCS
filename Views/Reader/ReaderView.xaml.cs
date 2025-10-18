@@ -218,7 +218,7 @@ namespace MSCS.Views
 
             var pos = e.GetPosition(ScrollView);
             var vm = ViewModel;
-            var duration = vm?.ScrollDuration ?? TimeSpan.FromMilliseconds(Constants.DefaultSmoothScrollDuration);
+            var duration = vm?.Preferences.ScrollDuration ?? TimeSpan.FromMilliseconds(Constants.DefaultSmoothScrollDuration);
             double displayedHeight = ScrollView.ViewportHeight > 0 ? ScrollView.ViewportHeight : ScrollView.ActualHeight;
             if (displayedHeight <= 0)
             {
@@ -226,7 +226,7 @@ namespace MSCS.Views
             }
 
             double clickFraction = pos.Y / displayedHeight;
-            var fraction = vm?.ScrollPageFraction ?? Constants.DefaultSmoothScrollPageFraction;
+            var fraction = vm?.Preferences.ScrollPageFraction ?? Constants.DefaultSmoothScrollPageFraction;
             double scrollAmount = ScrollView.ViewportHeight * fraction;
             if (scrollAmount <= 0)
             {
@@ -320,14 +320,14 @@ namespace MSCS.Views
                 viewport = ScrollView.ActualHeight;
             }
 
-            var fraction = ViewModel.ScrollPageFraction;
+            var fraction = ViewModel.Preferences.ScrollPageFraction;
             if (fraction <= 0)
             {
                 fraction = Constants.DefaultSmoothScrollPageFraction;
             }
 
             double amount = viewport * fraction;
-            var duration = ViewModel.ScrollDuration;
+            var duration = ViewModel.Preferences.ScrollDuration;
 
             void ScrollForward()
             {
@@ -438,10 +438,10 @@ namespace MSCS.Views
             {
                 if (!_restoreWidthFactor.HasValue)
                 {
-                    _restoreWidthFactor = vm.WidthFactor;
+                    _restoreWidthFactor = vm.Preferences.WidthFactor;
                 }
 
-                vm.WidthFactor = 1.0;
+                vm.Preferences.WidthFactor = 1.0;
             }
 
             _isFullscreen = true;
@@ -466,7 +466,7 @@ namespace MSCS.Views
 
             if (ViewModel is ReaderViewModel vm && _restoreWidthFactor.HasValue)
             {
-                vm.WidthFactor = _restoreWidthFactor.Value;
+                vm.Preferences.WidthFactor = _restoreWidthFactor.Value;
             }
 
             _restoreWidthFactor = null;
