@@ -9,6 +9,7 @@
              Focusable="True"
              FocusVisualStyle="{x:Null}"
              Loaded="UserControl_Loaded"
+             Unloaded="UserControl_Unloaded"
              PreviewKeyDown="UserControl_PreviewKeyDown">
 
     <UserControl.Resources>
@@ -176,6 +177,9 @@
                 <Style TargetType="Border">
                     <Setter Property="Visibility" Value="Visible"/>
                     <Style.Triggers>
+                        <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=UserControl}, Path=IsFullscreenMode}" Value="True">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                        </DataTrigger>
                         <DataTrigger Binding="{Binding TotalImages}" Value="0">
                             <Setter Property="Visibility" Value="Collapsed"/>
                         </DataTrigger>
@@ -216,6 +220,16 @@
               Margin="4,0,0,0"
               Panel.ZIndex="10"
               Background="Transparent">
+            <Grid.Style>
+                <Style TargetType="Grid">
+                    <Setter Property="Visibility" Value="Visible"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=UserControl}, Path=IsFullscreenMode}" Value="True">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
@@ -235,6 +249,15 @@
                         ToolTip="Chapters / Home"
                         Margin="0,0,0,8">
                     <TextBlock Text="&#xE718;" FontSize="16"/>
+                </Button>
+
+                <Button x:Name="FullscreenButton"
+                        Style="{StaticResource IconButtonStyle}"
+                        ToolTip="Enter fullscreen"
+                        Click="FullscreenButton_Click">
+                    <TextBlock x:Name="FullscreenButtonIcon"
+                               FontSize="16"
+                               Text="&#xE740;"/>
                 </Button>
             </StackPanel>
 

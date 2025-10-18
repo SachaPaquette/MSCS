@@ -16,6 +16,21 @@ namespace MSCS.Views
         private bool _pendingScrollRetryScheduled;
         private int _scrollRestoreAttemptCount;
         private bool _suppressAutoAdvance;
+        private bool _isFullscreen;
+        private WindowState _restoreWindowState;
+        private WindowStyle _restoreWindowStyle;
+        private ResizeMode _restoreResizeMode;
+        private Window? _hostWindow;
+        private double? _restoreWidthFactor;
+
+        public static readonly DependencyProperty IsFullscreenModeProperty =
+            DependencyProperty.Register(nameof(IsFullscreenMode), typeof(bool), typeof(ReaderView), new PropertyMetadata(false));
+
+        public bool IsFullscreenMode
+        {
+            get => (bool)GetValue(IsFullscreenModeProperty);
+            private set => SetValue(IsFullscreenModeProperty, value);
+        }
 
         private ReaderViewModel? ViewModel => DataContext as ReaderViewModel;
 
@@ -23,6 +38,7 @@ namespace MSCS.Views
         {
             InitializeComponent();
             DataContextChanged += OnDataContextChanged;
+            UpdateFullscreenButtonVisuals();
         }
 
         private async void ScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
@@ -260,7 +276,7 @@ namespace MSCS.Views
         {
             if (ScrollView == null) return;
             var vm = ViewModel;
-            if (vm?.IsRestoringProgress == true) return; 
+            if (vm?.IsRestoringProgress == true) return;
 
             ScrollView.Dispatcher.InvokeAsync(() => ScrollView.ScrollToTop(),
                 System.Windows.Threading.DispatcherPriority.Background);
@@ -277,6 +293,13 @@ namespace MSCS.Views
             {
                 Focus();
             }
+
+            UpdateFullscreenButtonVisuals();
+        }
+
+        private void UserControl_Unloaded(object sender, RoutedEventArgs e)
+        {
+            ExitFullscreen();
         }
 
         private void UserControl_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
@@ -363,6 +386,106 @@ namespace MSCS.Views
                         e.Handled = true;
                     }
                     break;
+                case Key.F11:
+                    ToggleFullscreen();
+                    e.Handled = true;
+                    break;
+                case Key.Escape:
+                    if (_isFullscreen)
+                    {
+                        ExitFullscreen();
+                        e.Handled = true;
+                    }
+                    break;
+            }
+        }
+
+        private void FullscreenButton_Click(object sender, RoutedEventArgs e)
+        {
+            ToggleFullscreen();
+        }
+
+        private void ToggleFullscreen()
+        {
+            if (_isFullscreen)
+            {
+                ExitFullscreen();
+            }
+            else
+            {
+                EnterFullscreen();
+            }
+        }
+
+        private void EnterFullscreen()
+        {
+            var window = Window.GetWindow(this);
+            if (window == null || _isFullscreen)
+            {
+                return;
+            }
+
+            _hostWindow = window;
+            _restoreWindowState = window.WindowState;
+            _restoreWindowStyle = window.WindowStyle;
+            _restoreResizeMode = window.ResizeMode;
+
+            window.WindowStyle = WindowStyle.None;
+            window.ResizeMode = ResizeMode.NoResize;
+            window.WindowState = WindowState.Maximized;
+
+            if (ViewModel is ReaderViewModel vm)
+            {
+                if (!_restoreWidthFactor.HasValue)
+                {
+                    _restoreWidthFactor = vm.WidthFactor;
+                }
+
+                vm.WidthFactor = 1.0;
+            }
+
+            _isFullscreen = true;
+            IsFullscreenMode = true;
+            UpdateFullscreenButtonVisuals();
+        }
+
+        private void ExitFullscreen()
+        {
+            if (!_isFullscreen)
+            {
+                return;
+            }
+
+            var window = _hostWindow ?? Window.GetWindow(this);
+            if (window != null)
+            {
+                window.WindowStyle = _restoreWindowStyle;
+                window.ResizeMode = _restoreResizeMode;
+                window.WindowState = _restoreWindowState;
+            }
+
+            if (ViewModel is ReaderViewModel vm && _restoreWidthFactor.HasValue)
+            {
+                vm.WidthFactor = _restoreWidthFactor.Value;
+            }
+
+            _restoreWidthFactor = null;
+            _hostWindow = null;
+            _isFullscreen = false;
+            IsFullscreenMode = false;
+            UpdateFullscreenButtonVisuals();
+        }
+
+        private void UpdateFullscreenButtonVisuals()
+        {
+            if (FullscreenButtonIcon != null)
+            {
+                FullscreenButtonIcon.Text = _isFullscreen ? "\uE73F" : "\uE740";
+            }
+
+            if (FullscreenButton != null)
+            {
+                FullscreenButton.ToolTip = _isFullscreen ? "Exit fullscreen" : "Enter fullscreen";
             }
         }
     }
