@@ -14,5 +14,6 @@ namespace MSCS.Interfaces
         bool CanGoBack { get; }
         event EventHandler CanGoBackChanged;
         void SetRootViewModel(BaseViewModel viewModel);
+        Action<BaseViewModel> ApplyViewModel { get; set; }
     }
 }

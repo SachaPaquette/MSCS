@@ -1,7 +1,8 @@
-﻿using System.Windows;
-using System.Windows.Controls;
+﻿using MSCS.Interfaces;
 using MSCS.Services;
 using MSCS.ViewModels;
+using System.Windows;
+using System.Windows.Controls;
 
 namespace MSCS.Views
 {
@@ -9,30 +10,19 @@ namespace MSCS.Views
     {
         public MainViewModel ViewModel { get; }
 
-        public MainWindow()
+        public MainWindow() : this(App.GetRequiredService<MainViewModel>(), App.GetRequiredService<INavigationService>())
+        {
+        }
+
+        public MainWindow(MainViewModel viewModel, INavigationService? navigationService = null)
         {
             InitializeComponent();
 
-            var navigationService = new NavigationService(
-                type => (BaseViewModel)Activator.CreateInstance(type));
-
-            var viewModel = new MainViewModel(navigationService);
-
-            // Wire the callback to push VMs into MainViewModel
-            navigationService.ApplyViewModel = vm => viewModel.NavigateToViewModel(vm);
-
-            ViewModel = viewModel;
+            ViewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
             DataContext = ViewModel;
+
+            var resolvedNavigation = navigationService ?? App.GetRequiredService<INavigationService>();
+            resolvedNavigation.ApplyViewModel = vm => ViewModel.NavigateToViewModel(vm);
         }
-
-
-        public MainWindow(MainViewModel viewModel)
-        {
-            InitializeComponent();
-            ViewModel = viewModel;
-            DataContext = ViewModel;
-        }
-
-
     }
 }

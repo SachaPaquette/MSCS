@@ -1,12 +1,19 @@
-﻿using System;
+﻿using MSCS.Interfaces;
+using MSCS.Models;
+using MSCS.Services;
+using MSCS.Services.Kitsu;
+using MSCS.Services.MyAnimeList;
+using MSCS.Sources;
+using MSCS.ViewModels;
+using MSCS.Views;
+using MSCS.Views.Update;
+using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
-using MSCS.Models;
-using MSCS.Services;
-using MSCS.Views.Update;
-
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 namespace MSCS;
 
 /// <summary>
@@ -14,25 +21,109 @@ namespace MSCS;
 /// </summary>
 public partial class App : System.Windows.Application
 {
-    protected override void OnStartup(StartupEventArgs e)
+
+    private IHost? _host;
+
+    public static IServiceProvider Services =>
+        (Current as App)?._host?.Services
+        ?? throw new InvalidOperationException("The application host has not been initialized.");
+
+    public static T GetRequiredService<T>() where T : notnull => Services.GetRequiredService<T>();
+
+    protected override async void OnStartup(StartupEventArgs e)
     {
+        _host = Host.CreateDefaultBuilder()
+            .ConfigureServices(ConfigureServices)
+            .Build();
+
+        await _host.StartAsync().ConfigureAwait(true);
+
         base.OnStartup(e);
+
+        var mainWindow = Services.GetRequiredService<MainWindow>();
+        MainWindow = mainWindow;
+        mainWindow.Show();
 
         Dispatcher.InvokeAsync(CheckForUpdatesAsync, DispatcherPriority.ApplicationIdle);
     }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        if (_host != null)
+        {
+            _host.StopAsync().GetAwaiter().GetResult();
+            _host.Dispose();
+            _host = null;
+        }
+
+        base.OnExit(e);
+    }
+
+    private static void ConfigureServices(IServiceCollection services)
+    {
+        services.AddSingleton<UserSettings>();
+        services.AddSingleton<ThemeService>();
+        services.AddSingleton<UpdateService>();
+        services.AddSingleton<LocalLibraryService>();
+        services.AddSingleton<ReadingListService>();
+        services.AddSingleton<LocalSource>();
+
+        services.AddSingleton<AniListService>();
+        services.AddSingleton<MyAnimeListService>();
+        services.AddSingleton<KitsuService>();
+
+        services.AddSingleton<MediaTrackingServiceRegistry>(provider =>
+        {
+            var registry = new MediaTrackingServiceRegistry();
+            registry.Register(provider.GetRequiredService<AniListService>());
+            registry.Register(provider.GetRequiredService<MyAnimeListService>());
+            registry.Register(provider.GetRequiredService<KitsuService>());
+            return registry;
+        });
+
+        services.AddSingleton<NavigationService>(provider =>
+            new NavigationService(type =>
+            {
+                if (provider.GetService(type) is BaseViewModel resolved)
+                {
+                    return resolved;
+                }
+
+                return (BaseViewModel)Activator.CreateInstance(type)!;
+            }));
+        services.AddSingleton<INavigationService>(provider => provider.GetRequiredService<NavigationService>());
+
+        services.AddSingleton(provider => new MangaListViewModel(
+            SourceKeyConstants.DefaultExternal,
+            provider.GetRequiredService<INavigationService>()));
+        services.AddSingleton<LocalLibraryViewModel>();
+        services.AddSingleton(provider => new AniListCollectionViewModel(provider.GetRequiredService<AniListService>()));
+        services.AddSingleton(provider => new AniListRecommendationsViewModel(provider.GetRequiredService<AniListService>()));
+        services.AddSingleton(provider => new ContinueReadingViewModel(
+            provider.GetRequiredService<UserSettings>(),
+            provider.GetRequiredService<ReadingListService>()));
+        services.AddSingleton(provider => new SettingsViewModel(
+            provider.GetRequiredService<LocalLibraryService>(),
+            provider.GetRequiredService<UserSettings>(),
+            provider.GetRequiredService<ThemeService>(),
+            provider.GetRequiredService<MediaTrackingServiceRegistry>()));
+        services.AddSingleton<MainViewModel>();
+        services.AddSingleton<MainWindow>();
+    }
+
 
     private async Task CheckForUpdatesAsync()
     {
         try
         {
-            var updateService = new UpdateService();
+            var updateService = Services.GetRequiredService<UpdateService>();
+            var userSettings = Services.GetRequiredService<UserSettings>();
             var result = await updateService.CheckForUpdatesAsync().ConfigureAwait(true);
             if (result is null)
             {
                 return;
             }
 
-            var userSettings = new UserSettings();
             if (ShouldSkipUpdateNotification(result, userSettings))
             {
                 return;

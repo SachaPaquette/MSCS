@@ -22,6 +22,7 @@ namespace MSCS.ViewModels
         private readonly ReadingListService _readingListService;
         private readonly LocalSource _LocalSource;
         private readonly ThemeService _themeService;
+        private readonly LocalSource _localSource;
         private readonly Dictionary<BaseViewModel, MainMenuTab> _tabLookup = new();
         private BaseViewModel _currentViewModel;
         private ChapterListViewModel? _activeChapterViewModel;
@@ -30,35 +31,41 @@ namespace MSCS.ViewModels
         private bool _suppressTabActivation;
 
 
-        public MainViewModel(INavigationService navigationService)
+        public MainViewModel(
+            INavigationService navigationService,
+            UserSettings userSettings,
+            ThemeService themeService,
+            MediaTrackingServiceRegistry mediaTrackingRegistry,
+            LocalSource localSource,
+            MangaListViewModel mangaListViewModel,
+            LocalLibraryViewModel localLibraryViewModel,
+            AniListCollectionViewModel aniListCollectionViewModel,
+            AniListRecommendationsViewModel recommendationsViewModel,
+            ContinueReadingViewModel continueReadingViewModel,
+            SettingsViewModel settingsViewModel)
         {
             _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+            _userSettings = userSettings ?? throw new ArgumentNullException(nameof(userSettings));
+            _themeService = themeService ?? throw new ArgumentNullException(nameof(themeService));
+            _mediaTrackingRegistry = mediaTrackingRegistry ?? throw new ArgumentNullException(nameof(mediaTrackingRegistry));
+            _localSource = localSource ?? throw new ArgumentNullException(nameof(localSource));
 
-            _userSettings = new UserSettings();
-            _themeService = new ThemeService();
             _themeService.ApplyTheme(_userSettings.AppTheme);
-            _localLibraryService = new LocalLibraryService(_userSettings);
-            _mediaTrackingRegistry = new MediaTrackingServiceRegistry();
-            _aniListService = new AniListService(_userSettings);
-            _mediaTrackingRegistry.Register(_aniListService);
-            _mediaTrackingRegistry.Register(new MyAnimeListService(_userSettings));
-            _mediaTrackingRegistry.Register(new KitsuService(_userSettings));
-            _readingListService = new ReadingListService(_userSettings);
-            _LocalSource = new LocalSource(_localLibraryService);
-            MangaListVM = new MangaListViewModel(SourceKeyConstants.DefaultExternal, _navigationService);
+
+            MangaListVM = mangaListViewModel ?? throw new ArgumentNullException(nameof(mangaListViewModel));
             MangaListVM.MangaSelected += OnExternalMangaSelected;
             _navigationService.RegisterSingleton(MangaListVM);
 
-            RecommendationsVM = new AniListRecommendationsViewModel(_aniListService);
-            AniListCollectionVM = new AniListCollectionViewModel(_aniListService);
-
-            LocalLibraryVM = new LocalLibraryViewModel(_localLibraryService);
+            LocalLibraryVM = localLibraryViewModel ?? throw new ArgumentNullException(nameof(localLibraryViewModel));
             LocalLibraryVM.MangaSelected += OnLocalMangaSelected;
 
-            ContinueReadingVM = new ContinueReadingViewModel(_userSettings, _readingListService);
+            AniListCollectionVM = aniListCollectionViewModel ?? throw new ArgumentNullException(nameof(aniListCollectionViewModel));
+            RecommendationsVM = recommendationsViewModel ?? throw new ArgumentNullException(nameof(recommendationsViewModel));
+
+            ContinueReadingVM = continueReadingViewModel ?? throw new ArgumentNullException(nameof(continueReadingViewModel));
             ContinueReadingVM.ContinueReadingRequested += OnContinueReadingRequested;
 
-            SettingsVM = new SettingsViewModel(_localLibraryService, _userSettings, _themeService, _mediaTrackingRegistry);
+            SettingsVM = settingsViewModel ?? throw new ArgumentNullException(nameof(settingsViewModel));
 
             Tabs = new ObservableCollection<MainMenuTab>
             {
@@ -172,7 +179,7 @@ namespace MSCS.ViewModels
                 return;
             }
 
-            NavigateToChapterList(_LocalSource, manga, SourceKeyConstants.LocalLibrary);
+            NavigateToChapterList(_localSource, manga, SourceKeyConstants.LocalLibrary);
         }
 
         private void NavigateToChapterList(IMangaSource source, Manga manga, string sourceKey, bool autoOpenChapter = false, bool skipChapterListNavigation = false, MangaReadingProgress? initialProgress = null)
@@ -206,7 +213,7 @@ namespace MSCS.ViewModels
 
             if (string.Equals(sourceKey, SourceKeyConstants.LocalLibrary, StringComparison.OrdinalIgnoreCase))
             {
-                return _LocalSource;
+                return _localSource;
             }
 
             return SourceRegistry.Resolve(sourceKey);
@@ -342,7 +349,6 @@ namespace MSCS.ViewModels
             AniListCollectionVM.Dispose();
             ContinueReadingVM.Dispose();
             SettingsVM.Dispose();
-            _localLibraryService.Dispose();
         }
     }
 }
