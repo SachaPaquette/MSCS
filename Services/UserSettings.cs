@@ -663,7 +663,10 @@ namespace MSCS.Services
                 WidthFactor = data.WidthFactor,
                 MaxPageWidth = data.MaxPageWidth,
                 ScrollPageFraction = data.ScrollPageFraction,
-                ScrollDurationMs = data.ScrollDurationMs
+                ScrollDurationMs = data.ScrollDurationMs,
+                UseTwoPageLayout = data.UseTwoPageLayout,
+                EnablePageTransitions = data.EnablePageTransitions,
+                AutoAdjustWidth = data.AutoAdjustWidth
             };
         }
 
@@ -675,7 +678,10 @@ namespace MSCS.Services
                 WidthFactor = profile.WidthFactor,
                 MaxPageWidth = profile.MaxPageWidth,
                 ScrollPageFraction = profile.ScrollPageFraction,
-                ScrollDurationMs = profile.ScrollDurationMs
+                ScrollDurationMs = profile.ScrollDurationMs,
+                UseTwoPageLayout = profile.UseTwoPageLayout,
+                EnablePageTransitions = profile.EnablePageTransitions,
+                AutoAdjustWidth = profile.AutoAdjustWidth
             };
         }
 
@@ -1013,6 +1019,9 @@ namespace MSCS.Services
             public double MaxPageWidth { get; set; } = Constants.DefaultMaxPageWidth;
             public double ScrollPageFraction { get; set; } = Constants.DefaultSmoothScrollPageFraction;
             public int ScrollDurationMs { get; set; } = Constants.DefaultSmoothScrollDuration;
+            public bool UseTwoPageLayout { get; set; }
+            public bool EnablePageTransitions { get; set; } = true;
+            public bool AutoAdjustWidth { get; set; } = true;
         }
     }
 }

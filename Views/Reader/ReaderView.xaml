@@ -127,6 +127,10 @@
                     Modifiers="Control"
                     Command="{Binding Preferences.SetZoomPresetCommand}"
                     CommandParameter="0.9"/>
+        <KeyBinding Key="D4"
+                    Modifiers="Control"
+                    Command="{Binding Preferences.SetZoomPresetCommand}"
+                    CommandParameter="1.0"/>
         <KeyBinding Key="D0"
                     Modifiers="Control"
                     Command="{Binding Preferences.ResetZoomCommand}"/>
@@ -154,6 +158,15 @@
                     Modifiers="Control+Shift"
                     Command="{Binding Preferences.SetScrollPresetCommand}"
                     CommandParameter="{x:Static enums:ReaderScrollPreset.Immersive}"/>
+        <KeyBinding Key="T"
+                    Modifiers="Control"
+                    Command="{Binding Preferences.TogglePageTransitionsCommand}"/>
+        <KeyBinding Key="W"
+                    Modifiers="Control"
+                    Command="{Binding Preferences.ToggleAutoWidthCommand}"/>
+        <KeyBinding Key="I"
+                    Modifiers="Control"
+                    Command="{Binding Preferences.ToggleImmersiveModeCommand}"/>
     </UserControl.InputBindings>
 
     <Grid>
@@ -165,13 +178,16 @@
                 <Style TargetType="ScrollViewer">
                     <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
                     <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
+                    <Setter Property="CanContentScroll" Value="True"/>
                 </Style>
             </ScrollViewer.Style>
             <ItemsControl ItemsSource="{Binding ImageUrls}"
-                          ScrollViewer.CanContentScroll="False"
+                          ScrollViewer.CanContentScroll="True"
                           VirtualizingPanel.IsVirtualizing="True"
                           VirtualizingPanel.VirtualizationMode="Recycling"
-                          VirtualizingPanel.CacheLength="1">
+                          VirtualizingPanel.CacheLength="1"
+                          VirtualizingPanel.ScrollUnit="Pixel"
+                          VirtualizingStackPanel.CleanUpVirtualizedItem="Images_CleanUpVirtualizedItem">
                 <ItemsControl.Style>
                     <Style TargetType="ItemsControl">
                         <Setter Property="ItemsPanel" Value="{StaticResource VerticalPanelTemplate}"/>
@@ -193,12 +209,19 @@
                                UseLayoutRounding="True"
                                RenderOptions.BitmapScalingMode="HighQuality"
                                MouseLeftButtonDown="Image_MouseLeftButtonDown"
-                               Source="{Binding Converter={StaticResource ChapterImageSource}}">
-                            <Image.Width>
+                               RenderOptions.EdgeMode="Aliased">
+                            <Image.Source>
+                                <MultiBinding Converter="{StaticResource ChapterImageSource}">
+                                    <Binding/>
+                                    <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.ChapterCoordinator"/>
+                                    <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.ImageCacheVersion"/>
+                                </MultiBinding>
+                            </Image.Source>                            <Image.Width>
                                 <MultiBinding Converter="{StaticResource ViewportFraction}">
                                     <Binding ElementName="ScrollView" Path="ViewportWidth"/>
                                     <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.Preferences.WidthFactor"/>
                                     <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.Preferences.MaxPageWidth"/>
+                                    <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.Preferences.AutoAdjustWidth"/>
                                 </MultiBinding>
                             </Image.Width>
                         </Image>
@@ -379,10 +402,31 @@
                                        Foreground="#E9EEF7"
                                        FontWeight="SemiBold"/>
                         </StackPanel>
+                        <UniformGrid Columns="4" Margin="0,6,0,0">
+                            <Button Content="60%" Command="{Binding Preferences.SetZoomPresetCommand}" CommandParameter="0.6" Margin="0,0,6,0"/>
+                            <Button Content="75%" Command="{Binding Preferences.SetZoomPresetCommand}" CommandParameter="0.75" Margin="0,0,6,0"/>
+                            <Button Content="90%" Command="{Binding Preferences.SetZoomPresetCommand}" CommandParameter="0.9" Margin="0,0,6,0"/>
+                            <Button Content="100%" Command="{Binding Preferences.SetZoomPresetCommand}" CommandParameter="1.0"/>
+                        </UniformGrid>
                         <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
                             <Button Content="-" Width="32" Height="28" Command="{Binding Preferences.DecreaseZoomCommand}" ToolTip="Zoom out" Margin="0,0,6,0"/>
                             <Button Content="Reset" Height="28" Command="{Binding Preferences.ResetZoomCommand}" ToolTip="Reset zoom" Margin="0,0,6,0"/>
                             <Button Content="+" Width="32" Height="28" Command="{Binding Preferences.IncreaseZoomCommand}" ToolTip="Zoom in"/>
+                        </StackPanel>
+                        <TextBlock Text="Layout"
+                                   Margin="0,12,0,0"
+                                   Foreground="#8F9BB4"
+                                   FontSize="12"/>
+                        <StackPanel Orientation="Vertical" Margin="0,4,0,0">
+                        <CheckBox Content="Auto panel width"
+                          Foreground="{DynamicResource Fg}"
+                          IsChecked="{Binding Preferences.AutoAdjustWidth, Mode=TwoWay}"
+                          Margin="0,0,0,4"/>
+                        <CheckBox Content="Page transitions"
+                          Foreground="{DynamicResource Fg}"
+                          IsChecked="{Binding Preferences.EnablePageTransitions, Mode=TwoWay}"
+                          Margin="0,0,0,4"/>
+                            <ToggleButton Content="Immersive scroll" IsChecked="{Binding Preferences.IsImmersiveMode, Mode=TwoWay}" Margin="0,4,0,0"/>
                         </StackPanel>
                         <TextBlock Text="Theme"
                                    Margin="0,10,0,0"
@@ -398,8 +442,6 @@
                             <ComboBoxItem Content="High contrast" Tag="{x:Static enums:ReaderTheme.HighContrast}"/>
                         </ComboBox>
                     </StackPanel>
-
-
 
                     <!-- Manga info + tracking -->
                     <Grid Grid.Row="4">

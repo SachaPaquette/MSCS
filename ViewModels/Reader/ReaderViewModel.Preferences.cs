@@ -1,9 +1,9 @@
-﻿// ReaderViewModel.Preferences.cs
-using MSCS.Commands;
+﻿using MSCS.Commands;
 using MSCS.Enums;
 using MSCS.Helpers;
 using MSCS.Models;
 using MSCS.Services;
+using MSCS.Services.Reader;
 using System;
 using System.Globalization;
 using System.Windows.Input;
@@ -17,15 +17,38 @@ namespace MSCS.ViewModels
     public partial class ReaderViewModel
     {
         public ReaderPreferencesViewModel Preferences => _preferences;
+        public ReaderChapterCoordinator? ChapterCoordinator => _chapterCoordinator;
+        public int ImageCacheVersion
+        {
+            get => _imageCacheVersion;
+            private set => SetProperty(ref _imageCacheVersion, value, nameof(ImageCacheVersion));
+        }
 
         private void InitializePreferences()
         {
             _preferences.SetProfileKey(DetermineProfileKey());
+            if (_chapterCoordinator != null)
+            {
+                _chapterCoordinator.ImageCached += OnChapterCoordinatorImageCached;
+            }
         }
 
         public void RefreshPreferencesProfileKey()
         {
             _preferences.SetProfileKey(DetermineProfileKey());
+        }
+
+        private void OnChapterCoordinatorImageCached(object? sender, EventArgs e)
+        {
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher != null && !dispatcher.CheckAccess())
+            {
+                dispatcher.Invoke(() => ImageCacheVersion++);
+            }
+            else
+            {
+                ImageCacheVersion++;
+            }
         }
     }
 }

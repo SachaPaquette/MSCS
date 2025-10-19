@@ -148,6 +148,13 @@
                                    Foreground="{DynamicResource Fg}"/>
                     </StackPanel>
 
+                    <TextBlock Text="Layout defaults"
+                               Foreground="{DynamicResource FgMuted}"/>
+                    <StackPanel Orientation="Vertical" Margin="0,4,0,12">
+                        <CheckBox Content="Auto-adjust page width" IsChecked="{Binding ReaderAutoAdjustWidth, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                        <CheckBox Content="Enable page transitions" IsChecked="{Binding ReaderEnablePageTransitions, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                    </StackPanel>
+                    
                     <Button Content="Reset to defaults"
                             Padding="20,8"
                             Width="160"

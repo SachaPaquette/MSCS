@@ -51,6 +51,8 @@ namespace MSCS.ViewModels
                     NotifyLoadingMetricsChanged();
                 }, DispatcherPriority.Background, token);
 
+                var upcoming = Math.Min(Constants.DefaultLoadedBatchSize * 2, _allImages.Count - _loadedCount);
+                _chapterCoordinator?.PrefetchImages(_allImages, Math.Max(0, startIndex), countToLoad + upcoming, token);
                 Debug.WriteLine($"Loaded {_loadedCount} / {_allImages.Count} images");
             }
             catch (OperationCanceledException)
@@ -147,6 +149,7 @@ namespace MSCS.ViewModels
             if (_allImages.Count > 0)
             {
                 await LoadMoreImagesAsync().ConfigureAwait(false);
+                _chapterCoordinator?.PrefetchImages(_allImages, _loadedCount, Math.Min(Constants.DefaultLoadedBatchSize, _allImages.Count - _loadedCount));
             }
         }
 

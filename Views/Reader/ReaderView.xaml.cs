@@ -1,5 +1,6 @@
 ﻿using MSCS.Enums;
 using MSCS.Helpers;
+using MSCS.Models;
 using MSCS.ViewModels;
 using System;
 using System.Diagnostics;
@@ -202,6 +203,14 @@ namespace MSCS.Views
             _scrollRestoreAttemptCount++;
             const int maxAttempts = 10;
             return _scrollRestoreAttemptCount >= maxAttempts;
+        }
+
+        private void Images_CleanUpVirtualizedItem(object sender, CleanUpVirtualizedItemEventArgs e)
+        {
+            if (e.Value is ChapterImage image)
+            {
+                ViewModel?.ChapterCoordinator?.ReleaseImage(image);
+            }
         }
 
         private void FinalizeScrollRestore(ReaderViewModel? vm)

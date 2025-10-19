@@ -19,6 +19,9 @@ namespace MSCS.ViewModels.Settings
         private double _readerMaxPageWidth;
         private double _readerScrollPageFraction;
         private int _readerScrollDurationMs;
+        private bool _readerUseTwoPageLayout;
+        private bool _readerEnablePageTransitions = true;
+        private bool _readerAutoAdjustWidth = true;
 
         public ReaderDefaultsSettingsSectionViewModel(UserSettings userSettings)
             : base("readerDefaults", "Reader defaults", "Customize how chapters open in the reader by default.")
@@ -71,6 +74,24 @@ namespace MSCS.ViewModels.Settings
             set => UpdateReaderScrollDuration(value, persist: true);
         }
 
+        public bool ReaderUseTwoPageLayout
+        {
+            get => _readerUseTwoPageLayout;
+            set => UpdateReaderUseTwoPageLayout(value, persist: true);
+        }
+
+        public bool ReaderEnablePageTransitions
+        {
+            get => _readerEnablePageTransitions;
+            set => UpdateReaderEnablePageTransitions(value, persist: true);
+        }
+
+        public bool ReaderAutoAdjustWidth
+        {
+            get => _readerAutoAdjustWidth;
+            set => UpdateReaderAutoAdjustWidth(value, persist: true);
+        }
+
         public double ReaderZoomPercent => Math.Round(_readerWidthFactor * 100);
 
         public double ReaderScrollPercent => Math.Round(_readerScrollPageFraction * 100);
@@ -92,6 +113,9 @@ namespace MSCS.ViewModels.Settings
             UpdateReaderMaxPageWidth(profile.MaxPageWidth, persist: false);
             UpdateReaderScrollPageFraction(profile.ScrollPageFraction, persist: false);
             UpdateReaderScrollDuration(profile.ScrollDurationMs, persist: false);
+            UpdateReaderUseTwoPageLayout(profile.UseTwoPageLayout, persist: false);
+            UpdateReaderEnablePageTransitions(profile.EnablePageTransitions, persist: false);
+            UpdateReaderAutoAdjustWidth(profile.AutoAdjustWidth, persist: false);
         }
 
         private void UpdateReaderTheme(ReaderTheme value, bool persist)
@@ -146,6 +170,30 @@ namespace MSCS.ViewModels.Settings
             }
         }
 
+        private void UpdateReaderUseTwoPageLayout(bool value, bool persist)
+        {
+            if (SetProperty(ref _readerUseTwoPageLayout, value, nameof(ReaderUseTwoPageLayout)) && persist && !_suppressUpdate)
+            {
+                PersistDefaultReaderProfile();
+            }
+        }
+
+        private void UpdateReaderEnablePageTransitions(bool value, bool persist)
+        {
+            if (SetProperty(ref _readerEnablePageTransitions, value, nameof(ReaderEnablePageTransitions)) && persist && !_suppressUpdate)
+            {
+                PersistDefaultReaderProfile();
+            }
+        }
+
+        private void UpdateReaderAutoAdjustWidth(bool value, bool persist)
+        {
+            if (SetProperty(ref _readerAutoAdjustWidth, value, nameof(ReaderAutoAdjustWidth)) && persist && !_suppressUpdate)
+            {
+                PersistDefaultReaderProfile();
+            }
+        }
+
         private void PersistDefaultReaderProfile()
         {
             var profile = new ReaderProfile
@@ -154,7 +202,10 @@ namespace MSCS.ViewModels.Settings
                 WidthFactor = _readerWidthFactor,
                 MaxPageWidth = _readerMaxPageWidth,
                 ScrollPageFraction = _readerScrollPageFraction,
-                ScrollDurationMs = _readerScrollDurationMs
+                ScrollDurationMs = _readerScrollDurationMs,
+                UseTwoPageLayout = _readerUseTwoPageLayout,
+                EnablePageTransitions = _readerEnablePageTransitions,
+                AutoAdjustWidth = _readerAutoAdjustWidth
             };
 
             _userSettings.SetReaderProfile(null, profile);
@@ -167,6 +218,9 @@ namespace MSCS.ViewModels.Settings
             UpdateReaderMaxPageWidth(Constants.DefaultMaxPageWidth, persist: false);
             UpdateReaderScrollPageFraction(Constants.DefaultSmoothScrollPageFraction, persist: false);
             UpdateReaderScrollDuration(Constants.DefaultSmoothScrollDuration, persist: false);
+            UpdateReaderUseTwoPageLayout(false, persist: false);
+            UpdateReaderEnablePageTransitions(true, persist: false);
+            UpdateReaderAutoAdjustWidth(true, persist: false);
 
             PersistDefaultReaderProfile();
         }

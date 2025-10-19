@@ -26,6 +26,9 @@ namespace MSCS.ViewModels
         private double _scrollPageFraction = Constants.DefaultSmoothScrollPageFraction;
         private int _scrollDurationMs = Constants.DefaultSmoothScrollDuration;
         private ReaderScrollPreset _scrollPreset = ReaderScrollPreset.Balanced;
+        private bool _useTwoPageLayout;
+        private bool _enablePageTransitions = true;
+        private bool _autoAdjustWidth = true;
 
         private static readonly SolidColorBrush MidnightBackground = CreateFrozenBrush("#0F151F");
         private static readonly SolidColorBrush MidnightSurface = CreateFrozenBrush("#111727");
@@ -48,6 +51,10 @@ namespace MSCS.ViewModels
         public ICommand SetZoomPresetCommand { get; private set; } = new RelayCommand(_ => { }, _ => false);
         public ICommand SetThemeCommand { get; private set; } = new RelayCommand(_ => { });
         public ICommand SetScrollPresetCommand { get; private set; } = new RelayCommand(_ => { }, _ => false);
+        public ICommand ToggleTwoPageLayoutCommand { get; private set; } = new RelayCommand(_ => { });
+        public ICommand TogglePageTransitionsCommand { get; private set; } = new RelayCommand(_ => { });
+        public ICommand ToggleAutoWidthCommand { get; private set; } = new RelayCommand(_ => { });
+        public ICommand ToggleImmersiveModeCommand { get; private set; } = new RelayCommand(_ => { });
 
         public double WidthFactor
         {
@@ -148,6 +155,52 @@ namespace MSCS.ViewModels
                 {
                     ApplyScrollPreset(value);
                 }
+                OnPropertyChanged(nameof(IsImmersiveMode));
+            }
+        }
+
+        public bool UseTwoPageLayout
+        {
+            get => _useTwoPageLayout;
+            set
+            {
+                if (SetProperty(ref _useTwoPageLayout, value))
+                {
+                    PersistReaderProfile();
+                }
+            }
+        }
+
+        public bool EnablePageTransitions
+        {
+            get => _enablePageTransitions;
+            set
+            {
+                if (SetProperty(ref _enablePageTransitions, value))
+                {
+                    PersistReaderProfile();
+                }
+            }
+        }
+
+        public bool AutoAdjustWidth
+        {
+            get => _autoAdjustWidth;
+            set
+            {
+                if (SetProperty(ref _autoAdjustWidth, value))
+                {
+                    PersistReaderProfile();
+                }
+            }
+        }
+
+        public bool IsImmersiveMode
+        {
+            get => ScrollPreset == ReaderScrollPreset.Immersive;
+            set
+            {
+                ScrollPreset = value ? ReaderScrollPreset.Immersive : ReaderScrollPreset.Balanced;
             }
         }
 
@@ -174,6 +227,9 @@ namespace MSCS.ViewModels
                 MaxPageWidth = profile.MaxPageWidth;
                 ScrollPageFraction = profile.ScrollPageFraction;
                 ScrollDurationMs = profile.ScrollDurationMs;
+                UseTwoPageLayout = profile.UseTwoPageLayout;
+                EnablePageTransitions = profile.EnablePageTransitions;
+                AutoAdjustWidth = profile.AutoAdjustWidth;
             }
             finally
             {
@@ -196,7 +252,10 @@ namespace MSCS.ViewModels
                 WidthFactor = WidthFactor,
                 MaxPageWidth = MaxPageWidth,
                 ScrollPageFraction = ScrollPageFraction,
-                ScrollDurationMs = ScrollDurationMs
+                ScrollDurationMs = ScrollDurationMs,
+                UseTwoPageLayout = UseTwoPageLayout,
+                EnablePageTransitions = EnablePageTransitions,
+                AutoAdjustWidth = AutoAdjustWidth
             };
 
             _preferencesService.SaveProfile(_profileKey, profile);
@@ -317,12 +376,21 @@ namespace MSCS.ViewModels
                 }
             });
 
+            ToggleTwoPageLayoutCommand = new RelayCommand(_ => UseTwoPageLayout = !UseTwoPageLayout);
+            TogglePageTransitionsCommand = new RelayCommand(_ => EnablePageTransitions = !EnablePageTransitions);
+            ToggleAutoWidthCommand = new RelayCommand(_ => AutoAdjustWidth = !AutoAdjustWidth);
+            ToggleImmersiveModeCommand = new RelayCommand(_ => IsImmersiveMode = !IsImmersiveMode);
+
             OnPropertyChanged(nameof(IncreaseZoomCommand));
             OnPropertyChanged(nameof(DecreaseZoomCommand));
             OnPropertyChanged(nameof(ResetZoomCommand));
             OnPropertyChanged(nameof(SetZoomPresetCommand));
             OnPropertyChanged(nameof(SetThemeCommand));
             OnPropertyChanged(nameof(SetScrollPresetCommand));
+            OnPropertyChanged(nameof(ToggleTwoPageLayoutCommand));
+            OnPropertyChanged(nameof(TogglePageTransitionsCommand));
+            OnPropertyChanged(nameof(ToggleAutoWidthCommand));
+            OnPropertyChanged(nameof(ToggleImmersiveModeCommand));
         }
 
         private static SolidColorBrush CreateFrozenBrush(string hex)

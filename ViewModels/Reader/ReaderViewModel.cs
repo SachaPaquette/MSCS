@@ -82,6 +82,7 @@ namespace MSCS.ViewModels
             set => SetProperty(ref _isSidebarOpen, value);
         }
 
+        private int _imageCacheVersion;
         private string _chapterTitle = string.Empty;
         public string ChapterTitle
         {
@@ -196,6 +197,8 @@ namespace MSCS.ViewModels
                 MangaTitle = title ?? string.Empty;
             }
 
+            InitializePreferences();
+
             if (_chapterListViewModel != null)
             {
                 Chapters = _chapterListViewModel.Chapters;
@@ -209,7 +212,6 @@ namespace MSCS.ViewModels
 
             InitializeNavigationCommands();
             InitializeTrackingProviders();
-            _preferences.SetProfileKey(DetermineProfileKey());
 
             Debug.WriteLine($"ReaderViewModel initialized with {_allImages.Count} images");
             Debug.WriteLine($"Current chapter index {_currentChapterIndex}");
