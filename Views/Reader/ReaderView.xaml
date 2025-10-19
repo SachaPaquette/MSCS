@@ -585,16 +585,6 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <Button Grid.Row="0"
-                            Style="{StaticResource IconButtonStyle}"
-                            Command="{Binding GoHomeCommand}"
-                            HorizontalAlignment="Left"
-                            Margin="0,0,0,12">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="&#xE10F;" Margin="0,0,6,0"/>
-                            <TextBlock Text="Home"/>
-                        </StackPanel>
-                    </Button>
 
                     <!-- Reader preferences -->
 
