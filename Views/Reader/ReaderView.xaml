@@ -58,7 +58,7 @@
                 </Setter>
             </Style>
 
-            <DataTemplate DataType="{x:Type vm:ReaderViewModel+TrackingProvider}">
+            <DataTemplate DataType="{x:Type vm:ReaderTrackingCoordinator+TrackingProvider}">
                 <Border Background="#263149"
                         CornerRadius="4"
                         Padding="6,2">
@@ -69,7 +69,7 @@
                 </Border>
             </DataTemplate>
 
-            <DataTemplate DataType="{x:Type vm:ReaderViewModel+AniListTrackingProvider}">
+            <DataTemplate DataType="{x:Type vm:ReaderTrackingCoordinator+AniListTrackingProvider}">
                 <Border Background="#152B4E"
                         CornerRadius="4"
                         Padding="6,2">
@@ -79,7 +79,7 @@
                                FontWeight="SemiBold"/>
                 </Border>
             </DataTemplate>
-            <DataTemplate DataType="{x:Type vm:ReaderViewModel+MyAnimeListTrackingProvider}">
+            <DataTemplate DataType="{x:Type vm:ReaderTrackingCoordinator+MyAnimeListTrackingProvider}">
                 <Border Background="#1F2A44"
                         CornerRadius="4"
                         Padding="6,2">
@@ -89,7 +89,7 @@
                                FontWeight="SemiBold"/>
                 </Border>
             </DataTemplate>
-            <DataTemplate DataType="{x:Type vm:ReaderViewModel+KitsuTrackingProvider}">
+            <DataTemplate DataType="{x:Type vm:ReaderTrackingCoordinator+KitsuTrackingProvider}">
                 <Border Background="#34253B"
                         CornerRadius="4"
                         Padding="6,2">
