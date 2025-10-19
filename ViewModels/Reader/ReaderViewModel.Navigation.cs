@@ -15,69 +15,38 @@ namespace MSCS.ViewModels
 {
     public partial class ReaderViewModel
     {
-        private readonly SemaphoreSlim _chapterNavigationSemaphore = new(1, 1);
 
         private async Task<bool> TryMoveToChapterAsync(int newIndex)
         {
-            if (_chapterListViewModel == null)
+            if (_chapterCoordinator == null)
             {
-                Debug.WriteLine("Chapter list view model is unavailable for navigation.");
+                Debug.WriteLine("Chapter coordinator is unavailable for navigation.");
                 return false;
             }
 
-            if (newIndex < 0 || newIndex >= _chapterListViewModel.Chapters.Count)
+            if (newIndex == _currentChapterIndex + 1)
             {
-                Debug.WriteLine($"Requested chapter index {newIndex} is out of range.");
+                await UpdateTrackingProgressAsync().ConfigureAwait(false);
+            }
+
+            var result = await _chapterCoordinator.MoveToChapterAsync(newIndex).ConfigureAwait(false);
+            if (result == null)
+            {
                 return false;
             }
 
-            var acquired = false;
-            try
+            _currentChapterIndex = result.ChapterIndex;
+            ResetImages(result.Images);
+            Debug.WriteLine($"Navigated to chapter {result.ChapterIndex} with {result.Images.Count} images.");
+            CommandManager.InvalidateRequerySuggested();
+            UpdateSelectedChapter(result.ChapterIndex);
+            if (!_isRestoringProgress)
             {
-                await _chapterNavigationSemaphore.WaitAsync();
-                acquired = true;
-
-                if (_isChapterNavigationInProgress)
-                {
-                    Debug.WriteLine("A chapter navigation is already in progress.");
-                    return false;
-                }
-
-                _isChapterNavigationInProgress = true;
-
-                if (newIndex == _currentChapterIndex + 1)
-                {
-                    await UpdateTrackingProgressAsync().ConfigureAwait(false);
-                }
-
-                var images = await _chapterListViewModel.GetChapterImagesAsync(newIndex);
-                if (images == null || images.Count == 0)
-                {
-                    Debug.WriteLine($"No images returned for chapter at index {newIndex}.");
-                    return false;
-                }
-
-                _currentChapterIndex = newIndex;
-                ResetImages(images);
-                _ = _chapterListViewModel.PrefetchChapterAsync(newIndex + 1);
-                Debug.WriteLine($"Navigated to chapter {newIndex} with {images.Count} images.");
-                CommandManager.InvalidateRequerySuggested();
-                UpdateSelectedChapter(newIndex);
-                if (!_isRestoringProgress)
-                {
-                    PersistReadingProgress(force: true);
-                    ChapterChanged?.Invoke(this, EventArgs.Empty);
-                }
-                return true;
+                PersistReadingProgress(force: true);
+                ChapterChanged?.Invoke(this, EventArgs.Empty);
             }
-            finally
-            {
-                _isChapterNavigationInProgress = false;
-                if (acquired)
-                {
-                    _chapterNavigationSemaphore.Release();
-                }
-            }
+
+            return true;
         }
 
         private void ResetImages(IEnumerable<ChapterImage> images)
@@ -116,12 +85,7 @@ namespace MSCS.ViewModels
 
         private bool CanGoToNextChapter()
         {
-            if (_chapterListViewModel == null)
-            {
-                return false;
-            }
-
-            return _currentChapterIndex + 1 < _chapterListViewModel.Chapters.Count;
+            return _chapterCoordinator?.CanGoToNext(_currentChapterIndex) ?? false;
         }
 
         public async Task GoToNextChapterAsync()
@@ -135,12 +99,7 @@ namespace MSCS.ViewModels
 
         private bool CanGoToPreviousChapter()
         {
-            if (_chapterListViewModel == null)
-            {
-                return false;
-            }
-
-            return _currentChapterIndex - 1 >= 0;
+            return _chapterCoordinator?.CanGoToPrevious(_currentChapterIndex) ?? false;
         }
 
         public async Task GoToPreviousChapterAsync()
@@ -251,7 +210,7 @@ namespace MSCS.ViewModels
                 Chapters = _chapterListViewModel.Chapters;
                 SelectInitialChapter();
                 RestoreReadingProgress();
-                _preferences.UpdateProfileKey(DetermineProfileKey());
+                _preferences.SetProfileKey(DetermineProfileKey());
             }
         }
     }

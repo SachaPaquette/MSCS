@@ -4,6 +4,7 @@ using MSCS.Helpers;
 using MSCS.Interfaces;
 using MSCS.Models;
 using MSCS.Services;
+using MSCS.Services.Reader;
 using MSCS.ViewModels;
 using MSCS.Views;
 using System;
@@ -29,12 +30,13 @@ namespace MSCS.ViewModels
         private readonly INavigationService? _navigationService;
         private readonly MediaTrackingServiceRegistry? _trackingRegistry;
         private readonly UserSettings? _userSettings;
-        private readonly ObservableCollection<TrackingProvider> _trackingProviders;
-        private TrackingProvider? _activeTrackingProvider;
+        private readonly ReaderPreferencesService _preferencesService;
+        private readonly ReaderPreferencesViewModel _preferences;
+        private readonly ReaderChapterCoordinator? _chapterCoordinator;
+        private readonly ReaderTrackingCoordinator? _trackingCoordinator;
         private static readonly ICommand DisabledCommand = new RelayCommand(_ => { }, _ => false);
         private readonly SemaphoreSlim _imageLoadSemaphore = new(1, 1);
         private CancellationTokenSource _imageLoadCts = new();
-        private bool _isChapterNavigationInProgress;
         public event EventHandler? ChapterChanged;
         private EventHandler<ScrollRestoreRequest>? _scrollRestoreRequested;
         private ScrollRestoreRequest? _queuedScrollRestoreRequest;
@@ -94,7 +96,7 @@ namespace MSCS.ViewModels
             {
                 if (SetProperty(ref _mangaTitle, value))
                 {
-                    _preferences.UpdateProfileKey(DetermineProfileKey());
+                    _preferences.SetProfileKey(DetermineProfileKey());
                 }
             }
         }
@@ -119,20 +121,6 @@ namespace MSCS.ViewModels
             }
         }
         public ObservableCollection<ChapterImage> ImageUrls { get; }
-        public ObservableCollection<TrackingProvider> TrackingProviders => _trackingProviders;
-        public TrackingProvider? ActiveTrackingProvider
-        {
-            get => _activeTrackingProvider;
-            set
-            {
-                if (SetProperty(ref _activeTrackingProvider, value))
-                {
-                    value?.OnActivated();
-                    NotifyTrackingProperties();
-                }
-            }
-        }
-
         private string? DetermineProfileKey()
         {
             if (!string.IsNullOrWhiteSpace(_chapterListViewModel?.Manga?.Title))
@@ -148,22 +136,6 @@ namespace MSCS.ViewModels
         public ICommand AniListTrackCommand { get; private set; } = new RelayCommand(_ => { });
         public ICommand AniListOpenInBrowserCommand { get; private set; } = new RelayCommand(_ => { }, _ => false);
         public ICommand AniListRemoveTrackingCommand { get; private set; } = new AsyncRelayCommand(_ => Task.CompletedTask, _ => false);
-        public bool HasTrackingProviders => _trackingProviders.Count > 0;
-        public bool HasMultipleTrackingProviders => _trackingProviders.Count > 1;
-        public bool IsTrackingAvailable => ActiveTrackingProvider?.IsAvailable == true;
-        public string? ActiveTrackerName => ActiveTrackingProvider?.DisplayName;
-        public bool IsTracked => ActiveTrackingProvider?.IsTracked ?? false;
-        public ICommand TrackCommand => ActiveTrackingProvider?.TrackCommand ?? DisabledCommand;
-        public ICommand OpenInBrowserCommand => ActiveTrackingProvider?.OpenInBrowserCommand ?? DisabledCommand;
-        public ICommand RemoveTrackingCommand => ActiveTrackingProvider?.RemoveTrackingCommand ?? DisabledCommand;
-        public string TrackButtonText => ActiveTrackingProvider?.TrackButtonText ?? "Track";
-        public string OpenTrackerButtonText => ActiveTrackerName != null ? $"Open {ActiveTrackerName}" : "Open tracker";
-        public string RemoveTrackerButtonText => ActiveTrackerName != null ? $"Remove {ActiveTrackerName}" : "Remove tracking";
-        public string? TrackingStatusDisplay => ActiveTrackingProvider?.StatusDisplay;
-        public string? TrackingProgressDisplay => ActiveTrackingProvider?.ProgressDisplay;
-        public string? TrackingScoreDisplay => ActiveTrackingProvider?.ScoreDisplay;
-        public string? TrackingUpdatedDisplay => ActiveTrackingProvider?.UpdatedDisplay;
-        public bool CanOpenTracker => ActiveTrackingProvider?.CanOpenInBrowser ?? false;
 
         public ReaderViewModel()
         {
@@ -172,11 +144,19 @@ namespace MSCS.ViewModels
             _chapterListViewModel = null;
             _trackingRegistry = null;
             _userSettings = null;
+            _preferencesService = new ReaderPreferencesService(_userSettings);
+            _preferences = new ReaderPreferencesViewModel(_preferencesService);
+            _chapterCoordinator = null;
+            _trackingCoordinator = new ReaderTrackingCoordinator(
+                _trackingRegistry,
+                () => MangaTitle,
+                () => SelectedChapter,
+                GetProgressForChapter);
+            _trackingCoordinator.StateChanged += OnTrackingCoordinatorStateChanged;
             _allImages = new List<ChapterImage>();
             ImageUrls = new ObservableCollection<ChapterImage>();
             Chapters = new ObservableCollection<Chapter>();
-            _trackingProviders = new ObservableCollection<TrackingProvider>();
-            InitPreferences();
+            InitializePreferences();
             InitializeNavigationCommands();
             InitializeTrackingProviders();
         }
@@ -196,8 +176,16 @@ namespace MSCS.ViewModels
             _currentChapterIndex = currentChapterIndex;
             _trackingRegistry = trackingRegistry;
             _userSettings = userSettings;
+            _preferencesService = new ReaderPreferencesService(_userSettings);
+            _preferences = new ReaderPreferencesViewModel(_preferencesService);
             _initialProgress = initialProgress;
-            InitPreferences();
+            _chapterCoordinator = new ReaderChapterCoordinator(_chapterListViewModel);
+            _trackingCoordinator = new ReaderTrackingCoordinator(
+                _trackingRegistry,
+                () => MangaTitle,
+                () => SelectedChapter,
+                GetProgressForChapter);
+            _trackingCoordinator.StateChanged += OnTrackingCoordinatorStateChanged;
             _allImages = imageUrls?.ToList() ?? new List<ChapterImage>();
             ImageUrls = new ObservableCollection<ChapterImage>();
             ChapterTitle = title ?? string.Empty;
@@ -208,7 +196,6 @@ namespace MSCS.ViewModels
                 MangaTitle = title ?? string.Empty;
             }
 
-            _trackingProviders = new ObservableCollection<TrackingProvider>();
             if (_chapterListViewModel != null)
             {
                 Chapters = _chapterListViewModel.Chapters;
@@ -222,7 +209,7 @@ namespace MSCS.ViewModels
 
             InitializeNavigationCommands();
             InitializeTrackingProviders();
-            _preferences.UpdateProfileKey(DetermineProfileKey());
+            _preferences.SetProfileKey(DetermineProfileKey());
 
             Debug.WriteLine($"ReaderViewModel initialized with {_allImages.Count} images");
             Debug.WriteLine($"Current chapter index {_currentChapterIndex}");
