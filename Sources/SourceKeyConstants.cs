@@ -6,6 +6,5 @@
         public const string MangaRead = "mangaread";
         public const string DefaultExternal = MangaRead;
         public const string MangaDex = "mangadex";
-        public const string AsuraScans = "asurascans";
     }
 }

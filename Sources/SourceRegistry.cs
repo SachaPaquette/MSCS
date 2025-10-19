@@ -15,7 +15,6 @@ namespace MSCS.Sources
         {
             Register(SourceKeyConstants.MangaRead, new MangaReadSource(), "MangaRead");
             Register(SourceKeyConstants.MangaDex, new MangaDexSource(), "MangaDex");
-            Register(SourceKeyConstants.AsuraScans, new AsuraScansSource(), "AsuraScans");
         }
 
         public static void RegisterMadara(string key, Uri baseUri, string? displayName = null)
