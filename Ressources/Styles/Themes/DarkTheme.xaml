@@ -6,7 +6,7 @@
         <GradientStop Color="#0E1521" Offset="1"/>
     </LinearGradientBrush>
 
-    <SolidColorBrush x:Key="SidebarBackground" Color="#121A2A"/>
+    <SolidColorBrush x:Key="SidebarBackground" Color="#1A2640"/>
     <SolidColorBrush x:Key="SidebarText" Color="#E6ECF8"/>
 
     <SolidColorBrush x:Key="SurfaceLow" Color="#101825"/>

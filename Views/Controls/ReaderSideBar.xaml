@@ -3,21 +3,18 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:MSCS.Views"
-             Background="#202737"
+             Background="{DynamicResource SidebarBackground}"
+             Foreground="{DynamicResource SidebarText}"
              MinWidth="260" Width="300">
     <UserControl.Resources>
         <!-- chapters view with text filter (handled in code-behind) -->
         <CollectionViewSource x:Key="ChaptersView"
                               Source="{Binding ElementName=Root, Path=ItemsSource}"
                               Filter="ChaptersView_Filter"/>
-        <!-- common brushes (fall back if window theme not present) -->
-        <SolidColorBrush x:Key="Fg" Color="#E9EEF7"/>
-        <SolidColorBrush x:Key="FgMuted" Color="#A7B0C0"/>
-        <SolidColorBrush x:Key="Accent" Color="#7C9CFF"/>
     </UserControl.Resources>
 
-    <Border Background="#202737"
-            BorderBrush="#263149"
+    <Border Background="{DynamicResource SidebarBackground}"
+            BorderBrush="{DynamicResource SurfaceBorderSoft}"
             BorderThickness="1"
             CornerRadius="10"
             Padding="10">
@@ -38,7 +35,7 @@
                         Margin="0,0,8,0"
                         DockPanel.Dock="Left"/>
                 <TextBlock Text="Chapters"
-                           Foreground="{StaticResource Fg}"
+                           Foreground="{DynamicResource SidebarText}"
                            VerticalAlignment="Center"
                            FontWeight="SemiBold"/>
             </DockPanel>
@@ -56,8 +53,8 @@
                      ItemsSource="{Binding Source={StaticResource ChaptersView}}"
                      SelectedItem="{Binding ElementName=Root, Path=SelectedItem, Mode=TwoWay}"
                      BorderThickness="0"
-                     Background="#202737"
-                     Foreground="{StaticResource Fg}"
+                     Background="{DynamicResource SidebarBackground}"
+                     Foreground="{DynamicResource SidebarText}"
                      ScrollViewer.VerticalScrollBarVisibility="Auto"
                      VirtualizingStackPanel.IsVirtualizing="True"
                      VirtualizingStackPanel.VirtualizationMode="Recycling">
@@ -73,16 +70,16 @@
                         <Setter Property="Padding" Value="2"/>
                         <Setter Property="Margin"  Value="0,2"/>
                         <Setter Property="Background" Value="Transparent"/>
-                        <Setter Property="BorderBrush" Value="#324058"/>
+                        <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorder}"/>
                         <Setter Property="BorderThickness" Value="1"/>
                         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                         <Style.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#263149"/>
+                                <Setter Property="Background" Value="{DynamicResource ControlHover}"/>
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Background" Value="#33405C"/>
-                                <Setter Property="BorderBrush" Value="{StaticResource Accent}"/>
+                                <Setter Property="Background" Value="{DynamicResource ControlPressed}"/>
+                                <Setter Property="BorderBrush" Value="{DynamicResource Accent}"/>
                             </Trigger>
                         </Style.Triggers>
                     </Style>

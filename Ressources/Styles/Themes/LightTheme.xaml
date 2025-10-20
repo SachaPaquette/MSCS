@@ -3,7 +3,7 @@
     <!-- Global color palette for the light theme -->
     <SolidColorBrush x:Key="PrimaryColor" Color="#1F2937"/>
     <SolidColorBrush x:Key="AccentColor" Color="#4C6EF5"/>
-    <SolidColorBrush x:Key="SidebarBackground" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="SidebarBackground" Color="#F3F6FF"/>
     <SolidColorBrush x:Key="SidebarText" Color="#1F2937"/>
     <SolidColorBrush x:Key="ForegroundBrush" Color="#1F2937"/>
     <SolidColorBrush x:Key="PrimaryBrush" Color="#1F2937"/>
@@ -12,14 +12,19 @@
         <GradientStop Color="#F8FAFF" Offset="0"/>
         <GradientStop Color="#EEF2FF" Offset="1"/>
     </LinearGradientBrush>
+    <SolidColorBrush x:Key="SurfaceLow" Color="#F8FAFF"/>
     <SolidColorBrush x:Key="Surface"   Color="#FFFFFF"/>
     <SolidColorBrush x:Key="SurfaceAlt" Color="#E2E8F0"/>
+    <SolidColorBrush x:Key="SurfaceBorder" Color="#CBD5E1"/>
+    <SolidColorBrush x:Key="SurfaceBorderSoft" Color="#E2E8F0"/>
     <SolidColorBrush x:Key="Card"      Color="#FFFFFF"/>
     <SolidColorBrush x:Key="Accent"    Color="#4C6EF5"/>
     <SolidColorBrush x:Key="AccentHover" Color="#5C7CFF"/>
     <SolidColorBrush x:Key="AccentPressed" Color="#3B55CC"/>
+    <SolidColorBrush x:Key="AccentForeground" Color="#FFFFFF"/>
     <SolidColorBrush x:Key="Fg"        Color="#1F2937"/>
     <SolidColorBrush x:Key="FgMuted"   Color="#64748B"/>
+    <SolidColorBrush x:Key="FgSubtle"  Color="#94A3B8"/>
     <SolidColorBrush x:Key="ControlHover" Color="#EDF2FF"/>
     <SolidColorBrush x:Key="ControlPressed" Color="#D6DEFF"/>
 </ResourceDictionary>
