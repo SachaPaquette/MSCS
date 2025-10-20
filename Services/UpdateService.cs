@@ -3,6 +3,7 @@ using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Net;
 using System.Net.Http;
 using System.Reflection;
 using System.Text.Json;
@@ -22,6 +23,12 @@ public sealed class UpdateService
 
     public async Task<UpdateCheckResult?> CheckForUpdatesAsync(CancellationToken cancellationToken = default)
     {
+        var response = await CheckForUpdatesWithOutcomeAsync(cancellationToken).ConfigureAwait(false);
+        return response.Outcome == UpdateCheckOutcome.UpdateAvailable ? response.Update : null;
+    }
+
+    public async Task<UpdateCheckResponse> CheckForUpdatesWithOutcomeAsync(CancellationToken cancellationToken = default)
+    {
         var currentVersion = GetCurrentVersion();
         var currentBuildDate = TryGetCurrentBuildDate(out var buildDate)
             ? buildDate
@@ -32,25 +39,29 @@ public sealed class UpdateService
 
         if (string.IsNullOrWhiteSpace(apiEndpoint))
         {
-            return null;
+            return UpdateCheckResponse.Disabled();
         }
 
         try
         {
-            using var response = await HttpClient.GetAsync(apiEndpoint, cancellationToken).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
+            var (document, fetchStatus) = await FetchLatestReleaseDocumentAsync(apiEndpoint, cancellationToken).ConfigureAwait(false);
+
+            if (fetchStatus != ReleaseFetchStatus.Success || document is null)
             {
-                return null;
+                return fetchStatus switch
+                {
+                    ReleaseFetchStatus.NotFound => UpdateCheckResponse.UpToDate(),
+                    _ => UpdateCheckResponse.Failed()
+                };
             }
 
-            await using var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-            using var document = await JsonDocument.ParseAsync(responseStream, cancellationToken: cancellationToken).ConfigureAwait(false);
-            var root = document.RootElement;
+            using var doc = document;
+            var root = doc.RootElement;
 
             var versionText = GetVersionText(root);
             if (!TryParseVersion(versionText, out var latestVersion))
             {
-                return null;
+                return UpdateCheckResponse.UpToDate();
             }
 
             var releasePage = root.TryGetProperty("html_url", out var htmlUrlElement) && htmlUrlElement.ValueKind == JsonValueKind.String
@@ -65,12 +76,12 @@ public sealed class UpdateService
 
             if (!IsUpdateAvailable(currentVersion, latestVersion, hasNewerBuild))
             {
-                return null;
+                return UpdateCheckResponse.UpToDate();
             }
 
             var releaseId = GetReleaseId(root);
 
-            return new UpdateCheckResult(
+            var update = new UpdateCheckResult(
                 currentVersion,
                 latestVersion,
                 releasePage,
@@ -78,16 +89,20 @@ public sealed class UpdateService
                 releasePublishedAt,
                 currentBuildDate,
                 releaseId);
+
+            return UpdateCheckResponse.Available(update);
         }
         catch (HttpRequestException)
         {
-            return null;
+            return UpdateCheckResponse.Failed();
         }
         catch (TaskCanceledException)
         {
-            return null;
+            return UpdateCheckResponse.Failed();
         }
     }
+
+    public Version GetInstalledVersion() => GetCurrentVersion();
 
     private static HttpClient CreateHttpClient()
     {
@@ -101,7 +116,106 @@ public sealed class UpdateService
             client.DefaultRequestHeaders.UserAgent.ParseAdd("MSCS");
         }
 
+        if (!client.DefaultRequestHeaders.Accept.TryParseAdd("application/vnd.github+json"))
+        {
+            client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+        }
+
+        if (!client.DefaultRequestHeaders.Contains("X-GitHub-Api-Version"))
+        {
+            client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
+        }
+
         return client;
+    }
+
+    private static async Task<(JsonDocument? Document, ReleaseFetchStatus Status)> FetchLatestReleaseDocumentAsync(string apiEndpoint, CancellationToken cancellationToken)
+    {
+        using var response = await HttpClient.GetAsync(apiEndpoint, cancellationToken).ConfigureAwait(false);
+        if (response.IsSuccessStatusCode)
+        {
+            var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return (null, ReleaseFetchStatus.Failed);
+            }
+
+            return (JsonDocument.Parse(json), ReleaseFetchStatus.Success);
+        }
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            var fallbackEndpoint = GetFallbackReleasesEndpoint(apiEndpoint);
+            if (fallbackEndpoint is null)
+            {
+                return (null, ReleaseFetchStatus.NotFound);
+            }
+
+            using var fallbackResponse = await HttpClient.GetAsync(fallbackEndpoint, cancellationToken).ConfigureAwait(false);
+            if (!fallbackResponse.IsSuccessStatusCode)
+            {
+                return fallbackResponse.StatusCode == HttpStatusCode.NotFound
+                    ? (null, ReleaseFetchStatus.NotFound)
+                    : (null, ReleaseFetchStatus.Failed);
+            }
+
+            var fallbackJson = await fallbackResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(fallbackJson))
+            {
+                return (null, ReleaseFetchStatus.NotFound);
+            }
+
+            using var fallbackDocument = JsonDocument.Parse(fallbackJson);
+            if (fallbackDocument.RootElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var element in fallbackDocument.RootElement.EnumerateArray())
+                {
+                    if (element.ValueKind != JsonValueKind.Object)
+                    {
+                        continue;
+                    }
+
+                    var latestJson = element.GetRawText();
+                    if (!string.IsNullOrWhiteSpace(latestJson))
+                    {
+                        return (JsonDocument.Parse(latestJson), ReleaseFetchStatus.Success);
+                    }
+                }
+            }
+
+            return (null, ReleaseFetchStatus.NotFound);
+        }
+
+        return (null, ReleaseFetchStatus.Failed);
+    }
+
+    private static string? GetFallbackReleasesEndpoint(string apiEndpoint)
+    {
+        if (string.IsNullOrWhiteSpace(apiEndpoint))
+        {
+            return null;
+        }
+
+        const string latestSuffix = "/latest";
+        if (!apiEndpoint.EndsWith(latestSuffix, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var baseEndpoint = apiEndpoint[..^latestSuffix.Length];
+        if (string.IsNullOrWhiteSpace(baseEndpoint))
+        {
+            return null;
+        }
+
+        return baseEndpoint + "?per_page=1";
+    }
+
+    private enum ReleaseFetchStatus
+    {
+        Success,
+        NotFound,
+        Failed
     }
 
 

@@ -106,7 +106,8 @@ public partial class App : System.Windows.Application
             provider.GetRequiredService<LocalLibraryService>(),
             provider.GetRequiredService<UserSettings>(),
             provider.GetRequiredService<ThemeService>(),
-            provider.GetRequiredService<MediaTrackingServiceRegistry>()));
+            provider.GetRequiredService<MediaTrackingServiceRegistry>(),
+            provider.GetRequiredService<UpdateService>()));
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<MainWindow>();
     }

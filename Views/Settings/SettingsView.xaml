@@ -154,7 +154,7 @@
                         <CheckBox Content="Auto-adjust page width" IsChecked="{Binding ReaderAutoAdjustWidth, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
                         <CheckBox Content="Enable page transitions" IsChecked="{Binding ReaderEnablePageTransitions, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                     </StackPanel>
-                    
+
                     <Button Content="Reset to defaults"
                             Padding="20,8"
                             Width="160"
@@ -285,6 +285,61 @@
                 </ItemsControl>
             </settings:SettingsSection>
         </DataTemplate>
+
+        <DataTemplate DataType="{x:Type viewModels:UpdateSettingsSectionViewModel}">
+            <settings:SettingsSection Title="{Binding Title}"
+                                      Description="{Binding Description}">
+                <StackPanel>
+                    <TextBlock Text="{Binding InstalledVersionDisplay}"
+                               Foreground="{DynamicResource FgMuted}"/>
+
+                    <Button Content="Check for updates"
+                            Padding="20,8"
+                            Width="180"
+                            HorizontalAlignment="Left"
+                            Margin="0,12,0,0"
+                            Style="{StaticResource AccentButton}"
+                            Command="{Binding CheckForUpdatesCommand}"/>
+
+                    <TextBlock Text="{Binding StatusMessage}"
+                               Margin="0,12,0,0"
+                               Foreground="{DynamicResource Fg}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Visible"/>
+                                <Style.Triggers>
+                                    <Trigger Property="Text" Value="">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </Trigger>
+                                    <DataTrigger Binding="{Binding StatusMessage}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <TextBlock Text="{Binding LastCheckedDisplay}"
+                               Margin="0,4,0,0"
+                               Foreground="{DynamicResource FgMuted}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Visible"/>
+                                <Style.Triggers>
+                                    <Trigger Property="Text" Value="">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </Trigger>
+                                    <DataTrigger Binding="{Binding LastCheckedDisplay}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+            </settings:SettingsSection>
+        </DataTemplate>
+
     </UserControl.Resources>
 
     <Grid Margin="36">

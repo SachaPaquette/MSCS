@@ -14,7 +14,8 @@ namespace MSCS.ViewModels
             LocalLibraryService libraryService,
             UserSettings userSettings,
             ThemeService themeService,
-            MediaTrackingServiceRegistry trackingRegistry)
+            MediaTrackingServiceRegistry trackingRegistry,
+            UpdateService updateService)
         {
             if (libraryService == null)
             {
@@ -36,12 +37,18 @@ namespace MSCS.ViewModels
                 throw new ArgumentNullException(nameof(trackingRegistry));
             }
 
+            if (updateService == null)
+            {
+                throw new ArgumentNullException(nameof(updateService));
+            }
+
             Sections = new ObservableCollection<SettingsSectionViewModel>
             {
                 new AppearanceSettingsSectionViewModel(themeService, userSettings),
                 new ReaderDefaultsSettingsSectionViewModel(userSettings),
                 new LibraryFolderSettingsSectionViewModel(libraryService),
-                new TrackingIntegrationsSettingsSectionViewModel(trackingRegistry)
+                new TrackingIntegrationsSettingsSectionViewModel(trackingRegistry),
+                new UpdateSettingsSectionViewModel(updateService, userSettings),
             };
         }
 
