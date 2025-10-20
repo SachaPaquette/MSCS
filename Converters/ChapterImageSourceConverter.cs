@@ -25,7 +25,11 @@ namespace MSCS.Converters
                 return cached;
             }
 
-            coordinator?.PrefetchImages(new[] { image }, 0, 1);
+            if (coordinator != null)
+            {
+                coordinator.PrefetchImages(new[] { image }, 0, 1);
+                return Binding.DoNothing;
+            }
 
             if (image.StreamFactory != null)
             {
