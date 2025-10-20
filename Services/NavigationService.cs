@@ -36,12 +36,6 @@ namespace MSCS.Services
             {
                 if (ReferenceEquals(vm, _rootViewModel))
                 {
-                    if (!ReferenceEquals(_currentViewModel, vm) &&
-                        _currentViewModel is IDisposable disposable)
-                    {
-                        disposable.Dispose();
-                    }
-
                     ShowViewModel(vm, addToHistory: false);
                     return;
                 }
@@ -98,9 +92,16 @@ namespace MSCS.Services
         {
             if (vm == null) throw new ArgumentNullException(nameof(vm));
 
-            if (addToHistory && _currentViewModel != null && !ReferenceEquals(_currentViewModel, vm))
+            var previous = _currentViewModel;
+            bool isDifferent = previous != null && !ReferenceEquals(previous, vm);
+
+            if (addToHistory && previous != null && isDifferent)
             {
-                _backStack.Push(_currentViewModel);
+                _backStack.Push(previous);
+            }
+            else if (isDifferent && previous is IDisposable disposable)
+            {
+                disposable.Dispose();
             }
 
             _currentViewModel = vm;
