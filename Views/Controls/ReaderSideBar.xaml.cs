@@ -3,12 +3,16 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using ListBox = System.Windows.Controls.ListBox;
 
 namespace MSCS.Views
 {
     public partial class ReaderSidebar : System.Windows.Controls.UserControl
     {
-        public ReaderSidebar() => InitializeComponent();
+        public ReaderSidebar()
+        {
+            InitializeComponent();
+        }
 
         // Bind the chapters (IEnumerable<Chapter>)
         public IEnumerable ItemsSource
@@ -71,6 +75,14 @@ namespace MSCS.Views
             // Expecting an object with Title property; adjust if needed.
             var title = e.Item?.GetType().GetProperty("Title")?.GetValue(e.Item)?.ToString() ?? "";
             e.Accepted = title.ToLowerInvariant().Contains(text);
+        }
+
+        private void ChaptersList_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is ListBox listBox && listBox.SelectedItem != null)
+            {
+                listBox.ScrollIntoView(listBox.SelectedItem);
+            }
         }
     }
 }

@@ -50,14 +50,17 @@
 
             <!-- List -->
             <ListBox Grid.Row="4"
+                     x:Name="ChaptersList"
                      ItemsSource="{Binding Source={StaticResource ChaptersView}}"
                      SelectedItem="{Binding ElementName=Root, Path=SelectedItem, Mode=TwoWay}"
+                     IsTabStop="True"
                      BorderThickness="0"
                      Background="{DynamicResource SidebarBackground}"
                      Foreground="{DynamicResource SidebarText}"
                      ScrollViewer.VerticalScrollBarVisibility="Auto"
                      VirtualizingStackPanel.IsVirtualizing="True"
-                     VirtualizingStackPanel.VirtualizationMode="Recycling">
+                     VirtualizingStackPanel.VirtualizationMode="Recycling"
+                     SelectionChanged="ChaptersList_OnSelectionChanged">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <TextBlock Text="{Binding Title}"
@@ -71,9 +74,32 @@
                         <Setter Property="Margin"  Value="0,2"/>
                         <Setter Property="Background" Value="Transparent"/>
                         <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorder}"/>
-                        <Setter Property="BorderThickness" Value="1"/>
+                        <Setter Property="FocusVisualStyle">
+                            <Setter.Value>
+                                <Style TargetType="Control">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Control">
+                                                <Border BorderBrush="{StaticResource Accent}"
+                                                        BorderThickness="2"
+                                                        CornerRadius="6"
+                                                        Margin="1"/>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Setter.Value>
+                        </Setter>
                         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                         <Style.Triggers>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsKeyboardFocusWithin" Value="True"/>
+                                    <Condition Property="IsSelected" Value="False"/>
+                                </MultiTrigger.Conditions>
+                                <Setter Property="BorderBrush" Value="{StaticResource Accent}"/>
+                                <Setter Property="Background" Value="#2A3750"/>
+                            </MultiTrigger>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter Property="Background" Value="{DynamicResource ControlHover}"/>
                             </Trigger>
