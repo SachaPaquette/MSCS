@@ -56,6 +56,39 @@
                 </Setter>
             </Style>
 
+            <Style x:Key="ChapterPreviewButton" TargetType="Button">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderBrush" Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                <Setter Property="Foreground" Value="{DynamicResource SidebarText}"/>
+                <Setter Property="TextElement.Foreground" Value="{DynamicResource SidebarText}"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Border"
+                                    Background="{TemplateBinding Background}"
+                                    CornerRadius="8">
+                                <ContentPresenter HorizontalAlignment="Stretch"
+                                                  VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Border" Property="Background" Value="{DynamicResource ControlHover}"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Border" Property="Background" Value="{DynamicResource ControlPressed}"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Border" Property="Opacity" Value="0.6"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
             <DataTemplate DataType="{x:Type vm:ReaderTrackingCoordinator+TrackingProvider}">
                 <Border Background="{DynamicResource SurfaceAlt}"
                         CornerRadius="4"
@@ -459,6 +492,69 @@
                     <TextBlock Text="{Binding ScrollProgress, StringFormat={}{0:P0}}"
                                Foreground="{DynamicResource SidebarText}"/>
                 </StackPanel>
+            </StackPanel>
+        </Border>
+        <Border HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Margin="0,0,0,40"
+                Padding="20,16"
+                Panel.ZIndex="6"
+                CornerRadius="12"
+                Background="{Binding Preferences.ReaderSurfaceBrush, FallbackValue={StaticResource SurfaceAlt}}"
+                Opacity="0.92"
+                BorderBrush="{DynamicResource SurfaceBorderSoft}"
+                BorderThickness="1">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsChapterTransitionPreviewVisible}" Value="True">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="18" ShadowDepth="0" Opacity="0.35"/>
+            </Border.Effect>
+            <StackPanel Width="360" TextBlock.TextAlignment="Center" TextElement.Foreground="{DynamicResource SidebarText}">
+                <Button Style="{StaticResource ChapterPreviewButton}"
+                        Command="{Binding PreviousChapterCommand}"
+                        Margin="0,0,0,12"
+                        Padding="12,8">
+                    <StackPanel>
+                        <TextBlock Text="Previous:"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource FgSubtle}"/>
+                        <TextBlock Text="{Binding PreviousChapterDisplay, TargetNullValue=—}"
+                                   TextTrimming="CharacterEllipsis"
+                                   FontSize="16"
+                                   Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Button>
+                <StackPanel Margin="0,0,0,12">
+                    <TextBlock Text="Current:"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource FgSubtle}"/>
+                    <TextBlock Text="{Binding CurrentChapterDisplay, TargetNullValue=—}"
+                               TextTrimming="CharacterEllipsis"
+                               FontSize="18"
+                               FontWeight="SemiBold"
+                               Margin="0,4,0,0"/>
+                </StackPanel>
+                <Button Style="{StaticResource ChapterPreviewButton}"
+                        Command="{Binding NextChapterCommand}"
+                        Padding="12,8">
+                    <StackPanel>
+                        <TextBlock Text="Next:"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource FgSubtle}"/>
+                        <TextBlock Text="{Binding NextChapterDisplay, TargetNullValue=—}"
+                                   TextTrimming="CharacterEllipsis"
+                                   FontSize="16"
+                                   Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Button>
             </StackPanel>
         </Border>
         <Grid x:Name="SidebarHost"

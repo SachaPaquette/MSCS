@@ -27,6 +27,7 @@ namespace MSCS.ViewModels
                 return false;
             }
 
+            SetChapterTransitionPreviewVisible(false);
 
             if (newIndex == _currentChapterIndex)
             {
@@ -61,6 +62,8 @@ namespace MSCS.ViewModels
             Debug.WriteLine($"Navigated to chapter {result.ChapterIndex} with {result.Images.Count} images.");
             CommandManager.InvalidateRequerySuggested();
             UpdateSelectedChapter(result.ChapterIndex);
+            UpdateChapterTransitionPreview();
+
             if (!_isRestoringProgress)
             {
                 PersistReadingProgress(force: true);
@@ -93,6 +96,7 @@ namespace MSCS.ViewModels
 
                 await dispatcher.InvokeAsync(() =>
                 {
+                    SetChapterTransitionPreviewVisible(false);
                     ImageUrls.Clear();
                     SetProperty(ref _scrollProgress, 0.0, nameof(ScrollProgress));
                     _lastKnownScrollOffset = 0;
@@ -211,6 +215,7 @@ namespace MSCS.ViewModels
                 SelectedChapter = _chapterListViewModel.Chapters[_currentChapterIndex];
                 ChapterTitle = SelectedChapter?.Title ?? ChapterTitle;
                 _isUpdatingSelectedChapter = false;
+                UpdateChapterTransitionPreview();
             }
         }
 
@@ -227,6 +232,7 @@ namespace MSCS.ViewModels
                 SelectedChapter = _chapterListViewModel.Chapters[index];
                 ChapterTitle = SelectedChapter?.Title ?? ChapterTitle;
                 _isUpdatingSelectedChapter = false;
+                UpdateChapterTransitionPreview();
             }
         }
 

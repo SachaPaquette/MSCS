@@ -58,7 +58,6 @@ namespace MSCS.Views
 
             double viewport = sv.ViewportHeight > 0 ? sv.ViewportHeight : sv.ActualHeight;
             double loadMoreThreshold = Math.Max(400, viewport * 1.25);
-            const double advanceThreshold = 0.5;
             double distanceToBottom = Math.Max(0, sv.ScrollableHeight - sv.VerticalOffset);
 
             if (distanceToBottom <= loadMoreThreshold)
@@ -66,14 +65,20 @@ namespace MSCS.Views
                 try
                 {
                     await vm!.LoadMoreImagesAsync();
-                    if (!_suppressAutoAdvance &&
-                        vm.RemainingImages == 0 &&
-                        distanceToBottom <= advanceThreshold)
-                    {
-                        await GoToNextChapter(vm);
-                    }
                 }
                 catch (OperationCanceledException) { Debug.WriteLine("Image loading cancelled during scroll."); }
+
+                distanceToBottom = Math.Max(0, sv.ScrollableHeight - sv.VerticalOffset);
+            }
+
+            if (vm != null)
+            {
+                double previewThreshold = Math.Max(1.0, viewport * 0.05);
+                bool shouldShowPreview = !_suppressAutoAdvance &&
+                                         vm.RemainingImages == 0 &&
+                                         distanceToBottom <= previewThreshold;
+
+                vm.SetChapterTransitionPreviewVisible(shouldShowPreview);
             }
         }
 
@@ -266,13 +271,6 @@ namespace MSCS.Views
         private void Image_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             ScrollEventHandler(sender, e);
-        }
-
-
-        private async Task GoToNextChapter(ReaderViewModel vm)
-        {
-            await vm.GoToNextChapterAsync();
-            ScrollView.ScrollToTop();
         }
 
         private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)

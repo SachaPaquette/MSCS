@@ -89,6 +89,34 @@ namespace MSCS.ViewModels
             get => _chapterTitle;
             private set => SetProperty(ref _chapterTitle, value);
         }
+
+        private bool _isChapterTransitionPreviewVisible;
+        public bool IsChapterTransitionPreviewVisible
+        {
+            get => _isChapterTransitionPreviewVisible;
+            private set => SetProperty(ref _isChapterTransitionPreviewVisible, value);
+        }
+
+        private string? _previousChapterDisplay;
+        public string? PreviousChapterDisplay
+        {
+            get => _previousChapterDisplay;
+            private set => SetProperty(ref _previousChapterDisplay, value);
+        }
+
+        private string? _currentChapterDisplay;
+        public string? CurrentChapterDisplay
+        {
+            get => _currentChapterDisplay;
+            private set => SetProperty(ref _currentChapterDisplay, value);
+        }
+
+        private string? _nextChapterDisplay;
+        public string? NextChapterDisplay
+        {
+            get => _nextChapterDisplay;
+            private set => SetProperty(ref _nextChapterDisplay, value);
+        }
         private string _mangaTitle = string.Empty;
         public string MangaTitle
         {
