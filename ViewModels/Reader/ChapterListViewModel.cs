@@ -43,7 +43,8 @@ namespace MSCS.ViewModels
         private string _chapterSearchText = string.Empty;
         private bool _showAllChapters;
         private ICollectionView? _filteredChapters;
-
+        private bool _isLoadingChapters;
+        private bool _isEmptyAfterFilter;
         public Manga Manga
         {
             get => _manga;
@@ -100,7 +101,46 @@ namespace MSCS.ViewModels
         public ICollectionView? FilteredChapters
         {
             get => _filteredChapters;
-            private set => SetProperty(ref _filteredChapters, value);
+            private set
+            {
+                if (_filteredChapters == value)
+                {
+                    return;
+                }
+
+                if (_filteredChapters is INotifyCollectionChanged oldNotify)
+                {
+                    oldNotify.CollectionChanged -= OnFilteredChaptersCollectionChanged;
+                }
+
+                if (SetProperty(ref _filteredChapters, value))
+                {
+                    if (_filteredChapters is INotifyCollectionChanged newNotify)
+                    {
+                        newNotify.CollectionChanged += OnFilteredChaptersCollectionChanged;
+                    }
+
+                    UpdateFilteredState();
+                }
+            }
+        }
+
+        public bool IsLoadingChapters
+        {
+            get => _isLoadingChapters;
+            private set
+            {
+                if (SetProperty(ref _isLoadingChapters, value))
+                {
+                    UpdateFilteredState();
+                }
+            }
+        }
+
+        public bool IsEmptyAfterFilter
+        {
+            get => _isEmptyAfterFilter;
+            private set => SetProperty(ref _isEmptyAfterFilter, value);
         }
 
         public string ChapterSearchText
@@ -112,7 +152,7 @@ namespace MSCS.ViewModels
                 if (SetProperty(ref _chapterSearchText, newValue))
                 {
                     UpdateLimitedState();
-                    FilteredChapters?.Refresh();
+                    RefreshFilteredChapters();
                 }
             }
         }
@@ -125,7 +165,7 @@ namespace MSCS.ViewModels
                 if (SetProperty(ref _showAllChapters, value))
                 {
                     UpdateLimitedState();
-                    FilteredChapters?.Refresh();
+                    RefreshFilteredChapters();
                 }
             }
         }
@@ -216,7 +256,7 @@ namespace MSCS.ViewModels
 
             FilteredChapters = view;
             UpdateLimitedState();
-            FilteredChapters?.Refresh();
+            RefreshFilteredChapters();
         }
 
         private bool FilterChapter(object item)
@@ -260,7 +300,7 @@ namespace MSCS.ViewModels
         private void OnChaptersCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
             UpdateLimitedState();
-            FilteredChapters?.Refresh();
+            RefreshFilteredChapters();
         }
 
         private void ToggleChapterListMode()
@@ -289,6 +329,8 @@ namespace MSCS.ViewModels
                 return;
             }
 
+            IsLoadingChapters = true;
+
             try
             {
                 var chapters = await _source.GetChaptersAsync(Manga.Url, _cts.Token);
@@ -304,6 +346,32 @@ namespace MSCS.ViewModels
             {
                 Debug.WriteLine($"Chapter load cancelled for {Manga?.Title}");
             }
+            finally
+            {
+                IsLoadingChapters = false;
+            }
+        }
+
+        private void RefreshFilteredChapters()
+        {
+            FilteredChapters?.Refresh();
+            UpdateFilteredState();
+        }
+
+        private void OnFilteredChaptersCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            UpdateFilteredState();
+        }
+
+        private void UpdateFilteredState()
+        {
+            var isEmpty = FilteredChapters?.IsEmpty ?? true;
+            if (IsLoadingChapters)
+            {
+                isEmpty = false;
+            }
+
+            IsEmptyAfterFilter = isEmpty;
         }
 
         private bool CanOpenChapter(object? parameter)
@@ -713,6 +781,11 @@ namespace MSCS.ViewModels
             if (_filteredChapters != null)
             {
                 _filteredChapters.Filter = null;
+
+                if (_filteredChapters is INotifyCollectionChanged notify)
+                {
+                    notify.CollectionChanged -= OnFilteredChaptersCollectionChanged;
+                }
             }
         }
 
