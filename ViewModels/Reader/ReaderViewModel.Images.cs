@@ -127,26 +127,30 @@ namespace MSCS.ViewModels
             }
         }
 
+
         private async Task ApplyInitialImagesAsync(IReadOnlyList<ChapterImage>? images)
         {
             var dispatcher = System.Windows.Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
 
-            await dispatcher.InvokeAsync(() =>
+            var newImages = images?.ToList() ?? new List<ChapterImage>();
+
+            await _imageLoadSemaphore.WaitAsync().ConfigureAwait(false);
+            try
             {
                 _allImages.Clear();
-                ImageUrls.Clear();
+                _allImages.AddRange(newImages);
                 _loadedCount = 0;
 
-                if (images != null)
+                await dispatcher.InvokeAsync(() =>
                 {
-                    foreach (var image in images)
-                    {
-                        _allImages.Add(image);
-                    }
-                }
-
-                NotifyLoadingMetricsChanged();
-            }, DispatcherPriority.Background);
+                    ImageUrls.Clear();
+                    NotifyLoadingMetricsChanged();
+                }, DispatcherPriority.Background);
+            }
+            finally
+            {
+                _imageLoadSemaphore.Release();
+            }
 
             if (_allImages.Count > 0)
             {

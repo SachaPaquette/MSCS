@@ -57,7 +57,7 @@ namespace MSCS.ViewModels
 
             _currentChapterIndex = result.ChapterIndex;
             _chapterCoordinator.PrefetchImages(result.Images, 0, Math.Min(Constants.DefaultLoadedBatchSize * 2, result.Images.Count));
-            ResetImages(result.Images);
+            await ResetImagesAsync(result.Images).ConfigureAwait(false);
             Debug.WriteLine($"Navigated to chapter {result.ChapterIndex} with {result.Images.Count} images.");
             CommandManager.InvalidateRequerySuggested();
             UpdateSelectedChapter(result.ChapterIndex);
@@ -70,7 +70,8 @@ namespace MSCS.ViewModels
             return true;
         }
 
-        private void ResetImages(IEnumerable<ChapterImage> images)
+
+        private async Task ResetImagesAsync(IEnumerable<ChapterImage> images)
         {
             _imageLoadCts.Cancel();
             _imageLoadCts.Dispose();
@@ -81,25 +82,29 @@ namespace MSCS.ViewModels
 
             var dispatcher = System.Windows.Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
 
-            dispatcher.Invoke(() =>
+            var newImages = images?.ToList() ?? new List<ChapterImage>();
+
+            await _imageLoadSemaphore.WaitAsync().ConfigureAwait(false);
+            try
             {
                 _allImages.Clear();
-                ImageUrls.Clear();
+                _allImages.AddRange(newImages);
                 _loadedCount = 0;
-                SetProperty(ref _scrollProgress, 0.0, nameof(ScrollProgress));
-                _lastKnownScrollOffset = 0;
-                _lastKnownExtentHeight = 0;
-                _lastKnownViewportHeight = 0;
-                foreach (var img in images)
-                {
-                    _allImages.Add(img);
-                }
 
-                OnPropertyChanged(nameof(TotalImages));
-                OnPropertyChanged(nameof(LoadedImages));
-                OnPropertyChanged(nameof(RemainingImages));
-                OnPropertyChanged(nameof(LoadingProgress));
-            });
+                await dispatcher.InvokeAsync(() =>
+                {
+                    ImageUrls.Clear();
+                    SetProperty(ref _scrollProgress, 0.0, nameof(ScrollProgress));
+                    _lastKnownScrollOffset = 0;
+                    _lastKnownExtentHeight = 0;
+                    _lastKnownViewportHeight = 0;
+                    NotifyLoadingMetricsChanged();
+                }, DispatcherPriority.Background);
+            }
+            finally
+            {
+                _imageLoadSemaphore.Release();
+            }
 
             _chapterCoordinator?.PrefetchImages(_allImages, 0, Math.Min(Constants.DefaultLoadedBatchSize, _allImages.Count));
             _ = LoadMoreImagesAsync();
