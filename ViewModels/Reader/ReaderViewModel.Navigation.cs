@@ -1,4 +1,5 @@
 ﻿using MSCS.Commands;
+using MSCS.Helpers;
 using MSCS.Interfaces;
 using MSCS.Models;
 using System;
@@ -80,6 +81,7 @@ namespace MSCS.ViewModels
                 OnPropertyChanged(nameof(LoadingProgress));
             });
 
+            _chapterCoordinator?.PrefetchImages(_allImages, 0, Math.Min(Constants.DefaultLoadedBatchSize, _allImages.Count));
             _ = LoadMoreImagesAsync();
         }
 

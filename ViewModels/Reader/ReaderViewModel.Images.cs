@@ -39,6 +39,10 @@ namespace MSCS.ViewModels
                 token.ThrowIfCancellationRequested();
 
                 int startIndex = _loadedCount;
+                var upcoming = Math.Min(
+                    Constants.DefaultLoadedBatchSize * 2,
+                    Math.Max(0, _allImages.Count - (startIndex + countToLoad)));
+                _chapterCoordinator?.PrefetchImages(_allImages, Math.Max(0, startIndex), countToLoad + upcoming, token);
                 var dispatcher = System.Windows.Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
                 await dispatcher.InvokeAsync(() =>
                 {
@@ -51,8 +55,6 @@ namespace MSCS.ViewModels
                     NotifyLoadingMetricsChanged();
                 }, DispatcherPriority.Background, token);
 
-                var upcoming = Math.Min(Constants.DefaultLoadedBatchSize * 2, _allImages.Count - _loadedCount);
-                _chapterCoordinator?.PrefetchImages(_allImages, Math.Max(0, startIndex), countToLoad + upcoming, token);
                 Debug.WriteLine($"Loaded {_loadedCount} / {_allImages.Count} images");
             }
             catch (OperationCanceledException)
