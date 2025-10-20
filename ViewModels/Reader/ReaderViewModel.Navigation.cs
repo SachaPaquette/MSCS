@@ -11,6 +11,8 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
+using Application = System.Windows.Application;
+using MessageBox = System.Windows.MessageBox;
 
 namespace MSCS.ViewModels
 {
@@ -25,7 +27,13 @@ namespace MSCS.ViewModels
                 return false;
             }
 
-            if (newIndex == _currentChapterIndex + 1)
+
+            if (newIndex == _currentChapterIndex)
+            {
+                return true;
+            }
+
+            if (_currentChapterIndex >= 0)
             {
                 await UpdateTrackingProgressAsync().ConfigureAwait(false);
             }
@@ -33,10 +41,22 @@ namespace MSCS.ViewModels
             var result = await _chapterCoordinator.MoveToChapterAsync(newIndex).ConfigureAwait(false);
             if (result == null)
             {
+                var dispatcher = Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
+                dispatcher.Invoke(() =>
+                {
+                    MessageBox.Show(
+                        Application.Current?.MainWindow,
+                        "Unable to load the selected chapter. Please check your connection and try again.",
+                        "Chapter navigation",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                });
+
                 return false;
             }
 
             _currentChapterIndex = result.ChapterIndex;
+            _chapterCoordinator.PrefetchImages(result.Images, 0, Math.Min(Constants.DefaultLoadedBatchSize * 2, result.Images.Count));
             ResetImages(result.Images);
             Debug.WriteLine($"Navigated to chapter {result.ChapterIndex} with {result.Images.Count} images.");
             CommandManager.InvalidateRequerySuggested();
