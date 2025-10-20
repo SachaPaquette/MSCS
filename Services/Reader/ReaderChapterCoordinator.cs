@@ -12,7 +12,7 @@ using System.Windows.Media.Imaging;
 
 namespace MSCS.Services.Reader
 {
-    public sealed class ReaderChapterCoordinator
+    public class ReaderChapterCoordinator
     {
         private readonly ChapterListViewModel _chapterListViewModel;
         private readonly SemaphoreSlim _navigationSemaphore = new(1, 1);
@@ -30,6 +30,16 @@ namespace MSCS.Services.Reader
         }
 
         public event EventHandler? ImageCached;
+
+        public virtual void ClearCache()
+        {
+            _imageCache.Clear();
+
+            lock (_cacheLock)
+            {
+                _cacheOrder.Clear();
+            }
+        }
 
         public bool CanNavigateTo(int index)
         {

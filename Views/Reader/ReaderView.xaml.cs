@@ -279,6 +279,7 @@ namespace MSCS.Views
             {
                 oldViewModel.ChapterChanged -= OnChapterChanged;
                 oldViewModel.ScrollRestoreRequested -= OnScrollRestoreRequested;
+                oldViewModel.Dispose();
             }
 
             if (e.NewValue is ReaderViewModel newViewModel)
@@ -321,6 +322,7 @@ namespace MSCS.Views
         private void UserControl_Unloaded(object sender, RoutedEventArgs e)
         {
             ExitFullscreen();
+            ViewModel?.Dispose();
         }
 
         private void UserControl_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)

@@ -23,7 +23,7 @@ using System.Windows.Threading;
 
 namespace MSCS.ViewModels
 {
-    public partial class ReaderViewModel : BaseViewModel
+    public partial class ReaderViewModel : BaseViewModel, IDisposable
     {
         private readonly List<ChapterImage> _allImages;
         private readonly ChapterListViewModel? _chapterListViewModel;
@@ -37,6 +37,7 @@ namespace MSCS.ViewModels
         private static readonly ICommand DisabledCommand = new RelayCommand(_ => { }, _ => false);
         private readonly SemaphoreSlim _imageLoadSemaphore = new(1, 1);
         private CancellationTokenSource _imageLoadCts = new();
+        private bool _isDisposed;
         public event EventHandler? ChapterChanged;
         private EventHandler<ScrollRestoreRequest>? _scrollRestoreRequested;
         private ScrollRestoreRequest? _queuedScrollRestoreRequest;
@@ -176,7 +177,7 @@ namespace MSCS.ViewModels
             _preferencesService = new ReaderPreferencesService(_userSettings);
             _preferences = new ReaderPreferencesViewModel(_preferencesService);
             _chapterCoordinator = null;
-            _trackingCoordinator = new ReaderTrackingCoordinator(
+            _trackingCoordinator = CreateTrackingCoordinator(
                 _trackingRegistry,
                 () => MangaTitle,
                 () => SelectedChapter,
@@ -208,8 +209,8 @@ namespace MSCS.ViewModels
             _preferencesService = new ReaderPreferencesService(_userSettings);
             _preferences = new ReaderPreferencesViewModel(_preferencesService);
             _initialProgress = initialProgress;
-            _chapterCoordinator = new ReaderChapterCoordinator(_chapterListViewModel);
-            _trackingCoordinator = new ReaderTrackingCoordinator(
+            _chapterCoordinator = CreateChapterCoordinator(_chapterListViewModel);
+            _trackingCoordinator = CreateTrackingCoordinator(
                 _trackingRegistry,
                 () => MangaTitle,
                 () => SelectedChapter,
@@ -256,6 +257,64 @@ namespace MSCS.ViewModels
             _ = _chapterListViewModel?.PrefetchChapterAsync(_currentChapterIndex + 1);
             _ = UpdateTrackingProgressAsync();
             RestoreReadingProgress();
+        }
+
+        protected virtual ReaderChapterCoordinator CreateChapterCoordinator(ChapterListViewModel chapterListViewModel)
+        {
+            return new ReaderChapterCoordinator(chapterListViewModel);
+        }
+
+        protected virtual ReaderTrackingCoordinator CreateTrackingCoordinator(
+            MediaTrackingServiceRegistry? trackingRegistry,
+            Func<string?> getMangaTitle,
+            Func<Chapter?> getSelectedChapter,
+            Func<Chapter?, int> progressCalculator)
+        {
+            return new ReaderTrackingCoordinator(trackingRegistry, getMangaTitle, getSelectedChapter, progressCalculator);
+        }
+
+        public void Dispose()
+        {
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            _isDisposed = true;
+
+            try
+            {
+                _imageLoadCts.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+
+            _imageLoadCts.Dispose();
+
+            if (_chapterCoordinator != null)
+            {
+                _chapterCoordinator.ImageCached -= OnChapterCoordinatorImageCached;
+                _chapterCoordinator.ClearCache();
+            }
+
+            if (_chapterListViewModel != null)
+            {
+                PropertyChangedEventManager.RemoveHandler(
+                    _chapterListViewModel,
+                    ChapterListViewModelOnPropertyChanged,
+                    string.Empty);
+            }
+
+            if (_trackingCoordinator != null)
+            {
+                _trackingCoordinator.StateChanged -= OnTrackingCoordinatorStateChanged;
+                _trackingCoordinator.Dispose();
+            }
+
+            _scrollRestoreRequested = null;
+
+            GC.SuppressFinalize(this);
         }
     }
 }

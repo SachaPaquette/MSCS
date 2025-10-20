@@ -22,7 +22,7 @@ using MessageBox = System.Windows.MessageBox;
 
 namespace MSCS.ViewModels
 {
-    public sealed class ReaderTrackingCoordinator : IDisposable
+    public class ReaderTrackingCoordinator : IDisposable
     {
         private readonly MediaTrackingServiceRegistry? _trackingRegistry;
         private readonly ObservableCollection<TrackingProvider> _trackingProviders = new();
@@ -148,7 +148,7 @@ namespace MSCS.ViewModels
             }
         }
 
-        public void Dispose()
+        public virtual void Dispose()
         {
             foreach (var provider in _trackingProviders)
             {
