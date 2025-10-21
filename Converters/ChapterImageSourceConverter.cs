@@ -1,5 +1,4 @@
 ﻿using MSCS.Models;
-using MSCS.Services.Reader;
 using System;
 using System.Diagnostics;
 using System.Globalization;
@@ -9,25 +8,12 @@ using Binding = System.Windows.Data.Binding;
 
 namespace MSCS.Converters
 {
-    public class ChapterImageSourceConverter : IMultiValueConverter
+    public class ChapterImageSourceConverter : IValueConverter
     {
-        public object? Convert(object[] values, Type targetType, object? parameter, CultureInfo culture)
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
-            if (values.Length == 0 || values[0] is not ChapterImage image)
+            if (value is not ChapterImage image)
             {
-                return Binding.DoNothing;
-            }
-
-            var coordinator = values.Length > 1 ? values[1] as ReaderChapterCoordinator : null;
-            var cached = coordinator?.TryGetCachedImage(image);
-            if (cached != null)
-            {
-                return cached;
-            }
-
-            if (coordinator != null)
-            {
-                coordinator.PrefetchImages(new[] { image }, 0, 1);
                 return Binding.DoNothing;
             }
 
@@ -69,9 +55,9 @@ namespace MSCS.Converters
             return null;
         }
 
-        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            return Array.Empty<object>();
+            return System.Windows.Data.Binding.DoNothing;
         }
     }
 }

@@ -425,12 +425,9 @@
                                MouseLeftButtonDown="Image_MouseLeftButtonDown"
                                RenderOptions.EdgeMode="Aliased">
                             <Image.Source>
-                                <MultiBinding Converter="{StaticResource ChapterImageSource}">
-                                    <Binding/>
-                                    <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.ChapterCoordinator"/>
-                                    <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.ImageCacheVersion"/>
-                                </MultiBinding>
-                            </Image.Source>                            <Image.Width>
+                                <Binding Converter="{StaticResource ChapterImageSource}"/>
+                            </Image.Source>
+                            <Image.Width>
                                 <MultiBinding Converter="{StaticResource ViewportFraction}">
                                     <Binding ElementName="ScrollView" Path="ViewportWidth"/>
                                     <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.Preferences.WidthFactor"/>

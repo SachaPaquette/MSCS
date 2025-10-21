@@ -127,6 +127,29 @@ namespace MSCS.Services.Reader
             return null;
         }
 
+
+        public void CacheImage(ChapterImage image, BitmapImage bitmap, bool notify = true)
+        {
+            if (image == null || bitmap == null)
+            {
+                return;
+            }
+
+            var key = GetCacheKey(image);
+            if (key == null)
+            {
+                return;
+            }
+
+            if (!bitmap.IsFrozen && bitmap.CanFreeze)
+            {
+                bitmap.Freeze();
+            }
+
+            var cachedImage = new CachedImage(bitmap);
+            StoreCachedImage(key, cachedImage, notify);
+        }
+
         public void ReleaseImage(ChapterImage? image)
         {
             if (image == null)
@@ -207,28 +230,43 @@ namespace MSCS.Services.Reader
                     return;
                 }
 
-                _imageCache[key] = cached;
-                lock (_cacheLock)
-                {
-                    _cacheOrder.AddFirst(key);
-                    while (_cacheOrder.Count > MaxCachedImages)
-                    {
-                        var last = _cacheOrder.Last;
-                        if (last == null)
-                        {
-                            break;
-                        }
-
-                        _cacheOrder.RemoveLast();
-                        _imageCache.TryRemove(last.Value, out _);
-                    }
-                }
-
-                ImageCached?.Invoke(this, EventArgs.Empty);
+                StoreCachedImage(key, cached, notify: true);
             }
             finally
             {
                 _prefetchSemaphore.Release();
+            }
+        }
+
+        private void StoreCachedImage(string key, CachedImage cachedImage, bool notify)
+        {
+            _imageCache[key] = cachedImage;
+
+            lock (_cacheLock)
+            {
+                var existingNode = _cacheOrder.Find(key);
+                if (existingNode != null)
+                {
+                    _cacheOrder.Remove(existingNode);
+                }
+
+                _cacheOrder.AddFirst(key);
+                while (_cacheOrder.Count > MaxCachedImages)
+                {
+                    var last = _cacheOrder.Last;
+                    if (last == null)
+                    {
+                        break;
+                    }
+
+                    _cacheOrder.RemoveLast();
+                    _imageCache.TryRemove(last.Value, out _);
+                }
+            }
+
+            if (notify)
+            {
+                ImageCached?.Invoke(this, EventArgs.Empty);
             }
         }
 
