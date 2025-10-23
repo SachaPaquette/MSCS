@@ -49,9 +49,28 @@ namespace MSCS.Views
             if (sender is not ScrollViewer sv) return;
 
             var vm = ViewModel;
+            double? previousProgress = vm?.ScrollProgress;
             vm?.UpdateScrollPosition(sv.VerticalOffset, sv.ExtentHeight, sv.ViewportHeight);
 
             TryApplyPendingScroll();
+
+            bool viewportChanged = Math.Abs(e.ViewportHeightChange) > 0.1 || Math.Abs(e.ViewportWidthChange) > 0.1;
+            if (viewportChanged && vm != null && !_pendingScrollOffset.HasValue && !_pendingScrollProgress.HasValue)
+            {
+                if (!vm.IsRestoringProgress && !vm.IsInRestoreCooldown)
+                {
+                    double? targetProgress = previousProgress;
+                    if (!targetProgress.HasValue)
+                    {
+                        targetProgress = GetCurrentNormalizedScrollProgress();
+                    }
+
+                    if (targetProgress.HasValue)
+                    {
+                        QueueScrollRestore(null, targetProgress.Value);
+                    }
+                }
+            }
 
             if (vm?.IsRestoringProgress == true || vm?.IsInRestoreCooldown == true)
                 return;
@@ -430,6 +449,7 @@ namespace MSCS.Views
 
         private void ToggleFullscreen()
         {
+            var (_, progress) = CaptureScrollState();
             if (_isFullscreen)
             {
                 ExitFullscreen();
@@ -437,6 +457,11 @@ namespace MSCS.Views
             else
             {
                 EnterFullscreen();
+            }
+
+            if (progress.HasValue)
+            {
+                QueueScrollRestore(null, progress.Value);
             }
         }
 
@@ -510,6 +535,87 @@ namespace MSCS.Views
             {
                 FullscreenButton.ToolTip = _isFullscreen ? "Exit fullscreen" : "Enter fullscreen";
             }
+        }
+
+
+        private (double? Offset, double? Progress) CaptureScrollState()
+        {
+            if (ScrollView == null)
+            {
+                return (null, null);
+            }
+
+            var offset = ScrollView.VerticalOffset;
+            if (double.IsNaN(offset))
+            {
+                offset = 0;
+            }
+
+            double? progress = GetCurrentNormalizedScrollProgress();
+
+            return (offset, progress);
+        }
+
+        private double? GetCurrentNormalizedScrollProgress()
+        {
+            if (ScrollView == null)
+            {
+                return null;
+            }
+
+            var extent = ScrollView.ExtentHeight;
+            var viewport = ScrollView.ViewportHeight;
+            if (viewport <= 0)
+            {
+                viewport = ScrollView.ActualHeight;
+            }
+
+            if (extent <= 0 || viewport <= 0)
+            {
+                return null;
+            }
+
+            var scrollable = Math.Max(extent - viewport, 0);
+            if (scrollable <= 0)
+            {
+                return null;
+            }
+
+            var offset = ScrollView.VerticalOffset;
+            if (double.IsNaN(offset))
+            {
+                return null;
+            }
+
+            return Math.Clamp(offset / scrollable, 0.0, 1.0);
+        }
+
+        private void QueueScrollRestore(double? offset, double? normalizedProgress)
+        {
+            if (ScrollView == null)
+            {
+                return;
+            }
+
+            double? pendingOffset = offset.HasValue ? Math.Max(0, offset.Value) : null;
+            double? pendingProgress = (!pendingOffset.HasValue && normalizedProgress.HasValue)
+                ? Math.Clamp(normalizedProgress.Value, 0.0, 1.0)
+                : null;
+
+            if (!pendingOffset.HasValue && !pendingProgress.HasValue)
+            {
+                return;
+            }
+
+            _pendingScrollOffset = pendingOffset;
+            _pendingScrollProgress = pendingProgress;
+            _scrollRestoreAttemptCount = 0;
+            _suppressAutoAdvance = true;
+
+            ScrollView.Dispatcher.InvokeAsync(() =>
+            {
+                TryApplyPendingScroll();
+            }, System.Windows.Threading.DispatcherPriority.Background);
         }
     }
 }
