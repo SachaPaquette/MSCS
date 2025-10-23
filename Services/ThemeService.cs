@@ -24,7 +24,13 @@ namespace MSCS.Services
         {
             if (!_themeResources.TryGetValue(theme, out var resourceUri))
             {
-                throw new ArgumentOutOfRangeException(nameof(theme), theme, "Unknown theme requested.");
+                var fallbackTheme = AppTheme.Dark;
+                if (!_themeResources.TryGetValue(fallbackTheme, out resourceUri))
+                {
+                    return;
+                }
+
+                theme = fallbackTheme;
             }
 
             if (CurrentTheme == theme && _currentDictionary != null)

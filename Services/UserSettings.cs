@@ -26,6 +26,12 @@ namespace MSCS.Services
             var folder = Path.Combine(appData, "MSCS");
             _settingsPath = Path.Combine(folder, "settings.json");
             _data = LoadInternal();
+
+            if (!Enum.IsDefined(typeof(AppTheme), _data.AppTheme))
+            {
+                _data.AppTheme = AppTheme.Dark;
+                SaveInternal();
+            }
         }
 
         public string? LocalLibraryPath
