@@ -1,8 +1,5 @@
 ﻿using MSCS.Models;
-using PdfiumViewer;
-using SharpCompress.Archives;
 using System.Diagnostics;
-using System.Drawing.Imaging;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -26,17 +23,10 @@ namespace MSCS.Services
             ".cbz",
             ".cbr",
             ".cb7",
-            ".pdf"
         };
 
         private readonly UserSettings _settings;
         private bool _disposed;
-
-        private static readonly object ExtractionCleanupLock = new();
-        private static DateTime _lastCleanup = DateTime.MinValue;
-        private static readonly TimeSpan CleanupInterval = TimeSpan.FromMinutes(15);
-        private static readonly TimeSpan ExtractionLifetime = TimeSpan.FromHours(6);
-        private const int MaxExtractionDirectories = 32;
 
         public LocalLibraryService(UserSettings settings)
         {

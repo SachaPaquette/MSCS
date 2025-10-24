@@ -1,12 +1,9 @@
 ﻿using MSCS.Models;
-using PdfiumViewer;
 using SharpCompress.Archives;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Drawing.Imaging;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Threading;
 
@@ -119,12 +116,6 @@ namespace MSCS.Services
         {
             try
             {
-                var extension = Path.GetExtension(archivePath);
-                if (extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase))
-                {
-                    return ExtractPdfImages(archivePath);
-                }
-
                 return ExtractCompressedArchiveImages(archivePath);
             }
             catch (Exception ex)
@@ -169,37 +160,6 @@ namespace MSCS.Services
             catch (Exception ex)
             {
                 Debug.WriteLine($"Failed to extract compressed archive '{archivePath}': {ex.Message}");
-                return Array.Empty<ChapterImage>();
-            }
-        }
-        private IReadOnlyList<ChapterImage> ExtractPdfImages(string pdfPath)
-        {
-            try
-            {
-                var images = new List<ChapterImage>();
-                var extractionRoot = EnsureExtractionDirectory(pdfPath);
-
-                using var document = PdfDocument.Load(pdfPath);
-                for (var pageIndex = 0; pageIndex < document.PageCount; pageIndex++)
-                {
-                    var fileName = $"page_{pageIndex + 1:D4}.png";
-                    var destinationPath = Path.Combine(extractionRoot, fileName);
-
-                    if (!File.Exists(destinationPath))
-                    {
-                        using var bitmap = document.Render(pageIndex, 300, 300, true);
-                        Directory.CreateDirectory(extractionRoot);
-                        bitmap.Save(destinationPath, ImageFormat.Png);
-                    }
-
-                    images.Add(new ChapterImage { ImageUrl = destinationPath });
-                }
-
-                return images;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Failed to extract images from PDF '{pdfPath}': {ex.Message}");
                 return Array.Empty<ChapterImage>();
             }
         }
