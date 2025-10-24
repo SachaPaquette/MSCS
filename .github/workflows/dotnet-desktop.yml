@@ -1,4 +1,3 @@
-+70-0
 name: Build and Release (Single EXE)
 
 on:
@@ -35,10 +34,10 @@ jobs:
           dotnet-version: '9.0.x'
           include-prerelease: true
 
-      - name: Restore dependencies
+      - name: Restore
         run: dotnet restore
 
-      - name: Publish self-contained single-file
+      - name: Publish self-contained single-file (with native DLLs)
         run: >
           dotnet publish MSCS.csproj
           -c Release
@@ -46,12 +45,14 @@ jobs:
           --self-contained true
           -p:PublishSingleFile=true
           -p:IncludeAllContentForSelfExtract=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
           -p:EnableCompressionInSingleFile=true
           -p:PublishTrimmed=false
-          -o publish
+          -p:DebugType=None
           -p:Version=${{ env.VERSION }}
           -p:FileVersion=${{ env.ASSEMBLY_VERSION }}
           -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }}
+          -o publish
 
       - name: Rename EXE
         shell: pwsh
