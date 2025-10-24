@@ -9,7 +9,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationIcon>Ressources\Images\MSCS.ico</ApplicationIcon>
 
-    <!-- Let the CI pipeline set Version/FileVersion/AssemblyVersion -->
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
   </PropertyGroup>
 
@@ -29,9 +28,6 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.10" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.10" />
     <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.135" />
-
-    <PackageReference Include="PdfiumViewer" Version="2.13.0" />
-    <PackageReference Include="PdfiumViewer.Native.x64" Version="2024.10.30" />
 
     <PackageReference Include="SharpCompress" Version="0.40.0" />
   </ItemGroup>
