@@ -117,173 +117,202 @@
                            FontSize="14"
                            Foreground="{DynamicResource FgSubtle}"/>
             </StackPanel>
-
             <Grid Grid.Row="2">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
 
-                <ListView x:Name="LibraryList"
-                          Grid.Row="0"
-                          ItemsSource="{Binding MangaEntries}"
-                          SelectedItem="{Binding SelectedManga, Mode=TwoWay}"
-                          Background="Transparent"
-                          BorderThickness="0"
-                          ScrollViewer.VerticalScrollBarVisibility="Auto">
-                    <ListView.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <VirtualizingStackPanel/>
-                        </ItemsPanelTemplate>
-                    </ListView.ItemsPanel>
+                    <ListView x:Name="LibraryList"
+                              Grid.Row="0"
+                              ItemsSource="{Binding MangaEntries}"
+                              SelectedItem="{Binding SelectedManga, Mode=TwoWay}"
+                              Background="Transparent"
+                              BorderThickness="0"
+                              ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListView.Style>
+                            <Style TargetType="ListView">
+                                <Setter Property="Visibility" Value="Visible"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsLoading}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ListView.Style>
+                        <ListView.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <VirtualizingStackPanel/>
+                            </ItemsPanelTemplate>
+                        </ListView.ItemsPanel>
 
-                    <ListView.ItemContainerStyle>
-                        <Style TargetType="ListViewItem">
-                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                            <Setter Property="Margin" Value="0,0,0,14"/>
-                            <Setter Property="Background" Value="Transparent"/>
-                            <Setter Property="Cursor" Value="Hand"/>
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="ListViewItem">
-                                        <Border x:Name="ItemBorder"
-                                                Background="{DynamicResource Surface}"
-                                                BorderBrush="{DynamicResource SurfaceBorderSoft}"
-                                                BorderThickness="1"
-                                                CornerRadius="12">
-                                            <Border Padding="16">
-                                                <ContentPresenter Margin="0"/>
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                <Setter Property="Margin" Value="0,0,0,14"/>
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListViewItem">
+                                            <Border x:Name="ItemBorder"
+                                                    Background="{DynamicResource Surface}"
+                                                    BorderBrush="{DynamicResource SurfaceBorderSoft}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="12">
+                                                <Border Padding="16">
+                                                    <ContentPresenter Margin="0"/>
+                                                </Border>
                                             </Border>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SurfaceAlt}"/>
-                                                <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource SurfaceBorder}"/>
-                                            </Trigger>
-                                            <Trigger Property="IsSelected" Value="True">
-                                                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SurfaceAlt}"/>
-                                                <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource Accent}"/>
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </ListView.ItemContainerStyle>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SurfaceAlt}"/>
+                                                    <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource SurfaceBorder}"/>
+                                                </Trigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SurfaceAlt}"/>
+                                                    <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource Accent}"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListView.ItemContainerStyle>
 
-                    <ListView.ItemTemplate>
-                        <DataTemplate DataType="{x:Type models:LocalMangaEntry}">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                <TextBlock Grid.Row="0"
-                                           Text="{Binding Title}"
-                                           FontSize="18"
-                                           FontWeight="SemiBold"
-                                           Foreground="{DynamicResource Fg}"/>
-                                <TextBlock Grid.Row="1"
-                                           Text="{Binding Path}"
-                                           Foreground="{DynamicResource FgMuted}"
-                                           FontSize="14"
-                                           Margin="0,6,0,0"
-                                           TextTrimming="CharacterEllipsis"/>
-                                <StackPanel Grid.Row="2"
-                                            Orientation="Horizontal"
-                                            Margin="0,12,0,0">
-                                    <TextBlock FontSize="14" Foreground="{DynamicResource FgSubtle}">
-                                        <Run Text="Chapters: "/>
-                                        <Run Text="{Binding ChapterCount, Mode=OneWay}" Foreground="{DynamicResource Fg}"/>
-                                    </TextBlock>
-                                    <TextBlock FontSize="14"
-                                               Foreground="{DynamicResource FgSubtle}"
-                                               Margin="20,0,0,0">
-                                        <Run Text="Updated: "/>
-                                        <Run Text="{Binding LastModifiedUtc, Mode=OneWay, StringFormat={}{0:yyyy-MM-dd}}" Foreground="{DynamicResource Fg}"/>
-                                    </TextBlock>
-                                </StackPanel>
-                            </Grid>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
+                        <ListView.ItemTemplate>
+                            <DataTemplate DataType="{x:Type models:LocalMangaEntry}">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0"
+                                               Text="{Binding Title}"
+                                               FontSize="18"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource Fg}"/>
+                                    <TextBlock Grid.Row="1"
+                                               Text="{Binding Path}"
+                                               Foreground="{DynamicResource FgMuted}"
+                                               FontSize="14"
+                                               Margin="0,6,0,0"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <StackPanel Grid.Row="2"
+                                                Orientation="Horizontal"
+                                                Margin="0,12,0,0">
+                                        <TextBlock FontSize="14" Foreground="{DynamicResource FgSubtle}">
+                                            <Run Text="Chapters: "/>
+                                            <Run Text="{Binding ChapterCount, Mode=OneWay}" Foreground="{DynamicResource Fg}"/>
+                                        </TextBlock>
+                                        <TextBlock FontSize="14"
+                                                   Foreground="{DynamicResource FgSubtle}"
+                                                   Margin="20,0,0,0">
+                                            <Run Text="Updated: "/>
+                                            <Run Text="{Binding LastModifiedUtc, Mode=OneWay, StringFormat={}{0:yyyy-MM-dd}}" Foreground="{DynamicResource Fg}"/>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
 
-                <StackPanel Grid.Row="0">
-                    <StackPanel.Style>
-                        <Style TargetType="StackPanel" BasedOn="{StaticResource EmptyStatePanelStyle}">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding HasLibraryPath}" Value="False">
-                                    <Setter Property="Visibility" Value="Visible"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </StackPanel.Style>
-                    <TextBlock Text=""
-                               FontFamily="Segoe MDL2 Assets"
-                               FontSize="32"
-                               Foreground="{DynamicResource FgSubtle}"
-                               Opacity="0.6"
-                               HorizontalAlignment="Center"/>
-                    <TextBlock Text="Configure your library folder in Settings to browse local manga."
-                               Margin="0,12,0,0"
-                               FontSize="14"
-                               Foreground="{DynamicResource FgMuted}"
-                               TextAlignment="Center"
-                               TextWrapping="Wrap"
-                               MaxWidth="360"/>
-                </StackPanel>
+                    <StackPanel Grid.Row="0">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel" BasedOn="{StaticResource EmptyStatePanelStyle}">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasLibraryPath}" Value="False">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <TextBlock Text=""
+                                   FontFamily="Segoe MDL2 Assets"
+                                   FontSize="32"
+                                   Foreground="{DynamicResource FgSubtle}"
+                                   Opacity="0.6"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock Text="Configure your library folder in Settings to browse local manga."
+                                   Margin="0,12,0,0"
+                                   FontSize="14"
+                                   Foreground="{DynamicResource FgMuted}"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   MaxWidth="360"/>
+                    </StackPanel>
 
-                <StackPanel Grid.Row="0">
-                    <StackPanel.Style>
-                        <Style TargetType="StackPanel" BasedOn="{StaticResource EmptyStatePanelStyle}">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                            <Style.Triggers>
-                                <MultiDataTrigger>
-                                    <MultiDataTrigger.Conditions>
-                                        <Condition Binding="{Binding HasLibraryPath}" Value="True"/>
-                                        <Condition Binding="{Binding IsLibraryEmpty}" Value="True"/>
-                                    </MultiDataTrigger.Conditions>
-                                    <Setter Property="Visibility" Value="Visible"/>
-                                </MultiDataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </StackPanel.Style>
-                    <TextBlock Text=""
-                               FontFamily="Segoe MDL2 Assets"
-                               FontSize="32"
-                               Foreground="{DynamicResource FgSubtle}"
-                               Opacity="0.6"
-                               HorizontalAlignment="Center"/>
-                    <TextBlock Text="No manga found in your local library yet."
-                               Margin="0,12,0,0"
-                               FontSize="14"
-                               Foreground="{DynamicResource FgMuted}"
-                               TextAlignment="Center"
-                               TextWrapping="Wrap"
-                               MaxWidth="320"/>
-                </StackPanel>
+                    <StackPanel Grid.Row="0">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel" BasedOn="{StaticResource EmptyStatePanelStyle}">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding HasLibraryPath}" Value="True"/>
+                                            <Condition Binding="{Binding IsLibraryEmpty}" Value="True"/>
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <TextBlock Text=""
+                                   FontFamily="Segoe MDL2 Assets"
+                                   FontSize="32"
+                                   Foreground="{DynamicResource FgSubtle}"
+                                   Opacity="0.6"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock Text="No manga found in your local library yet."
+                                   Margin="0,12,0,0"
+                                   FontSize="14"
+                                   Foreground="{DynamicResource FgMuted}"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   MaxWidth="320"/>
+                    </StackPanel>
 
-                <Button Grid.Row="1"
-                        Content="Load more manga"
-                        Command="{Binding LoadMoreMangaCommand}"
-                        Margin="0,16,0,0"
-                        HorizontalAlignment="Left">
-                    <Button.Style>
-                        <Style TargetType="Button" BasedOn="{StaticResource AccentButtonStyle}">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding HasMoreResults}" Value="True">
-                                    <Setter Property="Visibility" Value="Visible"/>
-                                </DataTrigger>
-                                <Trigger Property="IsEnabled" Value="False">
-                                    <Setter Property="Opacity" Value="0.55"/>
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Button.Style>
-                </Button>
+                    <Button Grid.Row="1"
+                            Content="Load more manga"
+                            Command="{Binding LoadMoreMangaCommand}"
+                            Margin="0,16,0,0"
+                            HorizontalAlignment="Left">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource AccentButtonStyle}">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasMoreResults}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsLoading}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter Property="Opacity" Value="0.55"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </Grid>
+
+                <Border Background="#CC0E141F"
+                        Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"
+                        Panel.ZIndex="1">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <ProgressBar Width="160"
+                                     IsIndeterminate="True"
+                                     Foreground="{DynamicResource Accent}"
+                                     Margin="0,0,0,12"/>
+                        <TextBlock Text="Loading library..."
+                                   Foreground="{DynamicResource FgMuted}"
+                                   FontSize="14"
+                                   HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
             </Grid>
         </Grid>
     </Grid>

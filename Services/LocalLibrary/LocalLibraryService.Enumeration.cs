@@ -42,7 +42,7 @@ namespace MSCS.Services
             {
                 return Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly)
                     .Where(predicate)
-                    .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(path => path, NaturalSortComparer.Instance)
                     .ToList();
             }
             catch (Exception ex)
