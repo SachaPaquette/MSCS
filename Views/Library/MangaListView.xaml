@@ -1,8 +1,9 @@
 ﻿<UserControl x:Class="MSCS.Views.MangaListView"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:MSCS.Models"
-             Height="Auto" Width="Auto">
+            xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+            xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+            xmlns:local="clr-namespace:MSCS.Models"
+            xmlns:viewModels="clr-namespace:MSCS.ViewModels"
+            Height="Auto" Width="Auto">
     <UserControl.Resources>
         <Style x:Key="ResultItemContainerStyle" TargetType="ListViewItem">
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
@@ -88,7 +89,7 @@
                       ScrollViewer.VerticalScrollBarVisibility="Auto"
                       Background="Transparent"
                       ItemsSource="{Binding MangaResults}"
-                      SelectedItem="{Binding SelectedManga, Mode=TwoWay}"
+                      SelectedItem="{Binding SelectedResult, Mode=TwoWay}"
                       ItemContainerStyle="{StaticResource ResultItemContainerStyle}"
                       SelectionChanged="ResultList_SelectionChanged">
                 <ListView.ItemsPanel>
@@ -98,12 +99,14 @@
                 </ListView.ItemsPanel>
 
                 <ListView.ItemTemplate>
-                    <DataTemplate DataType="{x:Type local:Manga}">
+                    <DataTemplate DataType="{x:Type viewModels:MangaSearchResultItemViewModel}">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="16"/>
                                 <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="16"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
 
                             <Border Width="86" Height="120" CornerRadius="10" ClipToBounds="True">
@@ -124,6 +127,20 @@
                                            TextWrapping="Wrap"
                                            Margin="0,8,0,0"/>
                             </StackPanel>
+                            <Button Grid.Column="4"
+                                    MinWidth="150"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    Command="{Binding ToggleBookmarkCommand}"
+                                    ToolTip="{Binding BookmarkToolTip}"
+                                    Style="{StaticResource AccentButtonStyle}">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <TextBlock Text="{Binding BookmarkIconGlyph}"
+                                               FontFamily="Segoe MDL2 Assets"
+                                               Margin="0,0,6,0"/>
+                                    <TextBlock Text="{Binding BookmarkButtonText}"/>
+                                </StackPanel>
+                            </Button>
                         </Grid>
                     </DataTemplate>
                 </ListView.ItemTemplate>

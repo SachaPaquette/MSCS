@@ -43,9 +43,9 @@ namespace MSCS.Views
 
         private void ResultList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (ResultList.SelectedItem is Manga selectedManga && DataContext is MangaListViewModel vm)
+            if (ResultList.SelectedItem is MangaSearchResultItemViewModel selectedManga && DataContext is MangaListViewModel vm)
             {
-                vm.SelectedManga = selectedManga;
+                vm.SelectedResult = selectedManga;
                 Debug.WriteLine($"Selected Manga: {selectedManga.Title}");
             }
         }
