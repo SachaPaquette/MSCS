@@ -1,14 +1,9 @@
 ﻿using MSCS.Interfaces;
 using MSCS.Models;
 using MSCS.Services;
-using MSCS.Services.Kitsu;
-using MSCS.Services.MyAnimeList;
 using MSCS.Sources;
-using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-using System.Windows;
 
 namespace MSCS.ViewModels
 {
@@ -16,11 +11,7 @@ namespace MSCS.ViewModels
     {
         private readonly INavigationService _navigationService;
         private readonly UserSettings _userSettings;
-        private readonly LocalLibraryService _localLibraryService;
-        private readonly AniListService _aniListService;
         private readonly MediaTrackingServiceRegistry _mediaTrackingRegistry;
-        private readonly ReadingListService _readingListService;
-        private readonly LocalSource _LocalSource;
         private readonly ThemeService _themeService;
         private readonly LocalSource _localSource;
         private readonly Dictionary<BaseViewModel, MainMenuTab> _tabLookup = new();
