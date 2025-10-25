@@ -95,7 +95,9 @@ namespace MSCS.ViewModels
             get => _selectedGroup;
             set
             {
-                if (SetProperty(ref _selectedGroup, value))
+                var normalizedValue = string.IsNullOrWhiteSpace(value) ? (_selectedGroup ?? "All") : value;
+
+                if (SetProperty(ref _selectedGroup, normalizedValue))
                 {
                     ApplyFilters(resetCursor: true);
                 }
@@ -215,16 +217,31 @@ namespace MSCS.ViewModels
                 if (ReferenceEquals(_reloadCancellationTokenSource, currentCts))
                 {
                     _reloadCancellationTokenSource = null;
-                    IsLoading = false;
-                    if (_isLibraryLoaded != loadSucceeded)
+
+                    void CompleteReload()
                     {
-                        _isLibraryLoaded = loadSucceeded;
-                        OnPropertyChanged(nameof(IsLibraryEmpty));
+                        IsLoading = false;
+                        if (_isLibraryLoaded != loadSucceeded)
+                        {
+                            _isLibraryLoaded = loadSucceeded;
+                            OnPropertyChanged(nameof(IsLibraryEmpty));
+                        }
+                    }
+
+                    var dispatcher = System.Windows.Application.Current?.Dispatcher;
+                    if (dispatcher != null && !dispatcher.CheckAccess())
+                    {
+                        dispatcher.Invoke(CompleteReload);
+                    }
+                    else
+                    {
+                        CompleteReload();
                     }
                 }
                 currentCts.Dispose();
             }
         }
+
 
         private void ReplaceAllEntries(List<LocalMangaEntryItemViewModel> newItems)
         {
