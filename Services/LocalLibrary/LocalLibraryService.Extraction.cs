@@ -211,21 +211,5 @@ namespace MSCS.Services
                 base.Dispose(disposing);
             }
         }
-        private static string SanitizeFileName(string? value)
-        {
-            if (string.IsNullOrEmpty(value))
-            {
-                return string.Empty;
-            }
-
-            var invalidChars = Path.GetInvalidFileNameChars();
-            var builder = new StringBuilder(value.Length);
-            foreach (var ch in value)
-            {
-                builder.Append(invalidChars.Contains(ch) ? '_' : ch);
-            }
-
-            return builder.ToString();
-        }
     }
 }

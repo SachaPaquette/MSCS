@@ -1,42 +1,41 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Diagnostics;
-using System.Linq;
-using System.Windows.Data;
-using System.Windows.Input;
-using MSCS.Commands;
+﻿using MSCS.Commands;
 using MSCS.Models;
 using MSCS.Services;
+using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.Windows.Input;
+using System;
 
 namespace MSCS.ViewModels
 {
     public class LocalLibraryViewModel : BaseViewModel, IDisposable
     {
         private readonly LocalLibraryService _libraryService;
+        private readonly UserSettings _userSettings;
         private bool _disposed;
         private bool _hasLibraryPath;
         private bool _isLoading;
         private string _searchQuery = string.Empty;
         private string _selectedGroup = "All";
-        private LocalMangaEntry? _selectedManga;
+        private LocalMangaEntryItemViewModel? _selectedManga;
         private bool _isLibraryLoaded;
         private const int MangaDisplayBatchSize = 60;
-        private readonly ObservableCollection<LocalMangaEntry> _visibleEntries = new();
-        private readonly ReadOnlyObservableCollection<LocalMangaEntry> _readOnlyVisibleEntries;
-        private readonly List<LocalMangaEntry> _allEntries = new();
-        private readonly List<LocalMangaEntry> _filteredEntries = new();
+        private readonly ObservableCollection<LocalMangaEntryItemViewModel> _visibleEntries = new();
+        private readonly ReadOnlyObservableCollection<LocalMangaEntryItemViewModel> _readOnlyVisibleEntries;
+        private readonly List<LocalMangaEntryItemViewModel> _allEntries = new();
+        private readonly List<LocalMangaEntryItemViewModel> _filteredEntries = new();
         private readonly ObservableCollection<string> _groupFilters = new();
         private int _visibleEntryCursor;
         private bool _hasMoreResults;
         private CancellationTokenSource? _reloadCancellationTokenSource;
 
-        public LocalLibraryViewModel(LocalLibraryService libraryService)
+        public LocalLibraryViewModel(LocalLibraryService libraryService, UserSettings userSettings)
         {
             _libraryService = libraryService ?? throw new ArgumentNullException(nameof(libraryService));
+            _userSettings = userSettings ?? throw new ArgumentNullException(nameof(userSettings));
             _libraryService.LibraryPathChanged += OnLibraryPathChanged;
-            _readOnlyVisibleEntries = new ReadOnlyObservableCollection<LocalMangaEntry>(_visibleEntries);
+            _userSettings.BookmarksChanged += OnBookmarksChanged;
+            _readOnlyVisibleEntries = new ReadOnlyObservableCollection<LocalMangaEntryItemViewModel>(_visibleEntries);
 
 
             RefreshCommand = new AsyncRelayCommand(ReloadLibraryAsync, () => !_isLoading);
@@ -48,7 +47,7 @@ namespace MSCS.ViewModels
 
         public event EventHandler<Manga?>? MangaSelected;
 
-        public ReadOnlyObservableCollection<LocalMangaEntry> MangaEntries => _readOnlyVisibleEntries;
+        public ReadOnlyObservableCollection<LocalMangaEntryItemViewModel> MangaEntries => _readOnlyVisibleEntries;
 
         public ObservableCollection<string> GroupFilters => _groupFilters;
 
@@ -104,7 +103,7 @@ namespace MSCS.ViewModels
             }
         }
 
-        public LocalMangaEntry? SelectedManga
+        public LocalMangaEntryItemViewModel? SelectedManga
         {
             get => _selectedManga;
             set
@@ -155,6 +154,12 @@ namespace MSCS.ViewModels
 
             _disposed = true;
             _libraryService.LibraryPathChanged -= OnLibraryPathChanged;
+            _userSettings.BookmarksChanged -= OnBookmarksChanged;
+            _reloadCancellationTokenSource?.Cancel();
+            DisposeEntries(_allEntries);
+            _allEntries.Clear();
+            _filteredEntries.Clear();
+            _visibleEntries.Clear();
         }
 
         private async Task ReloadLibraryAsync()
@@ -180,10 +185,15 @@ namespace MSCS.ViewModels
                     entries = await _libraryService.GetMangaEntriesAsync(currentCts.Token).ConfigureAwait(true);
                 }
 
+                DisposeEntries(_allEntries);
                 _allEntries.Clear();
-                _allEntries.AddRange(entries);
+                foreach (var entry in entries)
+                {
+                    _allEntries.Add(new LocalMangaEntryItemViewModel(entry, _userSettings));
+                }
 
-                UpdateGroups(entries);
+                UpdateGroups(_allEntries);
+                UpdateBookmarkStates();
                 ApplyFilters(resetCursor: true);
                 OnPropertyChanged(nameof(LibraryPath));
                 loadSucceeded = true;
@@ -209,7 +219,7 @@ namespace MSCS.ViewModels
             }
         }
 
-        private void UpdateGroups(IReadOnlyCollection<LocalMangaEntry> entries)
+        private void UpdateGroups(IReadOnlyCollection<LocalMangaEntryItemViewModel> entries)
         {
             var previouslySelected = SelectedGroup;
 
@@ -293,7 +303,7 @@ namespace MSCS.ViewModels
             OnPropertyChanged(nameof(IsLibraryEmpty));
         }
 
-        private bool MatchesFilters(LocalMangaEntry entry)
+        private bool MatchesFilters(LocalMangaEntryItemViewModel entry)
         {
             if (!string.IsNullOrWhiteSpace(SearchQuery) &&
                 entry.Title.IndexOf(SearchQuery, StringComparison.OrdinalIgnoreCase) < 0)
@@ -325,9 +335,10 @@ namespace MSCS.ViewModels
         {
             var requiredCount = Math.Min(_filteredEntries.Count, _visibleEntryCursor);
 
-            while (_visibleEntries.Count > requiredCount)
+            var item = _filteredEntries[_visibleEntryCursor];
+            if (!_visibleEntries.Contains(item))
             {
-                _visibleEntries.RemoveAt(_visibleEntries.Count - 1);
+                _visibleEntries.Add(item);
             }
 
             if (_visibleEntries.Count < requiredCount)
@@ -358,6 +369,40 @@ namespace MSCS.ViewModels
             }
 
             HasMoreResults = _visibleEntryCursor < _filteredEntries.Count;
+        }      
+
+        private void OnBookmarksChanged(object? sender, EventArgs e)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher != null && !dispatcher.CheckAccess())
+            {
+                dispatcher.Invoke(UpdateBookmarkStates);
+            }
+            else
+            {
+                UpdateBookmarkStates();
+            }
+        }
+
+        private void UpdateBookmarkStates()
+        {
+            foreach (var entry in _allEntries)
+            {
+                entry.UpdateBookmarkState();
+            }
+        }
+
+        private static void DisposeEntries(IEnumerable<LocalMangaEntryItemViewModel> entries)
+        {
+            foreach (var entry in entries)
+            {
+                entry.Dispose();
+            }
         }
     }
 }
