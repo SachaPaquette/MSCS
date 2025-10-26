@@ -24,7 +24,7 @@ namespace MSCS.Views
         private ResizeMode _restoreResizeMode;
         private Window? _hostWindow;
         private double? _restoreWidthFactor;
-
+        private int _suppressViewportRestoreCount;
         public static readonly DependencyProperty IsFullscreenModeProperty =
             DependencyProperty.Register(nameof(IsFullscreenMode), typeof(bool), typeof(ReaderView), new PropertyMetadata(false));
 
@@ -71,6 +71,13 @@ namespace MSCS.Views
             if (_scrollViewer != null)
             {
                 _scrollViewer.ScrollChanged += ScrollViewer_ScrollChanged;
+
+                if (_pendingScrollOffset.HasValue || _pendingScrollProgress.HasValue)
+                {
+                    _scrollViewer.Dispatcher.InvokeAsync(
+                        TryApplyPendingScroll,
+                        System.Windows.Threading.DispatcherPriority.Background);
+                }
             }
         }
 
@@ -110,6 +117,7 @@ namespace MSCS.Views
             return null;
         }
 
+
         private async void ScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
             if (sender is not ScrollViewer sv) return;
@@ -121,19 +129,26 @@ namespace MSCS.Views
             TryApplyPendingScroll();
 
             bool viewportChanged = Math.Abs(e.ViewportHeightChange) > 0.1 || Math.Abs(e.ViewportWidthChange) > 0.1;
-            if (viewportChanged && vm != null && !_pendingScrollOffset.HasValue && !_pendingScrollProgress.HasValue)
+            if (viewportChanged)
             {
-                if (!vm.IsRestoringProgress && !vm.IsInRestoreCooldown)
+                if (_suppressViewportRestoreCount > 0)
                 {
-                    double? targetProgress = previousProgress;
-                    if (!targetProgress.HasValue)
+                    _suppressViewportRestoreCount--;
+                }
+                else if (vm != null && !_pendingScrollOffset.HasValue && !_pendingScrollProgress.HasValue)
+                {
+                    if (!vm.IsRestoringProgress && !vm.IsInRestoreCooldown)
                     {
-                        targetProgress = GetCurrentNormalizedScrollProgress();
-                    }
+                        double? targetProgress = previousProgress;
+                        if (!targetProgress.HasValue)
+                        {
+                            targetProgress = GetCurrentNormalizedScrollProgress();
+                        }
 
-                    if (targetProgress.HasValue)
-                    {
-                        QueueScrollRestore(null, targetProgress.Value);
+                        if (targetProgress.HasValue)
+                        {
+                            QueueScrollRestore(null, targetProgress.Value);
+                        }
                     }
                 }
             }
@@ -167,23 +182,9 @@ namespace MSCS.Views
             }
         }
 
-
         private void OnScrollRestoreRequested(object? sender, ScrollRestoreRequest request)
         {
-            if (ScrollView == null)
-            {
-                return;
-            }
-
-            _pendingScrollOffset = request.ScrollOffset;
-            _pendingScrollProgress = (!_pendingScrollOffset.HasValue && request.NormalizedProgress.HasValue)
-                ? Math.Clamp(request.NormalizedProgress.Value, 0.0, 1.0)
-                : null; _scrollRestoreAttemptCount = 0;
-            _suppressAutoAdvance = true;
-            ScrollView.Dispatcher.InvokeAsync(() =>
-            {
-                TryApplyPendingScroll();
-            }, System.Windows.Threading.DispatcherPriority.Background);
+            QueueScrollRestore(request.ScrollOffset, request.NormalizedProgress);
         }
 
         private void TryApplyPendingScroll()
@@ -384,6 +385,9 @@ namespace MSCS.Views
             if (ScrollView == null) return;
             var vm = ViewModel;
             if (vm?.IsRestoringProgress == true) return;
+
+            ClearPendingScrollRestoration();
+            _suppressViewportRestoreCount = 3;
 
             ScrollView.Dispatcher.InvokeAsync(() => ScrollView.ScrollToTop(),
                 System.Windows.Threading.DispatcherPriority.Background);
@@ -657,13 +661,9 @@ namespace MSCS.Views
             return Math.Clamp(offset / scrollable, 0.0, 1.0);
         }
 
+
         private void QueueScrollRestore(double? offset, double? normalizedProgress)
         {
-            if (ScrollView == null)
-            {
-                return;
-            }
-
             double? pendingOffset = offset.HasValue ? Math.Max(0, offset.Value) : null;
             double? pendingProgress = (!pendingOffset.HasValue && normalizedProgress.HasValue)
                 ? Math.Clamp(normalizedProgress.Value, 0.0, 1.0)
@@ -679,10 +679,22 @@ namespace MSCS.Views
             _scrollRestoreAttemptCount = 0;
             _suppressAutoAdvance = true;
 
-            ScrollView.Dispatcher.InvokeAsync(() =>
+            if (ScrollView != null)
             {
-                TryApplyPendingScroll();
-            }, System.Windows.Threading.DispatcherPriority.Background);
+                ScrollView.Dispatcher.InvokeAsync(() =>
+                {
+                    TryApplyPendingScroll();
+                }, System.Windows.Threading.DispatcherPriority.Background);
+            }
+        }
+
+        private void ClearPendingScrollRestoration()
+        {
+            _pendingScrollProgress = null;
+            _pendingScrollOffset = null;
+            _pendingScrollRetryScheduled = false;
+            _scrollRestoreAttemptCount = 0;
+            _suppressAutoAdvance = false;
         }
     }
 }
