@@ -84,6 +84,12 @@ namespace MSCS.ViewModels
         }
 
         private int _imageCacheVersion;
+        public int ImageCacheVersion
+        {
+            get => _imageCacheVersion;
+            private set => SetProperty(ref _imageCacheVersion, value);
+        }
+
         private string _chapterTitle = string.Empty;
         public string ChapterTitle
         {
@@ -210,6 +216,7 @@ namespace MSCS.ViewModels
             _preferences = new ReaderPreferencesViewModel(_preferencesService);
             _initialProgress = initialProgress;
             _chapterCoordinator = CreateChapterCoordinator(_chapterListViewModel);
+            _chapterCoordinator.ImageCached += OnChapterCoordinatorImageCached;
             _trackingCoordinator = CreateTrackingCoordinator(
                 _trackingRegistry,
                 () => MangaTitle,
@@ -291,6 +298,9 @@ namespace MSCS.ViewModels
             }
 
             _imageLoadCts.Dispose();
+
+            ReleaseChapterImageResources(_allImages);
+            _allImages.Clear();
 
             if (_chapterCoordinator != null)
             {

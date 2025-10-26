@@ -9,5 +9,6 @@ namespace MSCS.Models
         public string ImageUrl { get; set; } = string.Empty;
         public IDictionary<string, string>? Headers { get; set; }
         public Func<Stream>? StreamFactory { get; set; }
+        public Action? ReleaseResources { get; set; }
     }
 }

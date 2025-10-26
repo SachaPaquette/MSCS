@@ -158,10 +158,12 @@ namespace MSCS.Services
 
                 foreach (var descriptor in entryDescriptors)
                 {
+                    var factory = CreateArchiveEntryStreamFactory(descriptor);
                     images.Add(new ChapterImage
                     {
                         ImageUrl = $"{archivePath}::{descriptor.NormalizedKey}",
-                        StreamFactory = CreateArchiveEntryStreamFactory(descriptor)
+                        StreamFactory = factory.StreamFactory,
+                        ReleaseResources = factory.Cleanup
                     });
                 }
 

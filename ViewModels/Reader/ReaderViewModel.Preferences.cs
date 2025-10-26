@@ -18,11 +18,6 @@ namespace MSCS.ViewModels
     {
         public ReaderPreferencesViewModel Preferences => _preferences;
         public ReaderChapterCoordinator? ChapterCoordinator => _chapterCoordinator;
-        public int ImageCacheVersion
-        {
-            get => _imageCacheVersion;
-            private set => SetProperty(ref _imageCacheVersion, value, nameof(ImageCacheVersion));
-        }
 
         private void InitializePreferences()
         {

@@ -42,8 +42,11 @@ namespace MSCS.ViewModels
                 var upcoming = Math.Min(
                     Constants.DefaultLoadedBatchSize * 2,
                     Math.Max(0, _allImages.Count - (startIndex + countToLoad)));
-                _chapterCoordinator?.PrefetchImages(_allImages, Math.Max(0, startIndex), countToLoad + upcoming, token);
-                var dispatcher = System.Windows.Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
+                _chapterCoordinator?.PrefetchImages(
+                    _allImages,
+                    Math.Max(0, startIndex),
+                    countToLoad + upcoming,
+                    _imageLoadCts.Token); var dispatcher = System.Windows.Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
                 await dispatcher.InvokeAsync(() =>
                 {
                     for (int offset = 0; offset < countToLoad; offset++)
@@ -137,6 +140,7 @@ namespace MSCS.ViewModels
             await _imageLoadSemaphore.WaitAsync().ConfigureAwait(false);
             try
             {
+                ReleaseChapterImageResources(_allImages);
                 _allImages.Clear();
                 _allImages.AddRange(newImages);
                 _loadedCount = 0;
@@ -156,6 +160,21 @@ namespace MSCS.ViewModels
             {
                 await LoadMoreImagesAsync().ConfigureAwait(false);
                 _chapterCoordinator?.PrefetchImages(_allImages, _loadedCount, Math.Min(Constants.DefaultLoadedBatchSize, _allImages.Count - _loadedCount));
+            }
+        }
+
+        private static void ReleaseChapterImageResources(IEnumerable<ChapterImage> images)
+        {
+            foreach (var image in images)
+            {
+                try
+                {
+                    image.ReleaseResources?.Invoke();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Failed to release resources for image '{image.ImageUrl}': {ex.Message}");
+                }
             }
         }
 

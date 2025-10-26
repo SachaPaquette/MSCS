@@ -35,16 +35,25 @@ namespace MSCS.Services
         }
 
 
-        private static Func<Stream> CreateArchiveEntryStreamFactory(ArchiveEntryDescriptor descriptor)
+
+        private static ArchiveStreamFactoryResult CreateArchiveEntryStreamFactory(ArchiveEntryDescriptor descriptor)
         {
-            return descriptor.ArchiveType switch
+            var coreFactory = descriptor.ArchiveType switch
             {
-                ArchiveType.Zip => CreateZipArchiveStreamFactory(descriptor),
-                _ => CreateSharpCompressStreamFactory(descriptor),
+                ArchiveType.Zip => CreateZipArchiveStreamFactoryCore(descriptor),
+                _ => CreateSharpCompressStreamFactoryCore(descriptor),
             };
+
+            if (descriptor.RequiresBufferedCopy)
+            {
+                var buffered = new BufferedArchiveEntryFactory(coreFactory);
+                return new ArchiveStreamFactoryResult(buffered.CreateStream, buffered.Dispose);
+            }
+
+            return new ArchiveStreamFactoryResult(coreFactory, null);
         }
 
-        private static Func<Stream> CreateSharpCompressStreamFactory(ArchiveEntryDescriptor descriptor)
+        private static Func<Stream> CreateSharpCompressStreamFactoryCore(ArchiveEntryDescriptor descriptor)
         {
             return () =>
             {
@@ -69,24 +78,6 @@ namespace MSCS.Services
                     }
 
                     var entryStream = entry.OpenEntryStream();
-
-                    if (descriptor.RequiresBufferedCopy)
-                    {
-                        try
-                        {
-                            var memory = new MemoryStream();
-                            entryStream.CopyTo(memory);
-                            memory.Position = 0;
-                            return memory;
-                        }
-                        finally
-                        {
-                            entryStream.Dispose();
-                            archive.Dispose();
-                            fileStream.Dispose();
-                        }
-                    }
-
                     return new ArchiveEntryStream(entryStream, archive, fileStream);
                 }
                 catch
@@ -98,7 +89,7 @@ namespace MSCS.Services
             };
         }
 
-        private static Func<Stream> CreateZipArchiveStreamFactory(ArchiveEntryDescriptor descriptor)
+        private static Func<Stream> CreateZipArchiveStreamFactoryCore(ArchiveEntryDescriptor descriptor)
         {
             return () =>
             {
@@ -124,24 +115,6 @@ namespace MSCS.Services
                     }
 
                     var entryStream = entry.Open();
-
-                    if (descriptor.RequiresBufferedCopy)
-                    {
-                        try
-                        {
-                            var memory = new MemoryStream();
-                            entryStream.CopyTo(memory);
-                            memory.Position = 0;
-                            return memory;
-                        }
-                        finally
-                        {
-                            entryStream.Dispose();
-                            zipArchive.Dispose();
-                            fileStream.Dispose();
-                        }
-                    }
-
                     return new ArchiveEntryStream(entryStream, zipArchive, fileStream);
                 }
                 catch
@@ -151,6 +124,90 @@ namespace MSCS.Services
                     throw;
                 }
             };
+        }
+
+        private readonly struct ArchiveStreamFactoryResult
+        {
+            public ArchiveStreamFactoryResult(Func<Stream> streamFactory, Action? cleanup)
+            {
+                StreamFactory = streamFactory ?? throw new ArgumentNullException(nameof(streamFactory));
+                Cleanup = cleanup;
+            }
+
+            public Func<Stream> StreamFactory { get; }
+            public Action? Cleanup { get; }
+        }
+
+        private sealed class BufferedArchiveEntryFactory : IDisposable
+        {
+            private readonly Func<Stream> _streamFactory;
+            private readonly object _syncRoot = new();
+            private string? _bufferedPath;
+
+            public BufferedArchiveEntryFactory(Func<Stream> streamFactory)
+            {
+                _streamFactory = streamFactory ?? throw new ArgumentNullException(nameof(streamFactory));
+            }
+
+            public Stream CreateStream()
+            {
+                EnsureBuffered();
+                return new FileStream(_bufferedPath!, FileMode.Open, FileAccess.Read, FileShare.Read);
+            }
+
+            private void EnsureBuffered()
+            {
+                if (_bufferedPath != null && File.Exists(_bufferedPath))
+                {
+                    return;
+                }
+
+                lock (_syncRoot)
+                {
+                    if (_bufferedPath != null && File.Exists(_bufferedPath))
+                    {
+                        return;
+                    }
+
+                    var tempDirectory = Path.Combine(Path.GetTempPath(), "MSCS", "ReaderCache");
+                    Directory.CreateDirectory(tempDirectory);
+                    var tempPath = Path.Combine(tempDirectory, Guid.NewGuid().ToString("N"));
+
+                    using var source = _streamFactory();
+                    using var destination = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                    source.CopyTo(destination);
+                    destination.Flush();
+
+                    _bufferedPath = tempPath;
+                }
+            }
+
+            public void Dispose()
+            {
+                lock (_syncRoot)
+                {
+                    if (string.IsNullOrWhiteSpace(_bufferedPath))
+                    {
+                        return;
+                    }
+
+                    try
+                    {
+                        if (File.Exists(_bufferedPath))
+                        {
+                            File.Delete(_bufferedPath);
+                        }
+                    }
+                    catch
+                    {
+                        // ignored - best effort cleanup
+                    }
+                    finally
+                    {
+                        _bufferedPath = null;
+                    }
+                }
+            }
         }
 
         private sealed record ArchiveEntryDescriptor(
