@@ -53,6 +53,16 @@
                     Grid.Row="0"
                     Margin="0,0,0,16"
                     VerticalAlignment="Center">
+            <StackPanel.Style>
+                <Style TargetType="StackPanel">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding HasBookmarks}" Value="True">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </StackPanel.Style>
             <TextBox Width="320"
                      Style="{StaticResource InputTextBoxStyle}"
                      Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"

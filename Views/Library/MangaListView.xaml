@@ -10,19 +10,30 @@
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Margin" Value="0,0,0,14"/>
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="AutomationProperties.Name" Value="{Binding Title}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListViewItem">
-                        <Border x:Name="ItemBorder"
-                                Background="{DynamicResource Surface}"
-                                BorderBrush="{DynamicResource SurfaceBorderSoft}"
-                                BorderThickness="1"
-                                CornerRadius="12">
-                            <Border Padding="16">
-                                <ContentPresenter Margin="0"/>
+                        <Grid>
+                            <Border x:Name="ItemBorder"
+                                    Background="{DynamicResource Surface}"
+                                    BorderBrush="{DynamicResource SurfaceBorderSoft}"
+                                    BorderThickness="1"
+                                    CornerRadius="12">
+                                <Border Padding="16">
+                                    <ContentPresenter Margin="0"/>
+                                </Border>
                             </Border>
-                        </Border>
+                            <Border x:Name="FocusBorder"
+                                    Margin="-2"
+                                    CornerRadius="14"
+                                    BorderBrush="{DynamicResource Accent}"
+                                    BorderThickness="2"
+                                    Background="Transparent"
+                                    Opacity="0.9"
+                                    Visibility="Collapsed"
+                                    IsHitTestVisible="False"/>
+                        </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SurfaceAlt}"/>
@@ -31,6 +42,22 @@
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SurfaceAlt}"/>
                                 <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource Accent}"/>
+
+                                <Setter TargetName="ItemBorder" Property="BorderThickness" Value="2"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter TargetName="FocusBorder" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                    <Condition Property="IsSelected" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SurfaceAlt}"/>
+                                <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource Accent}"/>
+                            </MultiTrigger>
+                            <Trigger Property="IsSelected" Value="False">
+                                <Setter TargetName="ItemBorder" Property="BorderThickness" Value="1"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>

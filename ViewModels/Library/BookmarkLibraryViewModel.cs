@@ -69,7 +69,7 @@ namespace MSCS.ViewModels
         }
 
         public bool ShowEmptyState => Bookmarks.Count == 0;
-
+        public bool HasBookmarks => _allBookmarks.Count > 0;
         public string EmptyStateMessage => string.IsNullOrWhiteSpace(SearchQuery)
             ? "Bookmarks you add will appear here."
             : "No bookmarks match your search.";
@@ -96,6 +96,7 @@ namespace MSCS.ViewModels
                 _allBookmarks.Add(new BookmarkItemViewModel(entry));
             }
 
+            OnPropertyChanged(nameof(HasBookmarks));
             ApplyFilter();
         }
 
