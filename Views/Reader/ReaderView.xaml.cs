@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 namespace MSCS.Views
 {
     public partial class ReaderView : System.Windows.Controls.UserControl
@@ -34,14 +35,79 @@ namespace MSCS.Views
         }
 
 
+
+
+        private ScrollViewer? _scrollViewer;
         private ReaderViewModel? _viewModel;
         private ReaderViewModel? ViewModel => _viewModel;
+
+        private ScrollViewer? ScrollView => _scrollViewer;
 
         public ReaderView()
         {
             InitializeComponent();
             DataContextChanged += OnDataContextChanged;
             UpdateFullscreenButtonVisuals();
+        }
+
+        private void ImageList_Loaded(object sender, RoutedEventArgs e)
+        {
+            AttachScrollViewer();
+        }
+
+        private void AttachScrollViewer()
+        {
+            if (_scrollViewer != null)
+            {
+                return;
+            }
+
+            if (ImageList == null)
+            {
+                return;
+            }
+
+            _scrollViewer = FindDescendant<ScrollViewer>(ImageList);
+            if (_scrollViewer != null)
+            {
+                _scrollViewer.ScrollChanged += ScrollViewer_ScrollChanged;
+            }
+        }
+
+        private void DetachScrollViewer()
+        {
+            if (_scrollViewer != null)
+            {
+                _scrollViewer.ScrollChanged -= ScrollViewer_ScrollChanged;
+                _scrollViewer = null;
+            }
+        }
+
+        private static T? FindDescendant<T>(DependencyObject? root)
+            where T : DependencyObject
+        {
+            if (root == null)
+            {
+                return null;
+            }
+
+            int childCount = VisualTreeHelper.GetChildrenCount(root);
+            for (int i = 0; i < childCount; i++)
+            {
+                var child = VisualTreeHelper.GetChild(root, i);
+                if (child is T typedChild)
+                {
+                    return typedChild;
+                }
+
+                var descendant = FindDescendant<T>(child);
+                if (descendant != null)
+                {
+                    return descendant;
+                }
+            }
+
+            return null;
         }
 
         private async void ScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
@@ -325,6 +391,7 @@ namespace MSCS.Views
 
         private void UserControl_Loaded(object sender, RoutedEventArgs e)
         {
+            AttachScrollViewer();
             if (ScrollView != null)
             {
                 ScrollView.Focus();
