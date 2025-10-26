@@ -8,7 +8,9 @@
         string? MangaUrl = null,
         string? SourceKey = null,
         double? ScrollOffset = null,
-        double? ScrollableHeight = null)
+        double? ScrollableHeight = null,
+        string? AnchorImageUrl = null,
+        double? AnchorImageProgress = null)
     {
         public double ScrollProgress
         {

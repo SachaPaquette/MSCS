@@ -29,6 +29,11 @@ namespace MSCS.ViewModels
                 int remaining = _allImages.Count - _loadedCount;
                 if (remaining <= 0)
                 {
+                    if (_isRestoringProgress)
+                    {
+                        var dispatch = System.Windows.Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
+                        await dispatch.InvokeAsync(NotifyImagesLoadedForRestore, DispatcherPriority.Background, token);
+                    }
                     return;
                 }
 
@@ -56,6 +61,10 @@ namespace MSCS.ViewModels
 
                     _loadedCount += countToLoad;
                     NotifyLoadingMetricsChanged();
+                    if (_isRestoringProgress)
+                    {
+                        NotifyImagesLoadedForRestore();
+                    }
                 }, DispatcherPriority.Background, token);
 
                 Debug.WriteLine($"Loaded {_loadedCount} / {_allImages.Count} images");
@@ -91,6 +100,11 @@ namespace MSCS.ViewModels
 
                 var requestCount = Math.Max(Constants.DefaultLoadedBatchSize, needed);
                 await LoadMoreImagesAsync(requestCount).ConfigureAwait(false);
+            }
+            if (_isRestoringProgress)
+            {
+                var dispatcher = System.Windows.Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
+                await dispatcher.InvokeAsync(NotifyImagesLoadedForRestore, DispatcherPriority.Background);
             }
         }
 
@@ -144,7 +158,11 @@ namespace MSCS.ViewModels
                 _allImages.Clear();
                 _allImages.AddRange(newImages);
                 _loadedCount = 0;
-
+                if (_isRestoringProgress)
+                {
+                    ResetRestoreTargetTracking();
+                    ScheduleRestoreTargetEvaluation();
+                }
                 await dispatcher.InvokeAsync(() =>
                 {
                     ImageUrls.Clear();

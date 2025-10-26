@@ -7,16 +7,25 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
+using Point = System.Windows.Point;
 namespace MSCS.Views
 {
     public partial class ReaderView : System.Windows.Controls.UserControl
     {
         private double? _pendingScrollProgress;
         private double? _pendingScrollOffset;
+        private string? _pendingAnchorImageUrl;
         private bool _pendingScrollRetryScheduled;
-        private int _scrollRestoreAttemptCount;
+        private double? _pendingAnchorImageProgress;
+        private int? _pendingAnchorIndex;
+        private bool _anchorBringIntoViewRequested;
+        private bool _isApplyingPendingScroll;
+        private bool _layoutValidationPending;
+        private double? _lastRequestedScrollOffset;
         private bool _suppressAutoAdvance;
         private bool _isFullscreen;
         private WindowState _restoreWindowState;
@@ -53,6 +62,11 @@ namespace MSCS.Views
         private void ImageList_Loaded(object sender, RoutedEventArgs e)
         {
             AttachScrollViewer();
+            if (ImageList != null)
+            {
+                ImageList.ItemContainerGenerator.StatusChanged -= OnItemContainerGeneratorStatusChanged;
+                ImageList.ItemContainerGenerator.StatusChanged += OnItemContainerGeneratorStatusChanged;
+            }
         }
 
         private void AttachScrollViewer()
@@ -85,6 +99,7 @@ namespace MSCS.Views
         {
             if (_scrollViewer != null)
             {
+                CancelLayoutValidation();
                 _scrollViewer.ScrollChanged -= ScrollViewer_ScrollChanged;
                 _scrollViewer = null;
             }
@@ -117,6 +132,13 @@ namespace MSCS.Views
             return null;
         }
 
+        private void OnItemContainerGeneratorStatusChanged(object? sender, EventArgs e)
+        {
+            if (ImageList?.ItemContainerGenerator.Status == GeneratorStatus.ContainersGenerated)
+            {
+                TryApplyPendingScroll();
+            }
+        }
 
         private async void ScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
@@ -127,6 +149,19 @@ namespace MSCS.Views
             vm?.UpdateScrollPosition(sv.VerticalOffset, sv.ExtentHeight, sv.ViewportHeight);
 
             TryApplyPendingScroll();
+            if (vm != null)
+            {
+                var anchorInfo = GetCurrentScrollAnchor();
+                if (anchorInfo.HasValue)
+                {
+                    var (anchorUrl, anchorProgress) = anchorInfo.Value;
+                    vm.UpdateScrollAnchor(anchorUrl, anchorProgress);
+                }
+                else
+                {
+                    vm.UpdateScrollAnchor(null, null);
+                }
+            }
 
             bool viewportChanged = Math.Abs(e.ViewportHeightChange) > 0.1 || Math.Abs(e.ViewportWidthChange) > 0.1;
             if (viewportChanged)
@@ -184,8 +219,23 @@ namespace MSCS.Views
 
         private void OnScrollRestoreRequested(object? sender, ScrollRestoreRequest request)
         {
-            QueueScrollRestore(request.ScrollOffset, request.NormalizedProgress);
+            QueueScrollRestore(
+                request.ScrollOffset,
+                request.NormalizedProgress,
+                request.AnchorImageUrl,
+                request.AnchorImageProgress);
         }
+
+        private void OnRestoreTargetReady(object? sender, EventArgs e)
+        {
+            if (ScrollView == null)
+            {
+                return;
+            }
+
+            ScrollView.Dispatcher.InvokeAsync(TryApplyPendingScroll, DispatcherPriority.Background);
+        }
+
 
         private void TryApplyPendingScroll()
         {
@@ -194,8 +244,19 @@ namespace MSCS.Views
                 return;
             }
 
-            ScrollView.UpdateLayout();
+            if (_isApplyingPendingScroll)
+            {
+                return;
+            }
+
+            if (!EnsureAnchorReady())
+            {
+                return;
+            }
+
             var vm = ViewModel;
+            ScrollView.UpdateLayout();
+
             var extent = ScrollView.ExtentHeight;
             var viewport = ScrollView.ViewportHeight;
             if (extent <= 0 || viewport <= 0)
@@ -204,7 +265,9 @@ namespace MSCS.Views
                 {
                     _ = vm.LoadMoreImagesAsync();
                 }
-                SchedulePendingScrollRetry();
+
+                _lastRequestedScrollOffset = null;
+                WaitForLayoutUpdate();
                 return;
             }
 
@@ -214,64 +277,250 @@ namespace MSCS.Views
                 if (vm?.RemainingImages > 0)
                 {
                     _ = vm.LoadMoreImagesAsync();
-                }
-
-                if (ShouldAbortRestore())
-                {
-                    FinalizeScrollRestore(vm);
-                }
-                else
-                {
-                    SchedulePendingScrollRetry();
-                }
-                return;
-            }
-
-            double targetOffset;
-            if (_pendingScrollOffset.HasValue)
-            {
-                var desiredOffset = _pendingScrollOffset.Value;
-                if (desiredOffset > scrollableLength && vm?.RemainingImages > 0)
-                {
-                    _ = vm.LoadMoreImagesAsync();
-                    SchedulePendingScrollRetry();
+                    WaitForLayoutUpdate();
                     return;
                 }
 
-                targetOffset = Math.Clamp(desiredOffset, 0, scrollableLength);
+                FinalizeScrollRestore(vm);
+                return;
             }
-            else
+
+            var targetOffset = DetermineTargetOffset(scrollableLength);
+            if (targetOffset > scrollableLength && (vm?.RemainingImages ?? 0) > 0)
             {
-                targetOffset = Math.Clamp(_pendingScrollProgress!.Value * scrollableLength, 0, scrollableLength);
+                _ = vm!.LoadMoreImagesAsync();
+                _lastRequestedScrollOffset = null;
+                WaitForLayoutUpdate();
+                return;
             }
 
+            _isApplyingPendingScroll = true;
+            _lastRequestedScrollOffset = targetOffset;
             ScrollView.ScrollToVerticalOffset(targetOffset);
+            _isApplyingPendingScroll = false;
 
+            WaitForLayoutUpdate();
+        }
+
+        private void WaitForLayoutUpdate()
+        {
+            if (ScrollView == null || _layoutValidationPending)
+            {
+                return;
+            }
+
+            _layoutValidationPending = true;
+            ScrollView.LayoutUpdated += OnScrollViewerLayoutUpdated;
+        }
+
+
+        private void CancelLayoutValidation()
+        {
+            if (ScrollView != null && _layoutValidationPending)
+            {
+                ScrollView.LayoutUpdated -= OnScrollViewerLayoutUpdated;
+            }
+
+            _layoutValidationPending = false;
+        }
+
+        private void OnScrollViewerLayoutUpdated(object? sender, EventArgs e)
+        {
+            if (ScrollView == null)
+            {
+                _layoutValidationPending = false;
+                return;
+            }
+
+            ScrollView.LayoutUpdated -= OnScrollViewerLayoutUpdated;
+            _layoutValidationPending = false;
+
+            if (!_pendingScrollOffset.HasValue && !_pendingScrollProgress.HasValue)
+            {
+                _lastRequestedScrollOffset = null;
+                return;
+            }
+
+            if (!_lastRequestedScrollOffset.HasValue)
+            {
+                ScrollView.Dispatcher.InvokeAsync(TryApplyPendingScroll, DispatcherPriority.Background);
+                return;
+            }
+
+            if (!ValidatePendingScrollRestore())
+            {
+                // Validation will resubscribe if further layout updates are required.
+            }
+        }
+
+        private bool ValidatePendingScrollRestore()
+        {
+            if (ScrollView == null)
+            {
+                return true;
+            }
+
+            var vm = ViewModel;
+            ScrollView.UpdateLayout();
+
+            var extent = ScrollView.ExtentHeight;
+            var viewport = ScrollView.ViewportHeight;
+            if (extent <= 0 || viewport <= 0)
+            {
+                _lastRequestedScrollOffset = null;
+                WaitForLayoutUpdate();
+                return false;
+            }
+
+            var scrollableLength = Math.Max(extent - viewport, 0);
+            var targetOffset = DetermineTargetOffset(scrollableLength);
             var currentOffset = ScrollView.VerticalOffset;
-            var currentProgress = scrollableLength > 0 ? currentOffset / scrollableLength : 0;
-
+            var currentProgress = scrollableLength > 0 ? currentOffset / scrollableLength : 0.0;
             var tolerance = Math.Max(1.0, ScrollView.ViewportHeight * 0.01);
 
             bool offsetMatch = Math.Abs(currentOffset - targetOffset) <= tolerance;
-
-            bool progressMatch = _pendingScrollProgress.HasValue
+            bool progressMatch = _pendingScrollProgress.HasValue && scrollableLength > 0
                 ? Math.Abs(currentProgress - _pendingScrollProgress.Value) <= 0.01
                 : false;
 
             if (offsetMatch || (!_pendingScrollOffset.HasValue && progressMatch))
             {
-                _scrollRestoreAttemptCount = 0;
-                _pendingScrollProgress = null;
-                _pendingScrollOffset = null;
-                _suppressAutoAdvance = false;
-                ViewModel?.NotifyScrollRestoreCompleted();
-            }
-            else
-            {
-                if (ShouldAbortRestore()) FinalizeScrollRestore(ViewModel);
-                else SchedulePendingScrollRetry();
+                FinalizeScrollRestore(vm);
+                return true;
             }
 
+            bool hasMoreImages = vm?.RemainingImages > 0;
+            bool generatorBusy = ImageList?.ItemContainerGenerator?.Status != GeneratorStatus.ContainersGenerated;
+            bool awaitingAnchor = !AnchorContainerRealized();
+
+            if (hasMoreImages)
+            {
+                _ = vm!.LoadMoreImagesAsync();
+                _lastRequestedScrollOffset = null;
+            }
+
+            if (hasMoreImages || generatorBusy || awaitingAnchor)
+            {
+                WaitForLayoutUpdate();
+                return false;
+            }
+
+            FinalizeScrollRestore(vm);
+            return true;
+        }
+
+        private double DetermineTargetOffset(double scrollableLength)
+        {
+            if (ScrollView == null)
+            {
+                return 0;
+            }
+
+            if (_pendingAnchorImageUrl != null && _pendingAnchorIndex.HasValue && ImageList != null)
+            {
+                if (ImageList.ItemContainerGenerator.ContainerFromIndex(_pendingAnchorIndex.Value) is FrameworkElement container)
+                {
+                    try
+                    {
+                        var relative = container.TransformToVisual(ScrollView).Transform(new Point(0, 0));
+                        double anchorProgress = Math.Clamp(_pendingAnchorImageProgress ?? 0.0, 0.0, 1.0);
+                        double absoluteTop = ScrollView.VerticalOffset + relative.Y;
+                        double desired = absoluteTop + anchorProgress * container.ActualHeight;
+                        return Math.Clamp(desired, 0, scrollableLength);
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        // fall back to raw offsets
+                    }
+                }
+            }
+
+            if (_pendingScrollOffset.HasValue)
+            {
+                return Math.Clamp(_pendingScrollOffset.Value, 0, scrollableLength);
+            }
+
+            return Math.Clamp(_pendingScrollProgress!.Value * scrollableLength, 0, scrollableLength);
+        }
+
+        private bool EnsureAnchorReady()
+        {
+            if (string.IsNullOrEmpty(_pendingAnchorImageUrl))
+            {
+                return true;
+            }
+
+            if (ImageList == null || ViewModel == null)
+            {
+                return false;
+            }
+
+            if (!_pendingAnchorIndex.HasValue)
+            {
+                var index = ViewModel.GetImageIndex(_pendingAnchorImageUrl);
+                if (index < 0)
+                {
+                    _pendingAnchorImageUrl = null;
+                    _pendingAnchorImageProgress = null;
+                    _pendingAnchorIndex = null;
+                    return true;
+                }
+
+                _pendingAnchorIndex = index;
+            }
+
+            if (!ViewModel.IsImageLoaded(_pendingAnchorIndex.Value))
+            {
+                _ = ViewModel.LoadMoreImagesAsync();
+                _lastRequestedScrollOffset = null;
+                WaitForLayoutUpdate();
+                return false;
+            }
+
+            var container = ImageList.ItemContainerGenerator.ContainerFromIndex(_pendingAnchorIndex.Value) as FrameworkElement;
+            if (container == null)
+            {
+                if (!_anchorBringIntoViewRequested)
+                {
+                    _anchorBringIntoViewRequested = true;
+                    ImageList.ScrollIntoView(ImageList.Items[_pendingAnchorIndex.Value]);
+                }
+
+                WaitForLayoutUpdate();
+                return false;
+            }
+
+            if (!container.IsLoaded || container.ActualHeight <= 0)
+            {
+                WaitForLayoutUpdate();
+                return false;
+            }
+
+            _anchorBringIntoViewRequested = false;
+            return true;
+        }
+
+        private bool AnchorContainerRealized()
+        {
+            if (string.IsNullOrEmpty(_pendingAnchorImageUrl) || ImageList == null || ViewModel == null)
+            {
+                return true;
+            }
+
+            if (!_pendingAnchorIndex.HasValue)
+            {
+                var index = ViewModel.GetImageIndex(_pendingAnchorImageUrl);
+                if (index < 0)
+                {
+                    return true;
+                }
+
+                _pendingAnchorIndex = index;
+            }
+
+            return ImageList.ItemContainerGenerator.ContainerFromIndex(_pendingAnchorIndex.Value) is FrameworkElement container
+                && container.IsLoaded
+                && container.ActualHeight > 0;
         }
 
         private void SchedulePendingScrollRetry()
@@ -289,18 +538,6 @@ namespace MSCS.Views
             }, System.Windows.Threading.DispatcherPriority.Background);
         }
 
-        private bool ShouldAbortRestore()
-        {
-            if (!_pendingScrollProgress.HasValue && !_pendingScrollOffset.HasValue)
-            {
-                return true;
-            }
-
-            _scrollRestoreAttemptCount++;
-            const int maxAttempts = 10;
-            return _scrollRestoreAttemptCount >= maxAttempts;
-        }
-
         private void Images_CleanUpVirtualizedItem(object sender, CleanUpVirtualizedItemEventArgs e)
         {
             if (e.Value is ChapterImage image)
@@ -311,10 +548,7 @@ namespace MSCS.Views
 
         private void FinalizeScrollRestore(ReaderViewModel? vm)
         {
-            _pendingScrollProgress = null;
-            _pendingScrollOffset = null;
-            _scrollRestoreAttemptCount = 0;
-            _suppressAutoAdvance = false;
+            ClearPendingScrollRestoration();
             vm?.NotifyScrollRestoreCompleted();
         }
 
@@ -365,6 +599,7 @@ namespace MSCS.Views
             {
                 oldViewModel.ChapterChanged -= OnChapterChanged;
                 oldViewModel.ScrollRestoreRequested -= OnScrollRestoreRequested;
+                oldViewModel.RestoreTargetReady -= OnRestoreTargetReady;
                 oldViewModel.Dispose();
             }
 
@@ -373,6 +608,7 @@ namespace MSCS.Views
                 _viewModel = newViewModel;
                 newViewModel.ChapterChanged += OnChapterChanged;
                 newViewModel.ScrollRestoreRequested += OnScrollRestoreRequested;
+                newViewModel.RestoreTargetReady += OnRestoreTargetReady;
             }
             else
             {
@@ -411,6 +647,11 @@ namespace MSCS.Views
 
         private void UserControl_Unloaded(object sender, RoutedEventArgs e)
         {
+            if (ImageList != null)
+            {
+                ImageList.ItemContainerGenerator.StatusChanged -= OnItemContainerGeneratorStatusChanged;
+            }
+            DetachScrollViewer();
             ExitFullscreen();
             ViewModel?.Dispose();
         }
@@ -627,6 +868,69 @@ namespace MSCS.Views
             return (offset, progress);
         }
 
+
+        private (string ImageUrl, double Progress)? GetCurrentScrollAnchor()
+        {
+            if (ScrollView == null || ImageList == null || ImageList.Items.Count == 0)
+            {
+                return null;
+            }
+
+            var generator = ImageList.ItemContainerGenerator;
+            if (generator.Status != GeneratorStatus.ContainersGenerated)
+            {
+                return null;
+            }
+
+            double viewportHeight = ScrollView.ViewportHeight > 0 ? ScrollView.ViewportHeight : ScrollView.ActualHeight;
+            if (viewportHeight <= 0)
+            {
+                return null;
+            }
+
+            int itemCount = ImageList.Items.Count;
+            for (int i = 0; i < itemCount; i++)
+            {
+                if (generator.ContainerFromIndex(i) is not FrameworkElement container || container.ActualHeight <= 0)
+                {
+                    continue;
+                }
+
+                System.Windows.Point relative;
+                try
+                {
+                    relative = container.TransformToVisual(ScrollView).Transform(new Point(0, 0));
+                }
+                catch (InvalidOperationException)
+                {
+                    continue;
+                }
+
+                double top = relative.Y;
+                double bottom = top + container.ActualHeight;
+
+                if (bottom <= 0)
+                {
+                    continue;
+                }
+
+                if (top >= viewportHeight)
+                {
+                    break;
+                }
+
+                if (ImageList.Items[i] is ChapterImage image)
+                {
+                    double progress = top < 0
+                        ? Math.Clamp(-top / container.ActualHeight, 0.0, 1.0)
+                        : 0.0;
+                    return (image.ImageUrl, progress);
+                }
+            }
+
+            return null;
+        }
+
         private double? GetCurrentNormalizedScrollProgress()
         {
             if (ScrollView == null)
@@ -662,29 +966,41 @@ namespace MSCS.Views
         }
 
 
-        private void QueueScrollRestore(double? offset, double? normalizedProgress)
+
+        private void QueueScrollRestore(
+            double? offset,
+            double? normalizedProgress,
+            string? anchorImageUrl = null,
+            double? anchorImageProgress = null)
         {
             double? pendingOffset = offset.HasValue ? Math.Max(0, offset.Value) : null;
             double? pendingProgress = (!pendingOffset.HasValue && normalizedProgress.HasValue)
                 ? Math.Clamp(normalizedProgress.Value, 0.0, 1.0)
                 : null;
+            double? pendingAnchorProgress = anchorImageProgress.HasValue
+                ? Math.Clamp(anchorImageProgress.Value, 0.0, 1.0)
+                : null;
+            string? pendingAnchorUrl = string.IsNullOrWhiteSpace(anchorImageUrl) ? null : anchorImageUrl;
 
-            if (!pendingOffset.HasValue && !pendingProgress.HasValue)
+            if (!pendingOffset.HasValue && !pendingProgress.HasValue && pendingAnchorUrl == null)
             {
                 return;
             }
 
             _pendingScrollOffset = pendingOffset;
             _pendingScrollProgress = pendingProgress;
-            _scrollRestoreAttemptCount = 0;
+            _pendingAnchorImageUrl = pendingAnchorUrl;
+            _pendingAnchorImageProgress = pendingAnchorProgress;
+            _pendingAnchorIndex = null;
+            _anchorBringIntoViewRequested = false;
+            _lastRequestedScrollOffset = null;
             _suppressAutoAdvance = true;
 
             if (ScrollView != null)
             {
-                ScrollView.Dispatcher.InvokeAsync(() =>
-                {
-                    TryApplyPendingScroll();
-                }, System.Windows.Threading.DispatcherPriority.Background);
+                ScrollView.Dispatcher.InvokeAsync(
+                    TryApplyPendingScroll,
+                    DispatcherPriority.Background);
             }
         }
 
@@ -692,9 +1008,14 @@ namespace MSCS.Views
         {
             _pendingScrollProgress = null;
             _pendingScrollOffset = null;
-            _pendingScrollRetryScheduled = false;
-            _scrollRestoreAttemptCount = 0;
+            _pendingAnchorImageUrl = null;
+            _pendingAnchorImageProgress = null;
+            _pendingAnchorIndex = null;
+            _anchorBringIntoViewRequested = false;
+            _lastRequestedScrollOffset = null;
+            _isApplyingPendingScroll = false;
             _suppressAutoAdvance = false;
+            CancelLayoutValidation();
         }
     }
 }

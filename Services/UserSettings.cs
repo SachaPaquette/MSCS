@@ -713,6 +713,10 @@ namespace MSCS.Services
                 ScrollableHeight = progress.ScrollableHeight.HasValue
                     ? Math.Max(0, progress.ScrollableHeight.Value)
                     : null,
+                AnchorImageUrl = string.IsNullOrWhiteSpace(progress.AnchorImageUrl) ? null : progress.AnchorImageUrl.Trim(),
+                AnchorImageProgress = progress.AnchorImageProgress.HasValue
+                    ? Math.Clamp(progress.AnchorImageProgress.Value, 0.0, 1.0)
+                    : null,
                 Title = string.IsNullOrEmpty(key.Title) ? null : key.Title,
             };
 
@@ -938,7 +942,9 @@ namespace MSCS.Services
                 stored.MangaUrl,
                 stored.SourceKey,
                 stored.ScrollOffset,
-                stored.ScrollableHeight);
+                stored.ScrollableHeight,
+                stored.AnchorImageUrl,
+                stored.AnchorImageProgress);
         }
 
         private static void MigrateReadingProgressKeys(SettingsData data)
@@ -1198,6 +1204,8 @@ namespace MSCS.Services
             public string? CoverImageUrl { get; set; }
             public double? ScrollOffset { get; set; }
             public double? ScrollableHeight { get; set; }
+            public string? AnchorImageUrl { get; set; }
+            public double? AnchorImageProgress { get; set; }
             public string? Title { get; set; }
         }
 
