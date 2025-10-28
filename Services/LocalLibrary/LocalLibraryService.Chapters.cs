@@ -37,7 +37,7 @@ namespace MSCS.Services
                 }
 
                 var subDirectories = directory.GetDirectories()
-                    .OrderBy(dir => dir.Name, StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(dir => dir.Name, NaturalSortComparer.Instance)
                     .ToList();
 
                 if (subDirectories.Count > 0)
@@ -131,22 +131,39 @@ namespace MSCS.Services
                 using var stream = File.OpenRead(archivePath);
                 using var archive = ArchiveFactory.Open(stream);
 
-                var entryKeys = archive.Entries
+                var entryDescriptors = archive.Entries
                     .Where(e => !e.IsDirectory && !string.IsNullOrEmpty(e.Key))
-                    .Select(e => NormalizeArchiveEntryKey(e.Key!))
-                    .Where(key => !string.IsNullOrEmpty(key) && IsImageFile(Path.GetFileName(key)))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
+                    .Select(entry =>
+                    {
+                        var archiveKey = entry.Key!.Replace('\\', '/');
+                        var normalized = NormalizeArchiveEntryKey(archiveKey);
+                        return new { Entry = entry, ArchiveKey = archiveKey, NormalizedKey = normalized };
+                    })
+                    .Where(item => !string.IsNullOrEmpty(item.NormalizedKey) &&
+                                   IsImageFile(Path.GetFileName(item.NormalizedKey)))
+                    .GroupBy(item => item.NormalizedKey!, StringComparer.OrdinalIgnoreCase)
+                    .Select(group => group
+                        .OrderBy(item => item.ArchiveKey, StringComparer.OrdinalIgnoreCase)
+                        .First())
+                    .OrderBy(item => item.NormalizedKey, StringComparer.OrdinalIgnoreCase)
+                    .Select(item => new ArchiveEntryDescriptor(
+                        archivePath,
+                        item.NormalizedKey!,
+                        item.ArchiveKey,
+                        archive.Type,
+                        archive.IsSolid || item.Entry.IsSolid || !item.Entry.IsComplete || item.Entry.IsEncrypted))
                     .ToList();
 
-                var images = new List<ChapterImage>(entryKeys.Count);
+                var images = new List<ChapterImage>(entryDescriptors.Count);
 
-                foreach (var key in entryKeys)
+                foreach (var descriptor in entryDescriptors)
                 {
+                    var factory = CreateArchiveEntryStreamFactory(descriptor);
                     images.Add(new ChapterImage
                     {
-                        ImageUrl = $"{archivePath}::{key}",
-                        StreamFactory = CreateArchiveEntryStreamFactory(archivePath, key)
+                        ImageUrl = $"{archivePath}::{descriptor.NormalizedKey}",
+                        StreamFactory = factory.StreamFactory,
+                        ReleaseResources = factory.Cleanup
                     });
                 }
 

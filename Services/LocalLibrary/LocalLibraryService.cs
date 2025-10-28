@@ -23,6 +23,9 @@ namespace MSCS.Services
             ".cbz",
             ".cbr",
             ".cb7",
+            ".zip",
+            ".rar",
+            ".7z",
         };
 
         private readonly UserSettings _settings;

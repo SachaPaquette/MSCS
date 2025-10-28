@@ -384,62 +384,70 @@
     </UserControl.InputBindings>
 
     <Grid>
-        <ScrollViewer x:Name="ScrollView"
-                      Background="{Binding Preferences.ReaderSurfaceBrush, FallbackValue=#111727}"
-                      PanningMode="Both"
-                      ScrollChanged="ScrollViewer_ScrollChanged">
-            <ScrollViewer.Style>
-                <Style TargetType="ScrollViewer">
-                    <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
-                    <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
-                    <Setter Property="CanContentScroll" Value="True"/>
+        <ListBox x:Name="ImageList"
+                 Background="{Binding Preferences.ReaderSurfaceBrush, FallbackValue=#111727}"
+                 BorderThickness="0"
+                 Padding="0"
+                 HorizontalContentAlignment="Stretch"
+                 ScrollViewer.CanContentScroll="True"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 VirtualizingPanel.IsVirtualizing="True"
+                 VirtualizingPanel.VirtualizationMode="Recycling"
+                 VirtualizingPanel.CacheLength="1"
+                 VirtualizingPanel.ScrollUnit="Pixel"
+                 VirtualizingStackPanel.CleanUpVirtualizedItem="Images_CleanUpVirtualizedItem"
+                 Loaded="ImageList_Loaded"
+                 ItemsSource="{Binding ImageUrls}">
+            <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <VirtualizingStackPanel Orientation="Vertical"/>
+                </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                    <Setter Property="Padding" Value="0"/>
+                    <Setter Property="Margin" Value="0"/>
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="BorderBrush" Value="Transparent"/>
+                    <Setter Property="BorderThickness" Value="0"/>
+                    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                    <Setter Property="IsHitTestVisible" Value="True"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ListBoxItem">
+                                <ContentPresenter HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"/>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
                 </Style>
-            </ScrollViewer.Style>
-            <ItemsControl ItemsSource="{Binding ImageUrls}"
-                          ScrollViewer.CanContentScroll="True"
-                          VirtualizingPanel.IsVirtualizing="True"
-                          VirtualizingPanel.VirtualizationMode="Recycling"
-                          VirtualizingPanel.CacheLength="1"
-                          VirtualizingPanel.ScrollUnit="Pixel"
-                          VirtualizingStackPanel.CleanUpVirtualizedItem="Images_CleanUpVirtualizedItem">
-                <ItemsControl.Style>
-                    <Style TargetType="ItemsControl">
-                        <Setter Property="ItemsPanel" Value="{StaticResource VerticalPanelTemplate}"/>
-                        <Setter Property="Margin" Value="0"/>
-                    </Style>
-                </ItemsControl.Style>
-                <ItemsControl.ItemContainerStyle>
-                    <Style TargetType="ContentPresenter">
-                        <Setter Property="HorizontalAlignment" Value="Center"/>
-                        <Setter Property="Margin" Value="0,0,0,0"/>
-                    </Style>
-                </ItemsControl.ItemContainerStyle>
-
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Image Stretch="Uniform"
-                               Margin="0"
-                               SnapsToDevicePixels="True"
-                               UseLayoutRounding="True"
-                               RenderOptions.BitmapScalingMode="HighQuality"
-                               MouseLeftButtonDown="Image_MouseLeftButtonDown"
-                               RenderOptions.EdgeMode="Aliased">
-                            <Image.Source>
-                                <Binding Converter="{StaticResource ChapterImageSource}"/>
-                            </Image.Source>
-                            <Image.Width>
-                                <MultiBinding Converter="{StaticResource ViewportFraction}">
-                                    <Binding ElementName="ScrollView" Path="ViewportWidth"/>
-                                    <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.Preferences.WidthFactor"/>
-                                    <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.Preferences.MaxPageWidth"/>
-                                    <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.Preferences.AutoAdjustWidth"/>
-                                </MultiBinding>
-                            </Image.Width>
-                        </Image>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </ScrollViewer>
+            </ListBox.ItemContainerStyle>
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Image Stretch="Uniform"
+                           Margin="0"
+                           SnapsToDevicePixels="True"
+                           UseLayoutRounding="True"
+                           RenderOptions.BitmapScalingMode="HighQuality"
+                           MouseLeftButtonDown="Image_MouseLeftButtonDown"
+                           RenderOptions.EdgeMode="Aliased">
+                        <Image.Source>
+                            <Binding Converter="{StaticResource ChapterImageSource}"/>
+                        </Image.Source>
+                        <Image.Width>
+                            <MultiBinding Converter="{StaticResource ViewportFraction}">
+                                <Binding RelativeSource="{RelativeSource AncestorType=ScrollViewer}" Path="ViewportWidth"/>
+                                <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.Preferences.WidthFactor"/>
+                                <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.Preferences.MaxPageWidth"/>
+                                <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.Preferences.AutoAdjustWidth"/>
+                            </MultiBinding>
+                        </Image.Width>
+                    </Image>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
 
         <Border HorizontalAlignment="Right"
                 VerticalAlignment="Top"

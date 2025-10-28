@@ -1,14 +1,9 @@
 ﻿using MSCS.Interfaces;
 using MSCS.Models;
 using MSCS.Services;
-using MSCS.Services.Kitsu;
-using MSCS.Services.MyAnimeList;
 using MSCS.Sources;
-using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-using System.Windows;
 
 namespace MSCS.ViewModels
 {
@@ -16,11 +11,7 @@ namespace MSCS.ViewModels
     {
         private readonly INavigationService _navigationService;
         private readonly UserSettings _userSettings;
-        private readonly LocalLibraryService _localLibraryService;
-        private readonly AniListService _aniListService;
         private readonly MediaTrackingServiceRegistry _mediaTrackingRegistry;
-        private readonly ReadingListService _readingListService;
-        private readonly LocalSource _LocalSource;
         private readonly ThemeService _themeService;
         private readonly LocalSource _localSource;
         private readonly Dictionary<BaseViewModel, MainMenuTab> _tabLookup = new();
@@ -39,6 +30,7 @@ namespace MSCS.ViewModels
             LocalSource localSource,
             MangaListViewModel mangaListViewModel,
             LocalLibraryViewModel localLibraryViewModel,
+            BookmarkLibraryViewModel bookmarkLibraryViewModel,
             AniListCollectionViewModel aniListCollectionViewModel,
             AniListRecommendationsViewModel recommendationsViewModel,
             ContinueReadingViewModel continueReadingViewModel,
@@ -59,6 +51,9 @@ namespace MSCS.ViewModels
             LocalLibraryVM = localLibraryViewModel ?? throw new ArgumentNullException(nameof(localLibraryViewModel));
             LocalLibraryVM.MangaSelected += OnLocalMangaSelected;
 
+            BookmarksVM = bookmarkLibraryViewModel ?? throw new ArgumentNullException(nameof(bookmarkLibraryViewModel));
+            BookmarksVM.BookmarkSelected += OnBookmarkSelected;
+
             AniListCollectionVM = aniListCollectionViewModel ?? throw new ArgumentNullException(nameof(aniListCollectionViewModel));
             RecommendationsVM = recommendationsViewModel ?? throw new ArgumentNullException(nameof(recommendationsViewModel));
 
@@ -71,6 +66,7 @@ namespace MSCS.ViewModels
             {
                 new("external", "External Sources", "\uE774", MangaListVM),
                 new("local", "Local Library", "\uE8D2", LocalLibraryVM),
+                new("bookmarks", "Bookmarks", "\uE735", BookmarksVM),
                 new("anilist-library", "AniList Library", "\uE12B", AniListCollectionVM),
                 new("recommendations", "AniList Recommendations", "\uE734", RecommendationsVM),
                 new("continue", "Continue Reading", "\uE823", ContinueReadingVM),
@@ -92,6 +88,7 @@ namespace MSCS.ViewModels
 
         public MangaListViewModel MangaListVM { get; }
         public LocalLibraryViewModel LocalLibraryVM { get; }
+        public BookmarkLibraryViewModel BookmarksVM { get; }
         public AniListCollectionViewModel AniListCollectionVM { get; }
         public AniListRecommendationsViewModel RecommendationsVM { get; }
         public SettingsViewModel SettingsVM { get; }
@@ -138,7 +135,7 @@ namespace MSCS.ViewModels
 
             if (tab.ViewModel is MangaListViewModel mangaListViewModel)
             {
-                mangaListViewModel.SelectedManga = null;
+                mangaListViewModel.SelectedResult = null;
             }
             else if (tab.ViewModel is LocalLibraryViewModel localLibraryViewModel)
             {
@@ -180,6 +177,67 @@ namespace MSCS.ViewModels
             }
 
             NavigateToChapterList(_localSource, manga, SourceKeyConstants.LocalLibrary);
+        }
+
+        private void OnBookmarkSelected(object? sender, BookmarkSelectedEventArgs e)
+        {
+            if (_disposed || e == null)
+            {
+                return;
+            }
+
+            var entry = e.Entry;
+            if (entry == null)
+            {
+                return;
+            }
+
+            var title = entry.Title ?? string.Empty;
+            var sourceKey = string.IsNullOrWhiteSpace(entry.SourceKey)
+                ? SourceKeyConstants.DefaultExternal
+                : entry.SourceKey!;
+
+            if (string.Equals(sourceKey, SourceKeyConstants.LocalLibrary, StringComparison.OrdinalIgnoreCase))
+            {
+                if (string.IsNullOrWhiteSpace(entry.MangaUrl))
+                {
+                    return;
+                }
+
+                var localManga = new Manga
+                {
+                    Title = title,
+                    Url = entry.MangaUrl!,
+                    CoverImageUrl = entry.CoverImageUrl ?? string.Empty,
+                    Description = "Bookmarked local series"
+                };
+
+                NavigateToChapterList(_localSource, localManga, SourceKeyConstants.LocalLibrary);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(entry.MangaUrl))
+            {
+                Debug.WriteLine($"Bookmark '{title}' is missing a link and cannot be opened.");
+                return;
+            }
+
+            var source = ResolveSourceFromKey(sourceKey);
+            if (source == null)
+            {
+                Debug.WriteLine($"Unable to resolve source '{sourceKey}' for bookmark '{title}'.");
+                return;
+            }
+
+            var manga = new Manga
+            {
+                Title = title,
+                Url = entry.MangaUrl!,
+                CoverImageUrl = entry.CoverImageUrl ?? string.Empty,
+                Description = string.Empty
+            };
+
+            NavigateToChapterList(source, manga, sourceKey);
         }
 
         private void NavigateToChapterList(IMangaSource source, Manga manga, string sourceKey, bool autoOpenChapter = false, bool skipChapterListNavigation = false, MangaReadingProgress? initialProgress = null)
@@ -251,12 +309,12 @@ namespace MSCS.ViewModels
             };
 
             NavigateToChapterList(
-    source,
-    manga,
-    sourceKey,
-    autoOpenChapter: true,
-    skipChapterListNavigation: true,
-    initialProgress: progress);
+                source,
+                manga,
+                sourceKey,
+                autoOpenChapter: true,
+                skipChapterListNavigation: true,
+                initialProgress: progress);
         }
 
 
@@ -303,7 +361,7 @@ namespace MSCS.ViewModels
 
                 if (viewModel is MangaListViewModel mangaListViewModel)
                 {
-                    mangaListViewModel.SelectedManga = null;
+                    mangaListViewModel.SelectedResult = null;
                     DisposeActiveChapterViewModel();
                 }
                 else if (viewModel is LocalLibraryViewModel localLibraryViewModel)
@@ -341,10 +399,12 @@ namespace MSCS.ViewModels
             _disposed = true;
             MangaListVM.MangaSelected -= OnExternalMangaSelected;
             LocalLibraryVM.MangaSelected -= OnLocalMangaSelected;
+            BookmarksVM.BookmarkSelected -= OnBookmarkSelected;
             ContinueReadingVM.ContinueReadingRequested -= OnContinueReadingRequested;
             DisposeActiveChapterViewModel();
             MangaListVM.Dispose();
             LocalLibraryVM.Dispose();
+            BookmarksVM.Dispose();
             RecommendationsVM.Dispose();
             AniListCollectionVM.Dispose();
             ContinueReadingVM.Dispose();

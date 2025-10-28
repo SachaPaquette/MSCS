@@ -47,6 +47,7 @@ namespace MSCS.Services
   }
 }";
         private const string ServiceUnavailableMessage = "AniList is currently unavailable. Please check your internet connection and try again.";
+        private static readonly HttpClient SharedHttpClient = new();
         private readonly HttpClient _httpClient;
         private readonly UserSettings _userSettings;
         private string? _accessToken;
@@ -56,7 +57,7 @@ namespace MSCS.Services
         public AniListService(UserSettings userSettings)
         {
             _userSettings = userSettings ?? throw new ArgumentNullException(nameof(userSettings));
-            _httpClient = new HttpClient();
+            _httpClient = SharedHttpClient;
 
             LoadExistingAuthentication();
         }

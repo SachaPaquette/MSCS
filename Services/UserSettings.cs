@@ -16,9 +16,10 @@ namespace MSCS.Services
         private readonly object _syncLock = new();
         private SettingsData _data;
         private const string TitlePrefix = "title::";
-
+        private const string BookmarkTitlePrefix = "bookmark::title::";
         public event EventHandler? SettingsChanged;
         public event EventHandler? ReadingProgressChanged;
+        public event EventHandler? BookmarksChanged;
 
         public UserSettings()
         {
@@ -525,6 +526,129 @@ namespace MSCS.Services
             }
         }
 
+
+        public IReadOnlyList<BookmarkEntry> GetAllBookmarks()
+        {
+            if (_data.Bookmarks == null || _data.Bookmarks.Count == 0)
+            {
+                return Array.Empty<BookmarkEntry>();
+            }
+
+            var results = new List<BookmarkEntry>(_data.Bookmarks.Count);
+            foreach (var entry in _data.Bookmarks)
+            {
+                var stored = entry.Value ?? new BookmarkData();
+                results.Add(ConvertToBookmark(entry.Key, stored));
+            }
+
+            return results;
+        }
+
+        public bool TryGetBookmark(BookmarkKey key, out BookmarkEntry? bookmark)
+        {
+            bookmark = null;
+            if (key.IsEmpty)
+            {
+                return false;
+            }
+
+            if (_data.Bookmarks == null || _data.Bookmarks.Count == 0)
+            {
+                return false;
+            }
+
+            var storageKey = CreateBookmarkStorageKey(key);
+            if (string.IsNullOrEmpty(storageKey))
+            {
+                return false;
+            }
+
+            if (_data.Bookmarks.TryGetValue(storageKey, out var stored) && stored != null)
+            {
+                bookmark = ConvertToBookmark(storageKey, stored);
+                return true;
+            }
+
+            return false;
+        }
+
+        public bool HasBookmark(BookmarkKey key)
+        {
+            return TryGetBookmark(key, out _);
+        }
+
+        public BookmarkEntry? AddOrUpdateBookmark(BookmarkKey key, string title, string? coverImageUrl)
+        {
+            if (key.IsEmpty)
+            {
+                return null;
+            }
+
+            var storageKey = CreateBookmarkStorageKey(key);
+            if (string.IsNullOrEmpty(storageKey))
+            {
+                return null;
+            }
+
+            _data.Bookmarks ??= new Dictionary<string, BookmarkData>(StringComparer.OrdinalIgnoreCase);
+
+            if (!_data.Bookmarks.TryGetValue(storageKey, out var stored) || stored == null)
+            {
+                stored = new BookmarkData
+                {
+                    AddedUtc = DateTimeOffset.UtcNow
+                };
+            }
+
+            var sanitizedTitle = string.IsNullOrWhiteSpace(title) ? key.Title : title.Trim();
+            stored.Title = string.IsNullOrWhiteSpace(sanitizedTitle) ? null : sanitizedTitle;
+            stored.SourceKey = string.IsNullOrWhiteSpace(key.SourceKey) ? null : key.SourceKey;
+            stored.MangaUrl = string.IsNullOrWhiteSpace(key.MangaUrl) ? null : key.MangaUrl;
+            stored.CoverImageUrl = string.IsNullOrWhiteSpace(coverImageUrl) ? null : coverImageUrl.Trim();
+            if (stored.AddedUtc == default)
+            {
+                stored.AddedUtc = DateTimeOffset.UtcNow;
+            }
+
+            _data.Bookmarks[storageKey] = stored;
+            SaveInternal();
+            BookmarksChanged?.Invoke(this, EventArgs.Empty);
+            return ConvertToBookmark(storageKey, stored);
+        }
+
+        public bool RemoveBookmark(BookmarkKey key)
+        {
+            if (key.IsEmpty)
+            {
+                return false;
+            }
+
+            var storageKey = CreateBookmarkStorageKey(key);
+            if (string.IsNullOrEmpty(storageKey))
+            {
+                return false;
+            }
+
+            return RemoveBookmark(storageKey);
+        }
+
+        public bool RemoveBookmark(string? storageKey)
+        {
+            if (string.IsNullOrWhiteSpace(storageKey) || _data.Bookmarks == null)
+            {
+                return false;
+            }
+
+            if (_data.Bookmarks.Remove(storageKey))
+            {
+                SaveInternal();
+                BookmarksChanged?.Invoke(this, EventArgs.Empty);
+                return true;
+            }
+
+            return false;
+        }
+
         public bool TryGetReadingProgress(ReadingProgressKey key, out MangaReadingProgress? progress)
         {
             progress = null;
@@ -588,6 +712,10 @@ namespace MSCS.Services
                     : null,
                 ScrollableHeight = progress.ScrollableHeight.HasValue
                     ? Math.Max(0, progress.ScrollableHeight.Value)
+                    : null,
+                AnchorImageUrl = string.IsNullOrWhiteSpace(progress.AnchorImageUrl) ? null : progress.AnchorImageUrl.Trim(),
+                AnchorImageProgress = progress.AnchorImageProgress.HasValue
+                    ? Math.Clamp(progress.AnchorImageProgress.Value, 0.0, 1.0)
                     : null,
                 Title = string.IsNullOrEmpty(key.Title) ? null : key.Title,
             };
@@ -737,6 +865,7 @@ namespace MSCS.Services
                 data.AniListTrackedSeries ??= new Dictionary<string, TrackedSeriesData>();
                 data.ExternalTrackedSeries ??= new Dictionary<string, Dictionary<string, ExternalTrackedSeriesData>>(StringComparer.OrdinalIgnoreCase);
                 data.ReadingProgress ??= new Dictionary<string, ReadingProgressData>();
+                data.Bookmarks ??= new Dictionary<string, BookmarkData>(StringComparer.OrdinalIgnoreCase);
                 MigrateReadingProgressKeys(data);
                 data.ReaderProfiles ??= new Dictionary<string, ReaderProfileData>();
                 data.DefaultReaderProfile ??= new ReaderProfileData();
@@ -782,7 +911,26 @@ namespace MSCS.Services
             return options;
         }
 
+        private BookmarkEntry ConvertToBookmark(string storageKey, BookmarkData stored)
+        {
+            if (stored == null)
+            {
+                stored = new BookmarkData();
+            }
 
+            var title = stored.Title;
+            if (string.IsNullOrWhiteSpace(title))
+            {
+                title = ExtractTitleFromBookmarkKey(storageKey) ?? string.Empty;
+            }
+
+            var sourceKey = string.IsNullOrWhiteSpace(stored.SourceKey) ? null : stored.SourceKey.Trim();
+            var mangaUrl = string.IsNullOrWhiteSpace(stored.MangaUrl) ? null : stored.MangaUrl.Trim();
+            var coverImageUrl = string.IsNullOrWhiteSpace(stored.CoverImageUrl) ? null : stored.CoverImageUrl.Trim();
+            var addedUtc = stored.AddedUtc == default ? DateTimeOffset.UtcNow : stored.AddedUtc;
+
+            return new BookmarkEntry(storageKey, title ?? string.Empty, sourceKey, mangaUrl, coverImageUrl, addedUtc);
+        }
 
         private static MangaReadingProgress ConvertToProgress(ReadingProgressData stored)
         {
@@ -794,7 +942,9 @@ namespace MSCS.Services
                 stored.MangaUrl,
                 stored.SourceKey,
                 stored.ScrollOffset,
-                stored.ScrollableHeight);
+                stored.ScrollableHeight,
+                stored.AnchorImageUrl,
+                stored.AnchorImageProgress);
         }
 
         private static void MigrateReadingProgressKeys(SettingsData data)
@@ -899,6 +1049,44 @@ namespace MSCS.Services
             return key;
         }
 
+
+        private static string CreateBookmarkStorageKey(BookmarkKey key)
+        {
+            if (key.HasStableIdentifier)
+            {
+                return $"bookmark::source::{key.SourceKey}::{key.MangaUrl}";
+            }
+
+            if (!string.IsNullOrEmpty(key.Title))
+            {
+                return CreateBookmarkTitleStorageKey(key.Title);
+            }
+
+            return string.Empty;
+        }
+
+        private static string CreateBookmarkTitleStorageKey(string title)
+        {
+            return string.IsNullOrWhiteSpace(title)
+                ? string.Empty
+                : $"{BookmarkTitlePrefix}{title.Trim()}";
+        }
+
+        private static string? ExtractTitleFromBookmarkKey(string key)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return null;
+            }
+
+            if (key.StartsWith(BookmarkTitlePrefix, StringComparison.Ordinal))
+            {
+                return key.Substring(BookmarkTitlePrefix.Length);
+            }
+
+            return null;
+        }
+
         private static string CreateStorageKey(ReadingProgressKey key)
         {
             if (key.HasStableIdentifier)
@@ -972,6 +1160,7 @@ namespace MSCS.Services
             public Dictionary<string, TrackedSeriesData> AniListTrackedSeries { get; set; } = new();
             public Dictionary<string, Dictionary<string, ExternalTrackedSeriesData>> ExternalTrackedSeries { get; set; } = new(StringComparer.OrdinalIgnoreCase);
             public Dictionary<string, ReadingProgressData> ReadingProgress { get; set; } = new();
+            public Dictionary<string, BookmarkData> Bookmarks { get; set; } = new(StringComparer.OrdinalIgnoreCase);
             public ReaderProfileData? DefaultReaderProfile { get; set; } = new();
             public Dictionary<string, ReaderProfileData> ReaderProfiles { get; set; } = new();
             public Dictionary<string, bool> TrackingProviderConnections { get; set; } = new(StringComparer.OrdinalIgnoreCase);
@@ -1015,7 +1204,18 @@ namespace MSCS.Services
             public string? CoverImageUrl { get; set; }
             public double? ScrollOffset { get; set; }
             public double? ScrollableHeight { get; set; }
+            public string? AnchorImageUrl { get; set; }
+            public double? AnchorImageProgress { get; set; }
             public string? Title { get; set; }
+        }
+
+        private class BookmarkData
+        {
+            public string? Title { get; set; }
+            public string? SourceKey { get; set; }
+            public string? MangaUrl { get; set; }
+            public string? CoverImageUrl { get; set; }
+            public DateTimeOffset AddedUtc { get; set; }
         }
 
         private class ReaderProfileData

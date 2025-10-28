@@ -14,6 +14,9 @@
     <DataTemplate DataType="{x:Type vm:LocalLibraryViewModel}">
         <views:LocalLibraryView />
     </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:BookmarkLibraryViewModel}">
+        <views:BookmarkLibraryView />
+    </DataTemplate>
     <DataTemplate DataType="{x:Type vm:ContinueReadingViewModel}">
         <views:ContinueReadingView />
     </DataTemplate>

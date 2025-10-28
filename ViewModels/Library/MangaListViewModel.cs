@@ -1,6 +1,7 @@
 ﻿using MSCS.Commands;
 using MSCS.Interfaces;
 using MSCS.Models;
+using MSCS.Services;
 using MSCS.Sources;
 using MSCS.ViewModels;
 using System;
@@ -8,6 +9,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
 
@@ -16,9 +18,9 @@ namespace MSCS.ViewModels
     public class MangaListViewModel : BaseViewModel, IDisposable
     {
         private readonly INavigationService _navigation;
-
+        private readonly UserSettings _userSettings;
         private IMangaSource _source;
-        private Manga? _selectedManga;
+        private MangaSearchResultItemViewModel? _selectedResult;
         private string _searchQuery = string.Empty;
         private string _activeQuery = string.Empty;
         private string _selectedSourceKey = string.Empty;
@@ -28,25 +30,25 @@ namespace MSCS.ViewModels
         private CancellationTokenSource? _searchCts;
         private bool _disposed;
 
-        public MangaListViewModel(string sourceKey, INavigationService navigationService)
+        public MangaListViewModel(string sourceKey, INavigationService navigationService, UserSettings userSettings)
         {
             _navigation = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
-
+            _userSettings = userSettings ?? throw new ArgumentNullException(nameof(userSettings));
             AvailableSources = new ObservableCollection<SourceDescriptor>(SourceRegistry.GetAllDescriptors());
 
-            MangaResults = new ObservableCollection<Manga>();
+            MangaResults = new ObservableCollection<MangaSearchResultItemViewModel>();
 
             SearchCommand = new RelayCommand(async _ => await ExecuteSearchAsync(), _ => CanSearch());
             MangaSelectedCommand = new RelayCommand(OnMangaSelected);
+            _userSettings.BookmarksChanged += OnBookmarksChanged;
 
             InitializeSelectedSource(sourceKey);
         }
 
         #region Public Properties
         public event EventHandler<Manga?>? MangaSelected;
+        public ObservableCollection<MangaSearchResultItemViewModel> MangaResults { get; }
         public ObservableCollection<SourceDescriptor> AvailableSources { get; }
-
-        public ObservableCollection<Manga> MangaResults { get; }
 
         public ICommand SearchCommand { get; }
 
@@ -76,6 +78,7 @@ namespace MSCS.ViewModels
                     _activeQuery = string.Empty;
                     _currentPage = 0;
                     CanLoadMore = true;
+                    DisposeResults();
                     MangaResults.Clear();
                     CancelActiveSearch(resetLoading: true);
                     CommandManager.InvalidateRequerySuggested();
@@ -83,14 +86,14 @@ namespace MSCS.ViewModels
             }
         }
 
-        public Manga? SelectedManga
+        public MangaSearchResultItemViewModel? SelectedResult
         {
-            get => _selectedManga;
+            get => _selectedResult;
             set
             {
-                if (SetProperty(ref _selectedManga, value))
+                if (SetProperty(ref _selectedResult, value))
                 {
-                    MangaSelected?.Invoke(this, value);
+                    MangaSelected?.Invoke(this, value?.Manga);
                 }
             }
         }
@@ -201,6 +204,7 @@ namespace MSCS.ViewModels
             SearchQuery = sanitized;
             _activeQuery = sanitized;
 
+            DisposeResults();
             MangaResults.Clear();
             CanLoadMore = true;
             _currentPage = 0;
@@ -218,9 +222,11 @@ namespace MSCS.ViewModels
 
                 await RunOnUiThreadAsync(() =>
                 {
+                    DisposeResults();
+                    MangaResults.Clear();
                     foreach (var manga in firstPageResults)
                     {
-                        MangaResults.Add(manga);
+                        MangaResults.Add(CreateResultItem(manga, SelectedSourceKey));
                     }
                 }, cts.Token).ConfigureAwait(false);
 
@@ -265,6 +271,7 @@ namespace MSCS.ViewModels
             }
 
             var nextPage = _currentPage + 1;
+            var activeSourceKey = SelectedSourceKey;
             IsLoading = true;
 
             try
@@ -290,7 +297,7 @@ namespace MSCS.ViewModels
                 {
                     foreach (var manga in moreManga)
                     {
-                        MangaResults.Add(manga);
+                        MangaResults.Add(CreateResultItem(manga, activeSourceKey));
                     }
                 }, tokenSource.Token).ConfigureAwait(false);
 
@@ -314,11 +321,18 @@ namespace MSCS.ViewModels
         public void OnMangaSelected(object obj)
         {
             ThrowIfDisposed();
-            if (obj is Manga selectedManga)
+            switch (obj)
             {
-                SelectedManga = selectedManga;
-                // Optionally navigate:
-                // _navigation.NavigateTo("MangaDetails", selectedManga);
+                case MangaSearchResultItemViewModel item:
+                    SelectedResult = item;
+                    break;
+                case Manga selectedManga:
+                    var match = MangaResults.FirstOrDefault(result => ReferenceEquals(result.Manga, selectedManga));
+                    if (match != null)
+                    {
+                        SelectedResult = match;
+                    }
+                    break;
             }
         }
 
@@ -358,7 +372,10 @@ namespace MSCS.ViewModels
             if (_disposed) return;
 
             _disposed = true;
+            _userSettings.BookmarksChanged -= OnBookmarksChanged;
             CancelActiveSearch(resetLoading: true);
+            DisposeResults();
+            MangaResults.Clear();
             GC.SuppressFinalize(this);
         }
 
@@ -415,6 +432,48 @@ namespace MSCS.ViewModels
             if (resetLoading)
             {
                 IsLoading = false;
+            }
+        }
+
+
+        private MangaSearchResultItemViewModel CreateResultItem(Manga manga, string sourceKey)
+        {
+            var effectiveSourceKey = string.IsNullOrWhiteSpace(sourceKey) ? string.Empty : sourceKey;
+            var item = new MangaSearchResultItemViewModel(manga, effectiveSourceKey, _userSettings);
+            return item;
+        }
+
+        private void DisposeResults()
+        {
+            foreach (var item in MangaResults)
+            {
+                item.Dispose();
+            }
+        }
+
+        private void OnBookmarksChanged(object? sender, EventArgs e)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher != null && !dispatcher.CheckAccess())
+            {
+                dispatcher.Invoke(UpdateBookmarkStates);
+            }
+            else
+            {
+                UpdateBookmarkStates();
+            }
+        }
+
+        private void UpdateBookmarkStates()
+        {
+            foreach (var item in MangaResults)
+            {
+                item.UpdateBookmarkState();
             }
         }
 

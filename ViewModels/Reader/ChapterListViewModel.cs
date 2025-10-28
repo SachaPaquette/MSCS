@@ -17,6 +17,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Input;
+using Application = System.Windows.Application;
 
 namespace MSCS.ViewModels
 {
@@ -45,10 +46,20 @@ namespace MSCS.ViewModels
         private ICollectionView? _filteredChapters;
         private bool _isLoadingChapters;
         private bool _isEmptyAfterFilter;
+        private string? _bookmarkStorageKey;
+        private bool _isBookmarked;
+
         public Manga Manga
         {
             get => _manga;
-            set => SetProperty(ref _manga, value);
+            set
+            {
+                if (SetProperty(ref _manga, value))
+                {
+                    UpdateBookmarkState();
+                    CommandManager.InvalidateRequerySuggested();
+                }
+            }
         }
 
         public ObservableCollection<Chapter> Chapters
@@ -94,6 +105,7 @@ namespace MSCS.ViewModels
         public ICommand OpenChapterCommand { get; }
         public ICommand BackCommand { get; }
         public ICommand ToggleChapterListLengthCommand { get; }
+        public ICommand ToggleBookmarkCommand { get; }
 
         public string SourceKey { get; }
 
@@ -142,6 +154,29 @@ namespace MSCS.ViewModels
             get => _isEmptyAfterFilter;
             private set => SetProperty(ref _isEmptyAfterFilter, value);
         }
+
+        public bool IsBookmarked
+        {
+            get => _isBookmarked;
+            private set
+            {
+                if (SetProperty(ref _isBookmarked, value))
+                {
+                    OnPropertyChanged(nameof(BookmarkButtonText));
+                    OnPropertyChanged(nameof(BookmarkIconGlyph));
+                    OnPropertyChanged(nameof(BookmarkToolTip));
+                    CommandManager.InvalidateRequerySuggested();
+                }
+            }
+        }
+
+        public string BookmarkButtonText => IsBookmarked ? "Remove bookmark" : "Add bookmark";
+
+        public string BookmarkIconGlyph => IsBookmarked ? "\uE735" : "\uE734";
+
+        public string BookmarkToolTip => IsBookmarked
+            ? "Remove this series from your bookmarks"
+            : "Add this series to your bookmarks";
 
         public string ChapterSearchText
         {
@@ -201,6 +236,10 @@ namespace MSCS.ViewModels
             Manga = manga;
             _trackingRegistry = trackingRegistry;
             _userSettings = userSettings;
+            if (_userSettings != null)
+            {
+                _userSettings.BookmarksChanged += OnBookmarksChanged;
+            }
             SourceKey = sourceKey ?? string.Empty;
             _autoOpenOnLoad = autoOpenOnLoad;
             _initialProgress = initialProgress;
@@ -218,11 +257,12 @@ namespace MSCS.ViewModels
             BackCommand = new RelayCommand(_ => _navigationService.GoBack(), _ => _navigationService.CanGoBack);
             WeakEventManager<INavigationService, EventArgs>.AddHandler(_navigationService, nameof(INavigationService.CanGoBackChanged), OnNavigationStateChanged);
             ToggleChapterListLengthCommand = new RelayCommand(_ => ToggleChapterListMode(), _ => HasChapterOverflow);
+            ToggleBookmarkCommand = new RelayCommand(_ => ToggleBookmark(), _ => CanToggleBookmark());
             InitializeChapterListState();
+            UpdateBookmarkState();
 
             _ = LoadChaptersAsync();
         }
-
 
         public ChapterListViewModel()
         {
@@ -230,6 +270,7 @@ namespace MSCS.ViewModels
             OpenChapterCommand = new RelayCommand(_ => { }, _ => false);
             BackCommand = new RelayCommand(_ => { }, _ => false);
             ToggleChapterListLengthCommand = new RelayCommand(_ => ToggleChapterListMode(), _ => HasChapterOverflow);
+            ToggleBookmarkCommand = new RelayCommand(_ => { }, _ => false);
             InitializeChapterListState();
         }
 
@@ -680,9 +721,107 @@ namespace MSCS.ViewModels
             }
         }
 
+
+        private void ToggleBookmark()
+        {
+            if (_userSettings == null)
+            {
+                return;
+            }
+
+            var key = CreateBookmarkKey();
+            if (key.IsEmpty)
+            {
+                return;
+            }
+
+            if (IsBookmarked)
+            {
+                if (!string.IsNullOrEmpty(_bookmarkStorageKey))
+                {
+                    _userSettings.RemoveBookmark(_bookmarkStorageKey);
+                }
+                else
+                {
+                    _userSettings.RemoveBookmark(key);
+                }
+            }
+            else
+            {
+                var title = Manga?.Title ?? key.Title;
+                var cover = Manga?.CoverImageUrl;
+                var entry = _userSettings.AddOrUpdateBookmark(key, title, cover);
+                _bookmarkStorageKey = entry?.StorageKey;
+            }
+        }
+
+        private bool CanToggleBookmark()
+        {
+            return !_disposed &&
+                   _userSettings != null &&
+                   Manga != null &&
+                   !string.IsNullOrWhiteSpace(Manga.Title);
+        }
+
+        private BookmarkKey CreateBookmarkKey()
+        {
+            var title = Manga?.Title ?? string.Empty;
+            var sourceKey = string.IsNullOrWhiteSpace(SourceKey) ? null : SourceKey;
+            var mangaUrl = string.IsNullOrWhiteSpace(Manga?.Url) ? null : Manga.Url;
+            return new BookmarkKey(title, sourceKey, mangaUrl);
+        }
+
         private ReadingProgressKey CreateProgressKey()
         {
             return new ReadingProgressKey(Manga?.Title, SourceKey, Manga?.Url);
+        }
+
+
+        private void UpdateBookmarkState()
+        {
+            if (_userSettings == null)
+            {
+                _bookmarkStorageKey = null;
+                IsBookmarked = false;
+                return;
+            }
+
+            var key = CreateBookmarkKey();
+            if (key.IsEmpty)
+            {
+                _bookmarkStorageKey = null;
+                IsBookmarked = false;
+                return;
+            }
+
+            if (_userSettings.TryGetBookmark(key, out var bookmark) && bookmark != null)
+            {
+                _bookmarkStorageKey = bookmark.StorageKey;
+                IsBookmarked = true;
+            }
+            else
+            {
+                _bookmarkStorageKey = null;
+                IsBookmarked = false;
+            }
+        }
+
+        private void OnBookmarksChanged(object? sender, EventArgs e)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher != null && !dispatcher.CheckAccess())
+            {
+                dispatcher.Invoke(UpdateBookmarkState);
+            }
+            else
+            {
+                UpdateBookmarkState();
+            }
         }
 
         private static string NormalizeChapterTitle(string? title)
@@ -769,6 +908,10 @@ namespace MSCS.ViewModels
             }
 
             _disposed = true;
+            if (_userSettings != null)
+            {
+                _userSettings.BookmarksChanged -= OnBookmarksChanged;
+            }
             WeakEventManager<INavigationService, EventArgs>.RemoveHandler(_navigationService, nameof(INavigationService.CanGoBackChanged), OnNavigationStateChanged);
             _cts.Cancel();
             _cts.Dispose();

@@ -90,6 +90,7 @@ namespace MSCS.ViewModels
             await _imageLoadSemaphore.WaitAsync().ConfigureAwait(false);
             try
             {
+                ReleaseChapterImageResources(_allImages);
                 _allImages.Clear();
                 _allImages.AddRange(newImages);
                 _loadedCount = 0;

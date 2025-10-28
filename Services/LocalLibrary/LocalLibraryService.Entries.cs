@@ -10,6 +10,7 @@ namespace MSCS.Services
 {
     public partial class LocalLibraryService
     {
+
         private IReadOnlyList<LocalMangaEntry> GetMangaEntriesInternal(CancellationToken ct)
         {
             var root = LibraryPath;
@@ -22,6 +23,7 @@ namespace MSCS.Services
             {
                 var results = new List<LocalMangaEntry>();
                 var rootInfo = new DirectoryInfo(root);
+                var scanCache = new Dictionary<string, DirectoryScanResult>(StringComparer.OrdinalIgnoreCase);
 
                 foreach (var directory in SafeEnumerateDirectories(rootInfo))
                 {
@@ -30,29 +32,30 @@ namespace MSCS.Services
                         return FinalizeResults(results);
                     }
 
-                    if (ContainsChapterContent(directory))
+                    if (ContainsChapterContent(directory, scanCache))
                     {
-                        results.Add(CreateEntry(directory));
+                        results.Add(CreateEntry(directory, scanCache));
                         continue;
                     }
 
-                    foreach (var subDirectory in SafeEnumerateDirectories(directory))
+                    var directoryScan = GetDirectoryScan(directory, scanCache);
+                    foreach (var subDirectory in directoryScan.Subdirectories)
                     {
                         if (ct.IsCancellationRequested)
                         {
                             return FinalizeResults(results);
                         }
 
-                        if (ContainsChapterContent(subDirectory))
+                        if (ContainsChapterContent(subDirectory, scanCache))
                         {
-                            results.Add(CreateEntry(subDirectory));
+                            results.Add(CreateEntry(subDirectory, scanCache));
                         }
                     }
                 }
 
-                if (results.Count == 0 && ContainsChapterContent(rootInfo))
+                if (results.Count == 0 && ContainsChapterContent(rootInfo, scanCache))
                 {
-                    results.Add(CreateEntry(rootInfo));
+                    results.Add(CreateEntry(rootInfo, scanCache));
                 }
 
                 return FinalizeResults(results);
@@ -63,6 +66,7 @@ namespace MSCS.Services
                 return Array.Empty<LocalMangaEntry>();
             }
         }
+
         private static IReadOnlyList<LocalMangaEntry> FinalizeResults(List<LocalMangaEntry> results)
         {
             if (results.Count == 0)

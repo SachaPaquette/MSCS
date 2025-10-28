@@ -55,9 +55,6 @@ namespace MSCS.Helpers
         {
             if (sv == null) return;
 
-            // Stop any ongoing animation
-            sv.BeginAnimation(VerticalOffsetProperty, null);
-
             var from = sv.VerticalOffset;
             var anim = new DoubleAnimation
             {
@@ -67,7 +64,7 @@ namespace MSCS.Helpers
                 EasingFunction = easing ?? new QuadraticEase { EasingMode = EasingMode.EaseInOut }
             };
 
-            sv.BeginAnimation(VerticalOffsetProperty, anim);
+            sv.BeginAnimation(VerticalOffsetProperty, anim, HandoffBehavior.SnapshotAndReplace);
         }
 
         public static void By(ScrollViewer sv, double delta, TimeSpan duration, IEasingFunction? easing = null)
@@ -76,8 +73,6 @@ namespace MSCS.Helpers
         public static void ToHorizontal(ScrollViewer sv, double targetOffset, TimeSpan duration, IEasingFunction? easing = null)
         {
             if (sv == null) return;
-
-            sv.BeginAnimation(HorizontalOffsetProperty, null);
 
             var from = sv.HorizontalOffset;
             var anim = new DoubleAnimation
@@ -88,7 +83,7 @@ namespace MSCS.Helpers
                 EasingFunction = easing ?? new QuadraticEase { EasingMode = EasingMode.EaseInOut }
             };
 
-            sv.BeginAnimation(HorizontalOffsetProperty, anim);
+            sv.BeginAnimation(HorizontalOffsetProperty, anim, HandoffBehavior.SnapshotAndReplace);
         }
 
         public static void ByHorizontal(ScrollViewer sv, double delta, TimeSpan duration, IEasingFunction? easing = null)
