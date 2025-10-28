@@ -523,21 +523,6 @@ namespace MSCS.Views
                 && container.ActualHeight > 0;
         }
 
-        private void SchedulePendingScrollRetry()
-        {
-            if (_pendingScrollRetryScheduled || ScrollView == null)
-            {
-                return;
-            }
-
-            _pendingScrollRetryScheduled = true;
-            ScrollView.Dispatcher.InvokeAsync(() =>
-            {
-                _pendingScrollRetryScheduled = false;
-                TryApplyPendingScroll();
-            }, System.Windows.Threading.DispatcherPriority.Background);
-        }
-
         private void Images_CleanUpVirtualizedItem(object sender, CleanUpVirtualizedItemEventArgs e)
         {
             if (e.Value is ChapterImage image)
