@@ -56,7 +56,12 @@ namespace MSCS.ViewModels
                 _scrollRestoreRequested -= value;
             }
         }
-
+        private event EventHandler? _restoreTargetReady;
+        public event EventHandler? RestoreTargetReady
+        {
+            add => _restoreTargetReady += value;
+            remove => _restoreTargetReady -= value;
+        }
         private int _loadedCount;
         private int _currentChapterIndex;
         public int RemainingImages => _allImages.Count - _loadedCount;
@@ -82,8 +87,19 @@ namespace MSCS.ViewModels
             get => _isSidebarOpen;
             set => SetProperty(ref _isSidebarOpen, value);
         }
-
+        private string? _lastKnownAnchorImageUrl;
+        private double? _lastKnownAnchorImageProgress;
+        private string? _pendingRestoreAnchorImageUrl;
+        private double? _pendingRestoreAnchorImageProgress;
+        private int? _pendingRestoreTargetIndex;
+        private bool _restoreTargetReadySignaled;
         private int _imageCacheVersion;
+        public int ImageCacheVersion
+        {
+            get => _imageCacheVersion;
+            private set => SetProperty(ref _imageCacheVersion, value);
+        }
+
         private string _chapterTitle = string.Empty;
         public string ChapterTitle
         {
@@ -210,6 +226,7 @@ namespace MSCS.ViewModels
             _preferences = new ReaderPreferencesViewModel(_preferencesService);
             _initialProgress = initialProgress;
             _chapterCoordinator = CreateChapterCoordinator(_chapterListViewModel);
+            _chapterCoordinator.ImageCached += OnChapterCoordinatorImageCached;
             _trackingCoordinator = CreateTrackingCoordinator(
                 _trackingRegistry,
                 () => MangaTitle,
@@ -291,6 +308,9 @@ namespace MSCS.ViewModels
             }
 
             _imageLoadCts.Dispose();
+
+            ReleaseChapterImageResources(_allImages);
+            _allImages.Clear();
 
             if (_chapterCoordinator != null)
             {

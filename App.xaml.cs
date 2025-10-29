@@ -94,20 +94,22 @@ public partial class App : System.Windows.Application
         services.AddSingleton<INavigationService>(provider => provider.GetRequiredService<NavigationService>());
 
         services.AddSingleton(provider => new MangaListViewModel(
-            SourceKeyConstants.DefaultExternal,
-            provider.GetRequiredService<INavigationService>()));
+        SourceKeyConstants.DefaultExternal,
+        provider.GetRequiredService<INavigationService>(),
+        provider.GetRequiredService<UserSettings>()));
         services.AddSingleton<LocalLibraryViewModel>();
+        services.AddSingleton<BookmarkLibraryViewModel>();
         services.AddSingleton(provider => new AniListCollectionViewModel(provider.GetRequiredService<AniListService>()));
         services.AddSingleton(provider => new AniListRecommendationsViewModel(provider.GetRequiredService<AniListService>()));
         services.AddSingleton(provider => new ContinueReadingViewModel(
-            provider.GetRequiredService<UserSettings>(),
-            provider.GetRequiredService<ReadingListService>()));
+        provider.GetRequiredService<UserSettings>(),
+        provider.GetRequiredService<ReadingListService>()));
         services.AddSingleton(provider => new SettingsViewModel(
-            provider.GetRequiredService<LocalLibraryService>(),
-            provider.GetRequiredService<UserSettings>(),
-            provider.GetRequiredService<ThemeService>(),
-            provider.GetRequiredService<MediaTrackingServiceRegistry>(),
-            provider.GetRequiredService<UpdateService>()));
+        provider.GetRequiredService<LocalLibraryService>(),
+        provider.GetRequiredService<UserSettings>(),
+        provider.GetRequiredService<ThemeService>(),
+        provider.GetRequiredService<MediaTrackingServiceRegistry>(),
+        provider.GetRequiredService<UpdateService>()));
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<MainWindow>();
     }

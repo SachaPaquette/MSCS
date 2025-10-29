@@ -2,6 +2,7 @@
 using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using System.Windows.Threading;
 
 namespace MSCS.ViewModels
 {
@@ -57,6 +58,19 @@ namespace MSCS.ViewModels
             }
 
             PersistReadingProgress();
+        }
+
+        public void UpdateScrollAnchor(string? imageUrl, double? anchorProgress)
+        {
+            if (_isRestoringProgress)
+            {
+                return;
+            }
+
+            _lastKnownAnchorImageUrl = string.IsNullOrWhiteSpace(imageUrl) ? null : imageUrl;
+            _lastKnownAnchorImageProgress = anchorProgress.HasValue
+                ? Math.Clamp(anchorProgress.Value, 0.0, 1.0)
+                : null;
         }
 
         private bool HasReachedRestoreTarget(double currentOffset)
@@ -119,7 +133,11 @@ namespace MSCS.ViewModels
                 string.IsNullOrWhiteSpace(mangaUrl) ? null : mangaUrl,
                 string.IsNullOrWhiteSpace(sourceKey) ? null : sourceKey,
                 currentOffset,
-                scrollableHeight > 0 ? scrollableHeight : null);
+                scrollableHeight > 0 ? scrollableHeight : null,
+                string.IsNullOrWhiteSpace(_lastKnownAnchorImageUrl) ? null : _lastKnownAnchorImageUrl,
+                _lastKnownAnchorImageProgress.HasValue
+                    ? Math.Clamp(_lastKnownAnchorImageProgress.Value, 0.0, 1.0)
+                    : null);
             var key = CreateProgressKey();
             if (!key.IsEmpty)
             {
@@ -197,8 +215,15 @@ namespace MSCS.ViewModels
                     pendingProgress = clampedProgress;
                 }
 
+                _pendingRestoreAnchorImageUrl = string.IsNullOrWhiteSpace(progress.AnchorImageUrl)
+                    ? null
+                    : progress.AnchorImageUrl;
+                _pendingRestoreAnchorImageProgress = progress.AnchorImageProgress.HasValue
+                    ? Math.Clamp(progress.AnchorImageProgress.Value, 0.0, 1.0)
+                    : null;
                 _pendingRestoreProgress = pendingProgress;
                 _pendingRestoreOffset = pendingOffset;
+                ResetRestoreTargetTracking();
 
                 double displayProgress;
                 if (_pendingRestoreOffset.HasValue)
@@ -255,11 +280,14 @@ namespace MSCS.ViewModels
         {
             if (progress.HasValue || offset.HasValue)
             {
-                var request = new ScrollRestoreRequest(progress, offset);
+                ResetRestoreTargetTracking();
+                var request = new ScrollRestoreRequest(progress, offset, _pendingRestoreAnchorImageUrl, _pendingRestoreAnchorImageProgress);
                 _queuedScrollRestoreRequest = request;
                 _scrollRestoreRequested?.Invoke(this, request);
+                ScheduleRestoreTargetEvaluation();
             }
         }
+
         private ReadingProgressKey CreateProgressKey()
         {
             var sourceKey = _chapterListViewModel?.SourceKey;
@@ -281,8 +309,104 @@ namespace MSCS.ViewModels
                 _pendingRestoreOffset = null;
                 _lastProgressSaveUtc = DateTime.MinValue;
             }
+            _pendingRestoreAnchorImageUrl = null;
+            _pendingRestoreAnchorImageProgress = null;
+            _pendingRestoreTargetIndex = null;
+            _restoreTargetReadySignaled = false;
             _restoreCooldownUntil = DateTime.UtcNow.AddMilliseconds(300);
             _queuedScrollRestoreRequest = null;
+        }
+
+
+        internal void NotifyImagesLoadedForRestore()
+        {
+            TrySignalRestoreTargetReady();
+        }
+
+        private void ResetRestoreTargetTracking()
+        {
+            _restoreTargetReadySignaled = false;
+            UpdateRestoreTargetIndex();
+        }
+
+        private void UpdateRestoreTargetIndex()
+        {
+            int? target = null;
+
+            if (!string.IsNullOrWhiteSpace(_pendingRestoreAnchorImageUrl))
+            {
+                var anchorIndex = GetImageIndex(_pendingRestoreAnchorImageUrl!);
+                if (anchorIndex >= 0)
+                {
+                    target = anchorIndex;
+                }
+            }
+
+            if (!target.HasValue && _pendingRestoreProgress.HasValue && _allImages.Count > 0)
+            {
+                var estimated = (int)Math.Clamp(
+                    Math.Ceiling(_pendingRestoreProgress.Value * _allImages.Count) - 1,
+                    0,
+                    _allImages.Count - 1);
+                target = estimated;
+            }
+
+            _pendingRestoreTargetIndex = target;
+        }
+
+        private void TrySignalRestoreTargetReady()
+        {
+            if (!_isRestoringProgress || _restoreTargetReadySignaled)
+            {
+                return;
+            }
+
+            bool shouldSignal;
+            if (_pendingRestoreTargetIndex.HasValue)
+            {
+                shouldSignal = _pendingRestoreTargetIndex.Value < _loadedCount;
+            }
+            else
+            {
+                shouldSignal = _loadedCount > 0 || RemainingImages <= 0;
+            }
+
+            if (!shouldSignal && RemainingImages <= 0)
+            {
+                shouldSignal = true;
+            }
+
+            if (shouldSignal)
+            {
+                _restoreTargetReadySignaled = true;
+                _restoreTargetReady?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        private void ScheduleRestoreTargetEvaluation()
+        {
+            if (!_isRestoringProgress)
+            {
+                return;
+            }
+
+            var dispatcher = System.Windows.Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
+            dispatcher.InvokeAsync(TrySignalRestoreTargetReady, DispatcherPriority.Background);
+        }
+
+        internal int GetImageIndex(string imageUrl)
+        {
+            if (string.IsNullOrWhiteSpace(imageUrl))
+            {
+                return -1;
+            }
+
+            return _allImages.FindIndex(img => string.Equals(img.ImageUrl, imageUrl, StringComparison.OrdinalIgnoreCase));
+        }
+
+        internal bool IsImageLoaded(int index)
+        {
+            return index >= 0 && index < _loadedCount;
         }
 
     }

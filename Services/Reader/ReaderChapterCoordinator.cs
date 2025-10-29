@@ -23,7 +23,7 @@ namespace MSCS.Services.Reader
         private readonly ConcurrentDictionary<string, CachedImage> _imageCache = new();
         private readonly LinkedList<string> _cacheOrder = new();
         private readonly object _cacheLock = new();
-
+        private readonly Dictionary<string, LinkedListNode<string>> _cacheNodes = new(StringComparer.Ordinal);
         public ReaderChapterCoordinator(ChapterListViewModel chapterListViewModel)
         {
             _chapterListViewModel = chapterListViewModel ?? throw new ArgumentNullException(nameof(chapterListViewModel));
@@ -167,10 +167,10 @@ namespace MSCS.Services.Reader
             {
                 lock (_cacheLock)
                 {
-                    var node = _cacheOrder.Find(key);
-                    if (node != null)
+                    if (_cacheNodes.TryGetValue(key, out var node))
                     {
                         _cacheOrder.Remove(node);
+                        _cacheNodes.Remove(key);
                     }
                 }
             }
@@ -244,13 +244,18 @@ namespace MSCS.Services.Reader
 
             lock (_cacheLock)
             {
-                var existingNode = _cacheOrder.Find(key);
-                if (existingNode != null)
+                if (_cacheNodes.TryGetValue(key, out var existingNode))
                 {
                     _cacheOrder.Remove(existingNode);
+                    _cacheOrder.AddFirst(existingNode);
+                }
+                else
+                {
+                    var node = new LinkedListNode<string>(key);
+                    _cacheOrder.AddFirst(node);
+                    _cacheNodes[key] = node;
                 }
 
-                _cacheOrder.AddFirst(key);
                 while (_cacheOrder.Count > MaxCachedImages)
                 {
                     var last = _cacheOrder.Last;
@@ -260,6 +265,7 @@ namespace MSCS.Services.Reader
                     }
 
                     _cacheOrder.RemoveLast();
+                    _cacheNodes.Remove(last.Value);
                     _imageCache.TryRemove(last.Value, out _);
                 }
             }
@@ -322,18 +328,17 @@ namespace MSCS.Services.Reader
 
         private static async Task<CachedImage?> CreateCachedImageAsync(Stream source, CancellationToken cancellationToken)
         {
-            await using var ms = new MemoryStream();
+            using var ms = new MemoryStream();
             await source.CopyToAsync(ms, 81920, cancellationToken).ConfigureAwait(false);
-            var bytes = ms.ToArray();
-            if (bytes.Length == 0)
+            if (ms.Length == 0)
             {
                 return null;
             }
 
-            using var msImage = new MemoryStream(bytes, writable: false);
+            ms.Position = 0;
             var bitmap = new BitmapImage();
             bitmap.BeginInit();
-            bitmap.StreamSource = msImage;
+            bitmap.StreamSource = ms;
             bitmap.CacheOption = BitmapCacheOption.OnLoad;
             bitmap.EndInit();
             bitmap.Freeze();
@@ -344,8 +349,7 @@ namespace MSCS.Services.Reader
         {
             lock (_cacheLock)
             {
-                var node = _cacheOrder.Find(key);
-                if (node != null)
+                if (_cacheNodes.TryGetValue(key, out var node))
                 {
                     _cacheOrder.Remove(node);
                     _cacheOrder.AddFirst(node);
