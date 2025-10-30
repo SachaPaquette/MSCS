@@ -34,7 +34,7 @@ namespace MSCS.ViewModels
         private bool _disposed;
         private readonly MediaTrackingServiceRegistry? _trackingRegistry;
         private readonly UserSettings? _userSettings;
-        private const int MaxCachedChapters = 4;
+        private const int MaxCachedChapters = 2;
         private readonly bool _autoOpenOnLoad;
         private bool _hasAutoOpened;
         private Manga _manga;

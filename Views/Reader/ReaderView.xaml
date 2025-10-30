@@ -450,8 +450,8 @@
         </ListBox>
 
         <Border HorizontalAlignment="Right"
-                VerticalAlignment="Top"
-                Margin="12"
+                VerticalAlignment="Bottom"
+                Margin="0,0,44,12"
                 Padding="12"
                 CornerRadius="8"
                 Background="{Binding Preferences.ReaderSurfaceBrush, FallbackValue={StaticResource SurfaceAlt}}"
@@ -474,27 +474,22 @@
             <Border.Effect>
                 <DropShadowEffect BlurRadius="16" ShadowDepth="0" Opacity="0.3"/>
             </Border.Effect>
-            <StackPanel>
+            <StackPanel HorizontalAlignment="Right">
                 <TextBlock Text="{Binding ChapterTitle}"
                            Foreground="{DynamicResource SidebarText}"
                            FontWeight="SemiBold"
                            TextTrimming="CharacterEllipsis"
+                           TextAlignment="Right"
                            Margin="0,0,0,6"/>
-                <ProgressBar Minimum="0"
-                             Maximum="1"
-                             Height="6"
-                             Margin="0,0,0,8"
-                             Value="{Binding ScrollProgress, Mode=OneWay}"/>
                 <StackPanel Orientation="Horizontal"
                             HorizontalAlignment="Right">
-                    <TextBlock Text="{Binding LoadedImages}"
-                               Foreground="{DynamicResource SidebarText}"
+                    <TextBlock Text="{Binding CurrentPage}"                               Foreground="{DynamicResource SidebarText}"
                                FontWeight="SemiBold"/>
                     <TextBlock Text=" / " Foreground="{DynamicResource SidebarText}"/>
                     <TextBlock Text="{Binding TotalImages}"
                                Foreground="{DynamicResource SidebarText}"/>
                     <TextBlock Text="  •  " Foreground="{DynamicResource FgSubtle}"/>
-                    <TextBlock Text="{Binding ScrollProgress, StringFormat={}{0:P0}}"
+                    <TextBlock Text="{Binding CurrentPagePercentage, StringFormat={}{0:P0}}"
                                Foreground="{DynamicResource SidebarText}"/>
                 </StackPanel>
             </StackPanel>

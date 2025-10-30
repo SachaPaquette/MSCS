@@ -128,7 +128,7 @@
                                        Foreground="{StaticResource MutedBrush}"
                                        Style="{StaticResource OptionalTextStyle}"/>
 
-                            <TextBlock Text="{Binding UserScoreDisplay, StringFormat=Score: {0}}"
+                            <TextBlock Text="{Binding UserScoreDisplay}"
                                        Margin="0,4,0,0"
                                        Foreground="{StaticResource MutedBrush}"
                                        Style="{StaticResource OptionalTextStyle}"/>

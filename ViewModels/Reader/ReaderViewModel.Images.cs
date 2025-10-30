@@ -202,6 +202,8 @@ namespace MSCS.ViewModels
             OnPropertyChanged(nameof(LoadedImages));
             OnPropertyChanged(nameof(TotalImages));
             OnPropertyChanged(nameof(LoadingProgress));
+            UpdateCurrentPageDisplay();
+            OnPropertyChanged(nameof(CurrentPagePercentage));
         }
     }
 }
