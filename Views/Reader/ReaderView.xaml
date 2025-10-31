@@ -390,8 +390,6 @@
                  Padding="0"
                  HorizontalContentAlignment="Stretch"
                  ScrollViewer.CanContentScroll="True"
-                 ScrollViewer.VerticalScrollBarVisibility="Auto"
-                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                  VirtualizingPanel.IsVirtualizing="True"
                  VirtualizingPanel.VirtualizationMode="Recycling"
                  VirtualizingPanel.CacheLength="1"
@@ -399,6 +397,17 @@
                  VirtualizingStackPanel.CleanUpVirtualizedItem="Images_CleanUpVirtualizedItem"
                  Loaded="ImageList_Loaded"
                  ItemsSource="{Binding ImageUrls}">
+            <ListBox.Style>
+                <Style TargetType="ListBox">
+                    <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+                    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=UserControl}, Path=IsFullscreenMode}" Value="True">
+                            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Hidden"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ListBox.Style>
             <ListBox.ItemsPanel>
                 <ItemsPanelTemplate>
                     <VirtualizingStackPanel Orientation="Vertical"/>
@@ -462,9 +471,6 @@
                 <Style TargetType="Border">
                     <Setter Property="Visibility" Value="Visible"/>
                     <Style.Triggers>
-                        <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=UserControl}, Path=IsFullscreenMode}" Value="True">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                        </DataTrigger>
                         <DataTrigger Binding="{Binding TotalImages}" Value="0">
                             <Setter Property="Visibility" Value="Collapsed"/>
                         </DataTrigger>

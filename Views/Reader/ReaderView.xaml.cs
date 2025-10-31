@@ -11,6 +11,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
+using Application = System.Windows.Application;
 using Point = System.Windows.Point;
 namespace MSCS.Views
 {
@@ -818,6 +819,7 @@ namespace MSCS.Views
             _isFullscreen = true;
             IsFullscreenMode = true;
             UpdateFullscreenButtonVisuals();
+            UpdateShellFullscreenState(true);
         }
 
         private void ExitFullscreen()
@@ -845,6 +847,7 @@ namespace MSCS.Views
             _isFullscreen = false;
             IsFullscreenMode = false;
             UpdateFullscreenButtonVisuals();
+            UpdateShellFullscreenState(false);
         }
 
         private void UpdateFullscreenButtonVisuals()
@@ -860,6 +863,14 @@ namespace MSCS.Views
             }
         }
 
+        private void UpdateShellFullscreenState(bool isFullscreen)
+        {
+            if (Application.Current?.MainWindow is MainWindow mainWindow &&
+                mainWindow.DataContext is MainViewModel mainViewModel)
+            {
+                mainViewModel.IsReaderFullscreen = isFullscreen;
+            }
+        }
 
         private (double? Offset, double? Progress) CaptureScrollState()
         {

@@ -20,7 +20,7 @@ namespace MSCS.ViewModels
         private MainMenuTab? _selectedTab;
         private bool _disposed;
         private bool _suppressTabActivation;
-
+        private bool _isReaderFullscreen;
 
         public MainViewModel(
             INavigationService navigationService,
@@ -100,6 +100,12 @@ namespace MSCS.ViewModels
         {
             get => _currentViewModel;
             private set => SetProperty(ref _currentViewModel, value);
+        }
+
+        public bool IsReaderFullscreen
+        {
+            get => _isReaderFullscreen;
+            set => SetProperty(ref _isReaderFullscreen, value);
         }
 
         public MainMenuTab? SelectedTab
