@@ -61,6 +61,8 @@ namespace MSCS.ViewModels
             await ResetImagesAsync(result.Images).ConfigureAwait(false);
             Debug.WriteLine($"Navigated to chapter {result.ChapterIndex} with {result.Images.Count} images.");
             CommandManager.InvalidateRequerySuggested();
+            OnPropertyChanged(nameof(CanNavigateToNextChapter));
+            OnPropertyChanged(nameof(CanNavigateToPreviousChapter));
             UpdateSelectedChapter(result.ChapterIndex);
             UpdateChapterTransitionPreview();
 
@@ -120,6 +122,8 @@ namespace MSCS.ViewModels
             return _chapterCoordinator?.CanGoToNext(_currentChapterIndex) ?? false;
         }
 
+        public bool CanNavigateToNextChapter => CanGoToNextChapter();
+
         public async Task GoToNextChapterAsync()
         {
             if (!CanGoToNextChapter())
@@ -133,6 +137,8 @@ namespace MSCS.ViewModels
         {
             return _chapterCoordinator?.CanGoToPrevious(_currentChapterIndex) ?? false;
         }
+
+        public bool CanNavigateToPreviousChapter => CanGoToPreviousChapter();
 
         public async Task GoToPreviousChapterAsync()
         {
@@ -173,6 +179,8 @@ namespace MSCS.ViewModels
             OnPropertyChanged(nameof(GoHomeCommand));
             OnPropertyChanged(nameof(NextChapterCommand));
             OnPropertyChanged(nameof(PreviousChapterCommand));
+            OnPropertyChanged(nameof(CanNavigateToNextChapter));
+            OnPropertyChanged(nameof(CanNavigateToPreviousChapter));
         }
 
         private void OnNavigationCanGoBackChanged(object? sender, EventArgs e)
