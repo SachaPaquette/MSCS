@@ -464,19 +464,22 @@ namespace MSCS.ViewModels
 
             Debug.WriteLine($"Opening chapter: {chapterToOpen.Title} ({chapterToOpen.Url})");
 
-            // 1) Ensure we have images for THIS index before navigating
             IReadOnlyList<ChapterImage> images;
             if (!TryGetCachedChapterImages(index, out var cachedImages) || cachedImages == null)
             {
-                // kick off and await the fetch for the selected index
-                images = await GetChapterImagesAsync(index).ConfigureAwait(false);
+                images = await GetChapterImagesAsync(index);
             }
             else
             {
                 images = cachedImages;
             }
 
-            // 2) Decide whether to reuse the initial progress or create a new one
+            if (images == null || images.Count == 0)
+            {
+                Debug.WriteLine($"No images returned for chapter: {chapterToOpen.Title} ({chapterToOpen.Url})");
+                return;
+            }
+
             var shouldUseInitialProgress = ShouldUseInitialProgressForChapter(chapterToOpen, index);
             MangaReadingProgress? progressForReader;
 
@@ -504,7 +507,6 @@ namespace MSCS.ViewModels
                 }
             }
 
-            // 3) Navigate to the reader with the prepared context
             var readerViewModel = new ReaderViewModel(
                 images,
                 chapterToOpen.Title ?? string.Empty,
@@ -516,6 +518,7 @@ namespace MSCS.ViewModels
                 progressForReader);
 
             _navigationService.NavigateToViewModel(readerViewModel);
+            _ = PrefetchChapterAsync(index + 1);
         }
 
         private bool ShouldUseInitialProgressForChapter(Chapter chapterToOpen, int index)

@@ -4,7 +4,6 @@
              xmlns:vm="clr-namespace:MSCS.ViewModels"
              xmlns:conv="clr-namespace:MSCS.Converters"
              xmlns:enums="clr-namespace:MSCS.Enums"
-             xmlns:models="clr-namespace:MSCS.Models"
              Background="{Binding Preferences.ReaderBackgroundBrush, FallbackValue=#0F151F}"
              HorizontalAlignment="Stretch"
              VerticalAlignment="Stretch"
@@ -45,9 +44,11 @@
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Border" Property="Background" Value="{DynamicResource AccentHover}" />                                </Trigger>
+                                    <Setter TargetName="Border" Property="Background" Value="{DynamicResource AccentHover}" />
+                                </Trigger>
                                 <Trigger Property="IsPressed" Value="True">
-                                    <Setter TargetName="Border" Property="Background" Value="{DynamicResource AccentHover}" />                                </Trigger>
+                                    <Setter TargetName="Border" Property="Background" Value="{DynamicResource AccentHover}" />
+                                </Trigger>
                                 <Trigger Property="IsEnabled" Value="False">
                                     <Setter TargetName="Border" Property="Opacity" Value="0.5" />
                                 </Trigger>
@@ -266,9 +267,11 @@
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Border" Property="Background" Value="{DynamicResource ControlHover}"/>                                </Trigger>
+                                    <Setter TargetName="Border" Property="Background" Value="{DynamicResource ControlHover}"/>
+                                </Trigger>
                                 <Trigger Property="IsPressed" Value="True">
-                                    <Setter TargetName="Border" Property="Background" Value="{DynamicResource ControlPressed}"/>                                </Trigger>
+                                    <Setter TargetName="Border" Property="Background" Value="{DynamicResource ControlPressed}"/>
+                                </Trigger>
                                 <Trigger Property="IsEnabled" Value="False">
                                     <Setter TargetName="Border" Property="Opacity" Value="0.5"/>
                                 </Trigger>
@@ -301,7 +304,8 @@
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Border" Property="Background" Value="{DynamicResource ControlHover}"/>                                </Trigger>
+                                    <Setter TargetName="Border" Property="Background" Value="{DynamicResource ControlHover}"/>
+                                </Trigger>
                                 <Trigger Property="IsChecked" Value="True">
                                     <Setter TargetName="Border" Property="Background" Value="{DynamicResource ControlPressed}"/>
                                     <Setter Property="Foreground" Value="{DynamicResource SidebarText}"/>
@@ -396,75 +400,8 @@
                  VirtualizingPanel.CacheLength="1"
                  VirtualizingPanel.ScrollUnit="Pixel"
                  VirtualizingStackPanel.CleanUpVirtualizedItem="Images_CleanUpVirtualizedItem"
-                 Loaded="ImageList_Loaded">
-            <ListBox.ItemsSource>
-                <CompositeCollection>
-                    <CollectionContainer Collection="{Binding ImageUrls}"/>
-                    <Border HorizontalAlignment="Center"
-                            Margin="0,40,0,80"
-                            Padding="20,16"
-                            CornerRadius="12"
-                            Background="{Binding Preferences.ReaderSurfaceBrush, FallbackValue={StaticResource SurfaceAlt}}"
-                            Opacity="0.92"
-                            BorderBrush="{DynamicResource SurfaceBorderSoft}"
-                            BorderThickness="1">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Setter Property="Visibility" Value="Collapsed"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsChapterTransitionPreviewVisible}" Value="True">
-                                        <Setter Property="Visibility" Value="Visible"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
-                        <Border.Effect>
-                            <DropShadowEffect BlurRadius="18" ShadowDepth="0" Opacity="0.35"/>
-                        </Border.Effect>
-                        <StackPanel Width="360"
-                                    TextBlock.TextAlignment="Center"
-                                    TextElement.Foreground="{DynamicResource SidebarText}">
-                            <Button Style="{StaticResource ChapterPreviewButton}"
-                                    Command="{Binding PreviousChapterCommand}"
-                                    Margin="0,0,0,12"
-                                    Padding="12,8">
-                                <StackPanel>
-                                    <TextBlock Text="Previous:"
-                                               FontWeight="SemiBold"
-                                               Foreground="{DynamicResource FgSubtle}"/>
-                                    <TextBlock Text="{Binding PreviousChapterDisplay, TargetNullValue=—}"
-                                               TextTrimming="CharacterEllipsis"
-                                               FontSize="16"
-                                               Margin="0,4,0,0"/>
-                                </StackPanel>
-                            </Button>
-                            <StackPanel Margin="0,0,0,12">
-                                <TextBlock Text="Current:"
-                                           FontWeight="SemiBold"
-                                           Foreground="{DynamicResource FgSubtle}"/>
-                                <TextBlock Text="{Binding CurrentChapterDisplay, TargetNullValue=—}"
-                                           TextTrimming="CharacterEllipsis"
-                                           FontSize="18"
-                                           FontWeight="SemiBold"
-                                           Margin="0,4,0,0"/>
-                            </StackPanel>
-                            <Button Style="{StaticResource ChapterPreviewButton}"
-                                    Command="{Binding NextChapterCommand}"
-                                    Padding="12,8">
-                                <StackPanel>
-                                    <TextBlock Text="Next:"
-                                               FontWeight="SemiBold"
-                                               Foreground="{DynamicResource FgSubtle}"/>
-                                    <TextBlock Text="{Binding NextChapterDisplay, TargetNullValue=—}"
-                                               TextTrimming="CharacterEllipsis"
-                                               FontSize="16"
-                                               Margin="0,4,0,0"/>
-                                </StackPanel>
-                            </Button>
-                        </StackPanel>
-                    </Border>
-                </CompositeCollection>
-            </ListBox.ItemsSource>
+                 Loaded="ImageList_Loaded"
+                 ItemsSource="{Binding ImageUrls}">
             <ListBox.Style>
                 <Style TargetType="ListBox">
                     <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
@@ -501,8 +438,8 @@
                     </Setter>
                 </Style>
             </ListBox.ItemContainerStyle>
-            <ListBox.Resources>
-                <DataTemplate DataType="{x:Type models:ChapterImage}">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
                     <Image Stretch="Uniform"
                            Margin="0"
                            SnapsToDevicePixels="True"
@@ -519,12 +456,11 @@
                                 <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.Preferences.WidthFactor"/>
                                 <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.Preferences.MaxPageWidth"/>
                                 <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.Preferences.AutoAdjustWidth"/>
-                                <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.Preferences.UseTwoPageLayout"/>
                             </MultiBinding>
                         </Image.Width>
                     </Image>
                 </DataTemplate>
-            </ListBox.Resources>
+            </ListBox.ItemTemplate>
         </ListBox>
 
         <Border HorizontalAlignment="Right"
@@ -567,6 +503,69 @@
                     <TextBlock Text="{Binding CurrentPagePercentage, StringFormat={}{0:P0}}"
                                Foreground="{DynamicResource SidebarText}"/>
                 </StackPanel>
+            </StackPanel>
+        </Border>
+        <Border HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Margin="0,0,0,40"
+                Padding="20,16"
+                Panel.ZIndex="6"
+                CornerRadius="12"
+                Background="{Binding Preferences.ReaderSurfaceBrush, FallbackValue={StaticResource SurfaceAlt}}"
+                Opacity="0.92"
+                BorderBrush="{DynamicResource SurfaceBorderSoft}"
+                BorderThickness="1">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsChapterTransitionPreviewVisible}" Value="True">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="18" ShadowDepth="0" Opacity="0.35"/>
+            </Border.Effect>
+            <StackPanel Width="360" TextBlock.TextAlignment="Center" TextElement.Foreground="{DynamicResource SidebarText}">
+                <Button Style="{StaticResource ChapterPreviewButton}"
+                        Command="{Binding PreviousChapterCommand}"
+                        Margin="0,0,0,12"
+                        Padding="12,8">
+                    <StackPanel>
+                        <TextBlock Text="Previous:"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource FgSubtle}"/>
+                        <TextBlock Text="{Binding PreviousChapterDisplay, TargetNullValue=—}"
+                                   TextTrimming="CharacterEllipsis"
+                                   FontSize="16"
+                                   Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Button>
+                <StackPanel Margin="0,0,0,12">
+                    <TextBlock Text="Current:"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource FgSubtle}"/>
+                    <TextBlock Text="{Binding CurrentChapterDisplay, TargetNullValue=—}"
+                               TextTrimming="CharacterEllipsis"
+                               FontSize="18"
+                               FontWeight="SemiBold"
+                               Margin="0,4,0,0"/>
+                </StackPanel>
+                <Button Style="{StaticResource ChapterPreviewButton}"
+                        Command="{Binding NextChapterCommand}"
+                        Padding="12,8">
+                    <StackPanel>
+                        <TextBlock Text="Next:"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource FgSubtle}"/>
+                        <TextBlock Text="{Binding NextChapterDisplay, TargetNullValue=—}"
+                                   TextTrimming="CharacterEllipsis"
+                                   FontSize="16"
+                                   Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Button>
             </StackPanel>
         </Border>
         <Grid x:Name="SidebarHost"
@@ -673,7 +672,8 @@
                                 <DataTrigger.Binding>
                                     <MultiBinding Converter="{StaticResource BooleanOr}">
                                         <Binding ElementName="SidebarToggleButton" Path="IsChecked" TargetNullValue="False" FallbackValue="False"/>
-                                        <Binding ElementName="SidebarToggleButton" Path="IsMouseOver"/>                                        <Binding RelativeSource="{RelativeSource Self}" Path="IsMouseOver"/>
+                                        <Binding ElementName="SidebarToggleButton" Path="IsMouseOver"/>
+                                        <Binding RelativeSource="{RelativeSource Self}" Path="IsMouseOver"/>
                                         <Binding ElementName="SidebarHost" Path="IsMouseOver"/>
                                     </MultiBinding>
                                 </DataTrigger.Binding>
@@ -713,7 +713,7 @@
                                                         VerticalAlignment="Center">
                                                 <Slider Width="160"
                                                         Minimum="0.3"
-                                                        Maximum="2.0"
+                                                        Maximum="1.0"
                                                         TickFrequency="0.05"
                                                         IsSnapToTickEnabled="True"
                                                         Value="{Binding Preferences.WidthFactor, Mode=TwoWay}"
@@ -761,7 +761,7 @@
                                         </StackPanel>
                                     </Border>
 
-                    <!-- Manga info + tracking -->
+                                    <!-- Manga info + tracking -->
 
                                     <Border Background="{DynamicResource SurfaceAlt}"
                                             BorderBrush="{DynamicResource SurfaceBorderSoft}"
@@ -820,25 +820,6 @@
                                                     </ToggleButton.Style>
                                                 </ToggleButton>
                                             </UniformGrid>
-                                            <TextBlock Text="Scroll amount"
-                                                       Margin="0,10,0,0"
-                                                       Foreground="{DynamicResource FgMuted}"
-                                                       FontSize="12"
-                                                       FontWeight="SemiBold"/>
-                                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0" VerticalAlignment="Center">
-                                                <Slider Width="160"
-                                                        Minimum="0.2"
-                                                        Maximum="2.0"
-                                                        TickFrequency="0.05"
-                                                        IsMoveToPointEnabled="True"
-                                                        IsSnapToTickEnabled="True"
-                                                        Value="{Binding Preferences.ScrollPageFraction, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                        ToolTip="Adjust how far the page scrolls with each navigation"/>
-                                                <TextBlock Text="{Binding Preferences.ScrollPercent, StringFormat={}{0:F0}%}"
-                                                           Margin="8,0,0,0"
-                                                           Foreground="{DynamicResource SidebarText}"
-                                                           FontWeight="SemiBold"/>
-                                            </StackPanel>
                                             <CheckBox Content="Two-page layout"
                                                       Margin="0,10,0,0"
                                                       Foreground="{DynamicResource SidebarText}"
@@ -861,7 +842,7 @@
                                         </StackPanel>
                                     </Border>
 
-                    <!-- Chapter list -->
+                                    <!-- Chapter list -->
 
                                     <Border Background="{DynamicResource SurfaceAlt}"
                                             BorderBrush="{DynamicResource SurfaceBorderSoft}"
