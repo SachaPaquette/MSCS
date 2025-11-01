@@ -478,6 +478,12 @@ namespace MSCS.Views
                 return false;
             }
 
+            if (_pendingAnchorIndex.Value < 0 || _pendingAnchorIndex.Value >= ImageList.Items.Count)
+            {
+                WaitForLayoutUpdate();
+                return false;
+            }
+
             var container = ImageList.ItemContainerGenerator.ContainerFromIndex(_pendingAnchorIndex.Value) as FrameworkElement;
             if (container == null)
             {

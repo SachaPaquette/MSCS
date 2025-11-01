@@ -64,6 +64,10 @@ namespace MSCS.ViewModels
                 var normalized = NormalizeWidthFactor(value);
                 if (SetProperty(ref _widthFactor, normalized))
                 {
+                    if (!_isApplyingProfile && AutoAdjustWidth)
+                    {
+                        AutoAdjustWidth = false;
+                    }
                     OnPropertyChanged(nameof(ZoomPercent));
                     PersistReaderProfile();
                 }
@@ -123,11 +127,14 @@ namespace MSCS.ViewModels
                 var clamped = double.IsNaN(value) ? Constants.DefaultSmoothScrollPageFraction : Math.Clamp(value, 0.2, 2.0);
                 if (SetProperty(ref _scrollPageFraction, clamped))
                 {
+                    OnPropertyChanged(nameof(ScrollPercent));
                     UpdateScrollPreset();
                     PersistReaderProfile();
                 }
             }
         }
+
+        public double ScrollPercent => Math.Round(_scrollPageFraction * 100);
 
         public int ScrollDurationMs
         {
@@ -224,7 +231,12 @@ namespace MSCS.ViewModels
             {
                 Theme = profile.Theme;
                 WidthFactor = profile.WidthFactor;
-                MaxPageWidth = profile.MaxPageWidth;
+                var maxPageWidth = profile.MaxPageWidth;
+                if (Math.Abs(maxPageWidth - Constants.LegacyDefaultMaxPageWidth) < 0.5)
+                {
+                    maxPageWidth = Constants.DefaultMaxPageWidth;
+                }
+                MaxPageWidth = maxPageWidth; 
                 ScrollPageFraction = profile.ScrollPageFraction;
                 ScrollDurationMs = profile.ScrollDurationMs;
                 UseTwoPageLayout = profile.UseTwoPageLayout;
@@ -330,17 +342,18 @@ namespace MSCS.ViewModels
 
         private static double NormalizeWidthFactor(double value)
         {
-            return double.IsFinite(value) ? Math.Clamp(value, 0.3, 1.0) : Constants.DefaultWidthFactor;
+            return double.IsFinite(value) ? Math.Clamp(value, 0.3, 2.0) : Constants.DefaultWidthFactor;
         }
 
         private void InitializeCommands()
         {
-            IncreaseZoomCommand = new RelayCommand(_ => WidthFactor = Math.Min(1.0, WidthFactor + 0.05));
+            IncreaseZoomCommand = new RelayCommand(_ => WidthFactor = Math.Min(2.0, WidthFactor + 0.05));
             DecreaseZoomCommand = new RelayCommand(_ => WidthFactor = Math.Max(0.3, WidthFactor - 0.05));
             ResetZoomCommand = new RelayCommand(_ =>
             {
                 WidthFactor = Constants.DefaultWidthFactor;
                 MaxPageWidth = Constants.DefaultMaxPageWidth;
+                AutoAdjustWidth = true;
             });
             SetZoomPresetCommand = new RelayCommand(param =>
             {

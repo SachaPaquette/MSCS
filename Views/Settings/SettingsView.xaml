@@ -131,7 +131,7 @@
                         <Slider Grid.Column="0"
                                 Style="{StaticResource ThinSlider}"
                                 Minimum="0.3"
-                                Maximum="1.0"
+                                Maximum="2.0"
                                 TickFrequency="0.05"
                                 Value="{Binding ReaderWidthFactor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                         <TextBlock Grid.Column="1"
@@ -150,7 +150,7 @@
                         <Slider Grid.Column="0"
                                 Style="{StaticResource ThinSlider}"
                                 Minimum="600"
-                                Maximum="1600"
+                                Maximum="3200"
                                 TickFrequency="50"
                                 Value="{Binding ReaderMaxPageWidth, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                         <TextBlock Grid.Column="1"
