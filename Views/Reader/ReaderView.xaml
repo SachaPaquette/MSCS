@@ -95,7 +95,7 @@
                  Background="{Binding Preferences.ReaderSurfaceBrush, FallbackValue=#111727}"
                  BorderThickness="0"
                  Padding="0"
-                 HorizontalContentAlignment="Stretch"
+                 HorizontalContentAlignment="Center"
                  ScrollViewer.CanContentScroll="True"
                  VirtualizingPanel.IsVirtualizing="True"
                  VirtualizingPanel.VirtualizationMode="Recycling"
@@ -142,29 +142,23 @@
             </ListBox.ItemContainerStyle>
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <Image Stretch="Uniform"
-                           Margin="0"
-                           SnapsToDevicePixels="True"
-                           UseLayoutRounding="True"
-                           RenderOptions.BitmapScalingMode="HighQuality"
-                           MouseLeftButtonDown="Image_MouseLeftButtonDown"
-                           RenderOptions.EdgeMode="Aliased">
+                    <Image
+                HorizontalAlignment="Center"             
+                        Stretch="Uniform"
+                StretchDirection="DownOnly"
+                        MaxWidth="{Binding RelativeSource={RelativeSource AncestorType=ScrollViewer}, Path=ViewportWidth}"
+                SnapsToDevicePixels="True"
+                UseLayoutRounding="True"
+                RenderOptions.BitmapScalingMode="HighQuality"
+                MouseLeftButtonDown="Image_MouseLeftButtonDown"
+                RenderOptions.EdgeMode="Aliased">
                         <Image.Source>
                             <Binding Converter="{StaticResource ChapterImageSource}"/>
                         </Image.Source>
-                        <Image.Width>
-                            <MultiBinding Converter="{StaticResource ViewportFraction}">
-                                <Binding RelativeSource="{RelativeSource AncestorType=ScrollViewer}" Path="ViewportWidth"/>
-                                <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.Preferences.WidthFactor"/>
-                                <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.Preferences.MaxPageWidth"/>
-                                <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.Preferences.AutoAdjustWidth"/>
-                            </MultiBinding>
-                        </Image.Width>
                     </Image>
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
-
         <Border HorizontalAlignment="Right"
                 VerticalAlignment="Bottom"
                 Margin="0,0,44,12"
