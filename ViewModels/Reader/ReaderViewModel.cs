@@ -184,6 +184,7 @@ namespace MSCS.ViewModels
             }
         }
         public ObservableCollection<ChapterImage> ImageUrls { get; }
+        public ChapterListViewModel? ChapterListViewModel => _chapterListViewModel;
         private string? DetermineProfileKey()
         {
             if (!string.IsNullOrWhiteSpace(_chapterListViewModel?.Manga?.Title))

@@ -222,6 +222,10 @@ namespace MSCS.ViewModels
             {
                 _isUpdatingSelectedChapter = true;
                 SelectedChapter = _chapterListViewModel.Chapters[_currentChapterIndex];
+                if (!ReferenceEquals(_chapterListViewModel.SelectedChapter, SelectedChapter))
+                {
+                    _chapterListViewModel.SelectedChapter = SelectedChapter;
+                }
                 ChapterTitle = SelectedChapter?.Title ?? ChapterTitle;
                 _isUpdatingSelectedChapter = false;
                 UpdateChapterTransitionPreview();
@@ -239,20 +243,43 @@ namespace MSCS.ViewModels
             {
                 _isUpdatingSelectedChapter = true;
                 SelectedChapter = _chapterListViewModel.Chapters[index];
+                if (!ReferenceEquals(_chapterListViewModel.SelectedChapter, SelectedChapter))
+                {
+                    _chapterListViewModel.SelectedChapter = SelectedChapter;
+                }
                 ChapterTitle = SelectedChapter?.Title ?? ChapterTitle;
                 _isUpdatingSelectedChapter = false;
                 UpdateChapterTransitionPreview();
             }
         }
 
+
         private void ChapterListViewModelOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            if (e.PropertyName == nameof(ChapterListViewModel.Chapters) && _chapterListViewModel != null)
+            if (_chapterListViewModel == null)
+            {
+                return;
+            }
+
+            if (e.PropertyName == nameof(ChapterListViewModel.Chapters))
             {
                 Chapters = _chapterListViewModel.Chapters;
                 SelectInitialChapter();
                 RestoreReadingProgress();
                 _preferences.SetProfileKey(DetermineProfileKey());
+            }
+            else if (e.PropertyName == nameof(ChapterListViewModel.SelectedChapter))
+            {
+                if (_isUpdatingSelectedChapter || _chapterListViewModel.IsApplyingChapterFilters)
+                {
+                    return;
+                }
+
+                var selected = _chapterListViewModel.SelectedChapter;
+                if (!ReferenceEquals(SelectedChapter, selected))
+                {
+                    SelectedChapter = selected;
+                }
             }
         }
     }
