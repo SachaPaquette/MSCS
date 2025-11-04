@@ -11,6 +11,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
+using Application = System.Windows.Application;
 using Point = System.Windows.Point;
 namespace MSCS.Views
 {
@@ -143,9 +144,8 @@ namespace MSCS.Views
         private async void ScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
             if (sender is not ScrollViewer sv) return;
-
             var vm = ViewModel;
-            double? previousProgress = vm?.ScrollProgress;
+
             vm?.UpdateScrollPosition(sv.VerticalOffset, sv.ExtentHeight, sv.ViewportHeight);
 
             TryApplyPendingScroll();
@@ -174,7 +174,7 @@ namespace MSCS.Views
                 {
                     if (!vm.IsRestoringProgress && !vm.IsInRestoreCooldown)
                     {
-                        double? targetProgress = previousProgress;
+                        double? targetProgress = vm?.ScrollProgress;
                         if (!targetProgress.HasValue)
                         {
                             targetProgress = GetCurrentNormalizedScrollProgress();
@@ -194,17 +194,16 @@ namespace MSCS.Views
             double viewport = sv.ViewportHeight > 0 ? sv.ViewportHeight : sv.ActualHeight;
             double loadMoreThreshold = Math.Max(400, viewport * 1.25);
             double distanceToBottom = Math.Max(0, sv.ScrollableHeight - sv.VerticalOffset);
-
             if (distanceToBottom <= loadMoreThreshold)
             {
                 try
                 {
                     await vm!.LoadMoreImagesAsync();
-                }
+            }
                 catch (OperationCanceledException) { Debug.WriteLine("Image loading cancelled during scroll."); }
 
                 distanceToBottom = Math.Max(0, sv.ScrollableHeight - sv.VerticalOffset);
-            }
+        }
 
             if (vm != null)
             {
@@ -477,6 +476,12 @@ namespace MSCS.Views
                 return false;
             }
 
+            if (_pendingAnchorIndex.Value < 0 || _pendingAnchorIndex.Value >= ImageList.Items.Count)
+            {
+                WaitForLayoutUpdate();
+                return false;
+            }
+
             var container = ImageList.ItemContainerGenerator.ContainerFromIndex(_pendingAnchorIndex.Value) as FrameworkElement;
             if (container == null)
             {
@@ -641,7 +646,7 @@ namespace MSCS.Views
             ViewModel?.Dispose();
         }
 
-        private void UserControl_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        private async void UserControl_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
             if (ScrollView == null || ViewModel == null)
             {
@@ -707,6 +712,19 @@ namespace MSCS.Views
                         ViewModel.NextChapterCommand.Execute(null);
                         e.Handled = true;
                     }
+                    else if (ViewModel.CanNavigateToNextChapter)
+                    {
+                        try
+                        {
+                            await ViewModel.GoToNextChapterAsync();
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Failed to navigate to next chapter via keyboard: {ex.Message}");
+                        }
+
+                        e.Handled = true;
+                    }
                     else
                     {
                         ScrollForward();
@@ -717,6 +735,19 @@ namespace MSCS.Views
                     if (ViewModel.PreviousChapterCommand?.CanExecute(null) == true)
                     {
                         ViewModel.PreviousChapterCommand.Execute(null);
+                        e.Handled = true;
+                    }
+                    else if (ViewModel.CanNavigateToPreviousChapter)
+                    {
+                        try
+                        {
+                            await ViewModel.GoToPreviousChapterAsync();
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Failed to navigate to previous chapter via keyboard: {ex.Message}");
+                        }
+
                         e.Handled = true;
                     }
                     else
@@ -792,6 +823,7 @@ namespace MSCS.Views
             _isFullscreen = true;
             IsFullscreenMode = true;
             UpdateFullscreenButtonVisuals();
+            UpdateShellFullscreenState(true);
         }
 
         private void ExitFullscreen()
@@ -819,6 +851,7 @@ namespace MSCS.Views
             _isFullscreen = false;
             IsFullscreenMode = false;
             UpdateFullscreenButtonVisuals();
+            UpdateShellFullscreenState(false);
         }
 
         private void UpdateFullscreenButtonVisuals()
@@ -834,6 +867,14 @@ namespace MSCS.Views
             }
         }
 
+        private void UpdateShellFullscreenState(bool isFullscreen)
+        {
+            if (Application.Current?.MainWindow is MainWindow mainWindow &&
+                mainWindow.DataContext is MainViewModel mainViewModel)
+            {
+                mainViewModel.IsReaderFullscreen = isFullscreen;
+            }
+        }
 
         private (double? Offset, double? Progress) CaptureScrollState()
         {

@@ -4,6 +4,7 @@
              xmlns:vm="clr-namespace:MSCS.ViewModels"
              xmlns:conv="clr-namespace:MSCS.Converters"
              xmlns:enums="clr-namespace:MSCS.Enums"
+             xmlns:reader="clr-namespace:MSCS.Views.Reader"
              Background="{Binding Preferences.ReaderBackgroundBrush, FallbackValue=#0F151F}"
              HorizontalAlignment="Stretch"
              VerticalAlignment="Stretch"
@@ -13,306 +14,12 @@
              Unloaded="UserControl_Unloaded"
              PreviewKeyDown="UserControl_PreviewKeyDown">
 
+
     <UserControl.Resources>
         <ResourceDictionary>
-
-            <conv:ViewportFractionConverter x:Key="ViewportFraction"/>
-            <conv:BooleanOrConverter x:Key="BooleanOr"/>
-            <conv:ChapterImageSourceConverter x:Key="ChapterImageSource"/>
-            <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
-            <ItemsPanelTemplate x:Key="VerticalPanelTemplate">
-                <VirtualizingStackPanel Orientation="Vertical"/>
-            </ItemsPanelTemplate>
-
-            <Style x:Key="AccentButton" TargetType="Button">
-                <Setter Property="Background" Value="{DynamicResource Accent}" />
-                <Setter Property="Foreground" Value="{DynamicResource AccentForeground}" />
-                <Setter Property="Padding" Value="14,6" />
-                <Setter Property="BorderBrush" Value="{x:Null}" />
-                <Setter Property="Cursor" Value="Hand" />
-                <Setter Property="BorderThickness" Value="0" />
-                <Setter Property="FontWeight" Value="SemiBold" />
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="Button">
-                            <Border x:Name="Border"
-                                    Background="{TemplateBinding Background}"
-                                    CornerRadius="6"
-                                    Padding="{TemplateBinding Padding}">
-                                <ContentPresenter HorizontalAlignment="Center"
-                                                  VerticalAlignment="Center" />
-                            </Border>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Border" Property="Background" Value="{DynamicResource AccentHover}" />                                </Trigger>
-                                <Trigger Property="IsPressed" Value="True">
-                                    <Setter TargetName="Border" Property="Background" Value="{DynamicResource AccentHover}" />                                </Trigger>
-                                <Trigger Property="IsEnabled" Value="False">
-                                    <Setter TargetName="Border" Property="Opacity" Value="0.5" />
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
-
-            <Style x:Key="ChapterPreviewButton" TargetType="Button">
-                <Setter Property="Background" Value="Transparent"/>
-                <Setter Property="BorderBrush" Value="Transparent"/>
-                <Setter Property="BorderThickness" Value="0"/>
-                <Setter Property="Padding" Value="0"/>
-                <Setter Property="Cursor" Value="Hand"/>
-                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                <Setter Property="Foreground" Value="{DynamicResource SidebarText}"/>
-                <Setter Property="TextElement.Foreground" Value="{DynamicResource SidebarText}"/>
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="Button">
-                            <Border x:Name="Border"
-                                    Background="{TemplateBinding Background}"
-                                    CornerRadius="8">
-                                <ContentPresenter HorizontalAlignment="Stretch"
-                                                  VerticalAlignment="Center"/>
-                            </Border>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Border" Property="Background" Value="{DynamicResource ControlHover}"/>
-                                </Trigger>
-                                <Trigger Property="IsPressed" Value="True">
-                                    <Setter TargetName="Border" Property="Background" Value="{DynamicResource ControlPressed}"/>
-                                </Trigger>
-                                <Trigger Property="IsEnabled" Value="False">
-                                    <Setter TargetName="Border" Property="Opacity" Value="0.6"/>
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
-            <DataTemplate DataType="{x:Type vm:ReaderTrackingCoordinator+TrackingProvider}">
-                <Border Background="{DynamicResource SurfaceAlt}"
-                        CornerRadius="4"
-                        Padding="6,2">
-                    <TextBlock Text="{Binding DisplayName}"
-                               Foreground="{DynamicResource SidebarText}"
-                               FontSize="12"
-                               FontWeight="SemiBold"/>
-                </Border>
-            </DataTemplate>
-
-            <DataTemplate DataType="{x:Type vm:ReaderTrackingCoordinator+AniListTrackingProvider}">
-                <Border Background="#152B4E"
-                        CornerRadius="4"
-                        Padding="6,2">
-                    <TextBlock Text="AniList"
-                               Foreground="#6EC1FF"
-                               FontSize="12"
-                               FontWeight="SemiBold"/>
-                </Border>
-            </DataTemplate>
-            <DataTemplate DataType="{x:Type vm:ReaderTrackingCoordinator+MyAnimeListTrackingProvider}">
-                <Border Background="#1F2A44"
-                        CornerRadius="4"
-                        Padding="6,2">
-                    <TextBlock Text="MyAnimeList"
-                               Foreground="#8EC5FF"
-                               FontSize="12"
-                               FontWeight="SemiBold"/>
-                </Border>
-            </DataTemplate>
-            <DataTemplate DataType="{x:Type vm:ReaderTrackingCoordinator+KitsuTrackingProvider}">
-                <Border Background="#34253B"
-                        CornerRadius="4"
-                        Padding="6,2">
-                    <TextBlock Text="Kitsu"
-                               Foreground="#EFA8FF"
-                               FontSize="12"
-                               FontWeight="SemiBold"/>
-                </Border>
-            </DataTemplate>
-
-
-            <Style x:Key="SidebarTabControlStyle" TargetType="TabControl">
-                <Setter Property="Background" Value="Transparent"/>
-                <Setter Property="BorderBrush" Value="Transparent"/>
-                <Setter Property="BorderThickness" Value="0"/>
-                <Setter Property="Padding" Value="0"/>
-                <Setter Property="Margin" Value="0"/>
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="TabControl">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-                                <TabPanel x:Name="HeaderPanel"
-                                          Grid.Row="0"
-                                          Background="Transparent"
-                                          Margin="0,0,0,8"
-                                          IsItemsHost="True"/>
-                                <Border Grid.Row="1"
-                                        Background="Transparent"
-                                        BorderThickness="0">
-                                    <ContentPresenter x:Name="PART_SelectedContentHost"
-                                                      Margin="0"
-                                                      ContentSource="SelectedContent"/>
-                                </Border>
-                            </Grid>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
-
-            <Style x:Key="SidebarTabItemStyle" TargetType="TabItem">
-                <Setter Property="Foreground" Value="#8F9BB4"/>
-                <Setter Property="FontWeight" Value="SemiBold"/>
-                <Setter Property="Padding" Value="0"/>
-                <Setter Property="Margin" Value="0,0,8,0"/>
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="TabItem">
-                            <Border x:Name="Border"
-                                    Padding="12,6"
-                                    CornerRadius="6"
-                                    Background="Transparent">
-                                <ContentPresenter x:Name="ContentSite"
-                                                  HorizontalAlignment="Center"
-                                                  VerticalAlignment="Center"
-                                                  RecognizesAccessKey="True"
-                                                  ContentSource="Header"
-                                                  TextElement.Foreground="{TemplateBinding Foreground}"/>
-                            </Border>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Border" Property="Background" Value="{DynamicResource ControlHover}"/>
-                                    <Setter Property="Foreground" Value="{DynamicResource SidebarText}"/>
-                                </Trigger>
-                                <Trigger Property="IsSelected" Value="True">
-                                    <Setter TargetName="Border" Property="Background" Value="{DynamicResource ControlPressed}"/>
-                                    <Setter Property="Foreground" Value="{DynamicResource SidebarText}"/>
-                                </Trigger>
-                                <Trigger Property="IsEnabled" Value="False">
-                                    <Setter TargetName="Border" Property="Opacity" Value="0.5"/>
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
-
-            <Style x:Key="SidebarSegmentToggleStyle" TargetType="ToggleButton">
-                <Setter Property="Foreground" Value="{DynamicResource SidebarText}"/>
-                <Setter Property="Background" Value="{DynamicResource SurfaceAlt}"/>
-                <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorder}"/>
-                <Setter Property="BorderThickness" Value="1"/>
-                <Setter Property="Padding" Value="10,6"/>
-                <Setter Property="FontWeight" Value="SemiBold"/>
-                <Setter Property="Cursor" Value="Hand"/>
-                <Setter Property="HorizontalContentAlignment" Value="Center"/>
-                <Setter Property="VerticalContentAlignment" Value="Center"/>
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="ToggleButton">
-                            <Border x:Name="Border"
-                                    Background="{TemplateBinding Background}"
-                                    BorderBrush="{TemplateBinding BorderBrush}"
-                                    BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="6"
-                                    Padding="{TemplateBinding Padding}">
-                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                                                  RecognizesAccessKey="True"
-                                                  TextElement.Foreground="{TemplateBinding Foreground}"/>
-                            </Border>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Border" Property="Background" Value="{DynamicResource ControlHover}"/>
-                                </Trigger>
-                                <Trigger Property="IsChecked" Value="True">
-                                    <Setter TargetName="Border" Property="Background" Value="{DynamicResource ControlPressed}"/>
-                                    <Setter Property="Foreground" Value="{DynamicResource SidebarText}"/>
-                                </Trigger>
-                                <Trigger Property="IsEnabled" Value="False">
-                                    <Setter TargetName="Border" Property="Opacity" Value="0.5"/>
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
-
-            <Style x:Key="SidebarIconButtonStyle" TargetType="Button">
-                <Setter Property="Foreground" Value="{DynamicResource SidebarText}"/>
-                <Setter Property="Background" Value="{DynamicResource SurfaceAlt}"/>
-                <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorder}"/>
-                <Setter Property="BorderThickness" Value="1"/>
-                <Setter Property="Padding" Value="10"/>
-                <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
-                <Setter Property="FontSize" Value="14"/>
-                <Setter Property="Cursor" Value="Hand"/>
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="Button">
-                            <Border x:Name="Border"
-                                    Background="{TemplateBinding Background}"
-                                    BorderBrush="{TemplateBinding BorderBrush}"
-                                    BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="8"
-                                    Padding="{TemplateBinding Padding}">
-                                <ContentPresenter HorizontalAlignment="Center"
-                                                  VerticalAlignment="Center"/>
-                            </Border>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Border" Property="Background" Value="{DynamicResource ControlHover}"/>                                </Trigger>
-                                <Trigger Property="IsPressed" Value="True">
-                                    <Setter TargetName="Border" Property="Background" Value="{DynamicResource ControlPressed}"/>                                </Trigger>
-                                <Trigger Property="IsEnabled" Value="False">
-                                    <Setter TargetName="Border" Property="Opacity" Value="0.5"/>
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
-
-            <Style x:Key="SidebarIconToggleButtonStyle" TargetType="ToggleButton">
-                <Setter Property="Foreground" Value="{DynamicResource SidebarText}"/>
-                <Setter Property="Background" Value="{DynamicResource SurfaceAlt}"/>
-                <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorder}"/>
-                <Setter Property="BorderThickness" Value="1"/>
-                <Setter Property="Padding" Value="10"/>
-                <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
-                <Setter Property="FontSize" Value="14"/>
-                <Setter Property="Cursor" Value="Hand"/>
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="ToggleButton">
-                            <Border x:Name="Border"
-                                    Background="{TemplateBinding Background}"
-                                    BorderBrush="{TemplateBinding BorderBrush}"
-                                    BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="8"
-                                    Padding="{TemplateBinding Padding}">
-                                <ContentPresenter HorizontalAlignment="Center"
-                                                  VerticalAlignment="Center"/>
-                            </Border>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Border" Property="Background" Value="{DynamicResource ControlHover}"/>                                </Trigger>
-                                <Trigger Property="IsChecked" Value="True">
-                                    <Setter TargetName="Border" Property="Background" Value="{DynamicResource ControlPressed}"/>
-                                    <Setter Property="Foreground" Value="{DynamicResource SidebarText}"/>
-                                </Trigger>
-                                <Trigger Property="IsEnabled" Value="False">
-                                    <Setter TargetName="Border" Property="Opacity" Value="0.5"/>
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="ReaderResources.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </UserControl.Resources>
 
@@ -388,10 +95,8 @@
                  Background="{Binding Preferences.ReaderSurfaceBrush, FallbackValue=#111727}"
                  BorderThickness="0"
                  Padding="0"
-                 HorizontalContentAlignment="Stretch"
+                 HorizontalContentAlignment="Center"
                  ScrollViewer.CanContentScroll="True"
-                 ScrollViewer.VerticalScrollBarVisibility="Auto"
-                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                  VirtualizingPanel.IsVirtualizing="True"
                  VirtualizingPanel.VirtualizationMode="Recycling"
                  VirtualizingPanel.CacheLength="1"
@@ -399,6 +104,17 @@
                  VirtualizingStackPanel.CleanUpVirtualizedItem="Images_CleanUpVirtualizedItem"
                  Loaded="ImageList_Loaded"
                  ItemsSource="{Binding ImageUrls}">
+            <ListBox.Style>
+                <Style TargetType="ListBox">
+                    <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+                    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=UserControl}, Path=IsFullscreenMode}" Value="True">
+                            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Hidden"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ListBox.Style>
             <ListBox.ItemsPanel>
                 <ItemsPanelTemplate>
                     <VirtualizingStackPanel Orientation="Vertical"/>
@@ -426,32 +142,26 @@
             </ListBox.ItemContainerStyle>
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <Image Stretch="Uniform"
-                           Margin="0"
-                           SnapsToDevicePixels="True"
-                           UseLayoutRounding="True"
-                           RenderOptions.BitmapScalingMode="HighQuality"
-                           MouseLeftButtonDown="Image_MouseLeftButtonDown"
-                           RenderOptions.EdgeMode="Aliased">
+                    <Image
+                HorizontalAlignment="Center"             
+                        Stretch="Uniform"
+                StretchDirection="DownOnly"
+                        MaxWidth="{Binding RelativeSource={RelativeSource AncestorType=ScrollViewer}, Path=ViewportWidth}"
+                SnapsToDevicePixels="True"
+                UseLayoutRounding="True"
+                RenderOptions.BitmapScalingMode="HighQuality"
+                MouseLeftButtonDown="Image_MouseLeftButtonDown"
+                RenderOptions.EdgeMode="Aliased">
                         <Image.Source>
                             <Binding Converter="{StaticResource ChapterImageSource}"/>
                         </Image.Source>
-                        <Image.Width>
-                            <MultiBinding Converter="{StaticResource ViewportFraction}">
-                                <Binding RelativeSource="{RelativeSource AncestorType=ScrollViewer}" Path="ViewportWidth"/>
-                                <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.Preferences.WidthFactor"/>
-                                <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.Preferences.MaxPageWidth"/>
-                                <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.Preferences.AutoAdjustWidth"/>
-                            </MultiBinding>
-                        </Image.Width>
                     </Image>
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
-
         <Border HorizontalAlignment="Right"
-                VerticalAlignment="Top"
-                Margin="12"
+                VerticalAlignment="Bottom"
+                Margin="0,0,44,12"
                 Padding="12"
                 CornerRadius="8"
                 Background="{Binding Preferences.ReaderSurfaceBrush, FallbackValue={StaticResource SurfaceAlt}}"
@@ -462,9 +172,6 @@
                 <Style TargetType="Border">
                     <Setter Property="Visibility" Value="Visible"/>
                     <Style.Triggers>
-                        <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=UserControl}, Path=IsFullscreenMode}" Value="True">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                        </DataTrigger>
                         <DataTrigger Binding="{Binding TotalImages}" Value="0">
                             <Setter Property="Visibility" Value="Collapsed"/>
                         </DataTrigger>
@@ -474,27 +181,22 @@
             <Border.Effect>
                 <DropShadowEffect BlurRadius="16" ShadowDepth="0" Opacity="0.3"/>
             </Border.Effect>
-            <StackPanel>
+            <StackPanel HorizontalAlignment="Right">
                 <TextBlock Text="{Binding ChapterTitle}"
                            Foreground="{DynamicResource SidebarText}"
                            FontWeight="SemiBold"
                            TextTrimming="CharacterEllipsis"
+                           TextAlignment="Right"
                            Margin="0,0,0,6"/>
-                <ProgressBar Minimum="0"
-                             Maximum="1"
-                             Height="6"
-                             Margin="0,0,0,8"
-                             Value="{Binding ScrollProgress, Mode=OneWay}"/>
                 <StackPanel Orientation="Horizontal"
                             HorizontalAlignment="Right">
-                    <TextBlock Text="{Binding LoadedImages}"
-                               Foreground="{DynamicResource SidebarText}"
+                    <TextBlock Text="{Binding CurrentPage}"                               Foreground="{DynamicResource SidebarText}"
                                FontWeight="SemiBold"/>
                     <TextBlock Text=" / " Foreground="{DynamicResource SidebarText}"/>
                     <TextBlock Text="{Binding TotalImages}"
                                Foreground="{DynamicResource SidebarText}"/>
                     <TextBlock Text="  •  " Foreground="{DynamicResource FgSubtle}"/>
-                    <TextBlock Text="{Binding ScrollProgress, StringFormat={}{0:P0}}"
+                    <TextBlock Text="{Binding CurrentPagePercentage, StringFormat={}{0:P0}}"
                                Foreground="{DynamicResource SidebarText}"/>
                 </StackPanel>
             </StackPanel>
@@ -587,7 +289,8 @@
             <StackPanel Grid.Column="0"
                         VerticalAlignment="Top"
                         HorizontalAlignment="Left">
-                <Border Background="{DynamicResource SurfaceAlt}"
+                <Border x:Name="SidebarButtonsContainer"
+                        Background="{DynamicResource SurfaceAlt}"
                         BorderBrush="{DynamicResource SurfaceBorderSoft}"
                         BorderThickness="1"
                         CornerRadius="10"
@@ -666,8 +369,9 @@
                                 <DataTrigger.Binding>
                                     <MultiBinding Converter="{StaticResource BooleanOr}">
                                         <Binding ElementName="SidebarToggleButton" Path="IsChecked" TargetNullValue="False" FallbackValue="False"/>
-                                        <Binding ElementName="SidebarToggleButton" Path="IsMouseOver"/>                                        <Binding RelativeSource="{RelativeSource Self}" Path="IsMouseOver"/>
-                                        <Binding ElementName="SidebarHost" Path="IsMouseOver"/>
+                                        <Binding ElementName="SidebarToggleButton" Path="IsMouseOver"/>
+                                        <Binding RelativeSource="{RelativeSource Self}" Path="IsMouseOver"/>
+                                        <Binding ElementName="SidebarButtonsContainer" Path="IsMouseOver"/>
                                     </MultiBinding>
                                 </DataTrigger.Binding>
                                 <Setter Property="Visibility" Value="Visible"/>
@@ -688,333 +392,13 @@
                                 Style="{StaticResource SidebarTabControlStyle}"
                                 ItemContainerStyle="{StaticResource SidebarTabItemStyle}">
                         <TabItem Header="Reader">
-                            <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                          HorizontalScrollBarVisibility="Disabled">
-                                <StackPanel>
-                                    <Border Background="{DynamicResource SurfaceAlt}"
-                                            BorderBrush="{DynamicResource SurfaceBorderSoft}"
-                                            BorderThickness="1"
-                                            CornerRadius="8"
-                                            Padding="10">
-                                        <StackPanel>
-                                            <TextBlock Text="Zoom"
-                                                       Foreground="{DynamicResource FgMuted}"
-                                                       FontSize="12"
-                                                       FontWeight="SemiBold"/>
-                                            <StackPanel Orientation="Horizontal"
-                                                        Margin="0,6,0,0"
-                                                        VerticalAlignment="Center">
-                                                <Slider Width="160"
-                                                        Minimum="0.3"
-                                                        Maximum="1.0"
-                                                        TickFrequency="0.05"
-                                                        IsSnapToTickEnabled="True"
-                                                        Value="{Binding Preferences.WidthFactor, Mode=TwoWay}"
-                                                        ToolTip="Adjust the relative page width"
-                                                        Margin="0,0,8,0"/>
-                                                <TextBlock Text="{Binding Preferences.ZoomPercent, StringFormat={}{0:F0}%}"
-                                                           Foreground="{DynamicResource SidebarText}"
-                                                           FontWeight="SemiBold"/>
-                                            </StackPanel>
-                                            <UniformGrid Columns="4" Margin="0,8,0,0">
-                                                <Button Content="60%"
-                                                        Margin="0,0,6,0"
-                                                        Command="{Binding Preferences.SetZoomPresetCommand}"
-                                                        CommandParameter="0.6"/>
-                                                <Button Content="75%"
-                                                        Margin="0,0,6,0"
-                                                        Command="{Binding Preferences.SetZoomPresetCommand}"
-                                                        CommandParameter="0.75"/>
-                                                <Button Content="90%"
-                                                        Margin="0,0,6,0"
-                                                        Command="{Binding Preferences.SetZoomPresetCommand}"
-                                                        CommandParameter="0.9"/>
-                                                <Button Content="100%"
-                                                        Command="{Binding Preferences.SetZoomPresetCommand}"
-                                                        CommandParameter="1.0"/>
-                                            </UniformGrid>
-                                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                                <Button Content="-"
-                                                        Width="32"
-                                                        Height="28"
-                                                        Margin="0,0,6,0"
-                                                        Command="{Binding Preferences.DecreaseZoomCommand}"
-                                                        ToolTip="Zoom out"/>
-                                                <Button Content="Reset"
-                                                        Height="28"
-                                                        Margin="0,0,6,0"
-                                                        Command="{Binding Preferences.ResetZoomCommand}"
-                                                        ToolTip="Reset zoom"/>
-                                                <Button Content="+"
-                                                        Width="32"
-                                                        Height="28"
-                                                        Command="{Binding Preferences.IncreaseZoomCommand}"
-                                                        ToolTip="Zoom in"/>
-                                            </StackPanel>
-                                        </StackPanel>
-                                    </Border>
-
-                    <!-- Manga info + tracking -->
-
-                                    <Border Background="{DynamicResource SurfaceAlt}"
-                                            BorderBrush="{DynamicResource SurfaceBorderSoft}"
-                                            BorderThickness="1"
-                                            CornerRadius="8"
-                                            Padding="10"
-                                            Margin="0,8,0,0">
-                                        <StackPanel>
-                                            <TextBlock Text="Layout"
-                                                       Foreground="{DynamicResource FgMuted}"
-                                                       FontSize="12"
-                                                       FontWeight="SemiBold"/>
-                                            <UniformGrid Columns="3" Margin="0,6,0,0">
-                                                <ToggleButton Content="Compact"
-                                                              Margin="0,0,8,0"
-                                                              Command="{Binding Preferences.SetScrollPresetCommand}"
-                                                              CommandParameter="{x:Static enums:ReaderScrollPreset.Compact}">
-                                                    <ToggleButton.Style>
-                                                        <Style TargetType="ToggleButton" BasedOn="{StaticResource SidebarSegmentToggleStyle}">
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding Preferences.ScrollPreset}"
-                                                                             Value="{x:Static enums:ReaderScrollPreset.Compact}">
-                                                                    <Setter Property="IsChecked" Value="True"/>
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </ToggleButton.Style>
-                                                </ToggleButton>
-                                                <ToggleButton Content="Balanced"
-                                                              Margin="0,0,8,0"
-                                                              Command="{Binding Preferences.SetScrollPresetCommand}"
-                                                              CommandParameter="{x:Static enums:ReaderScrollPreset.Balanced}">
-                                                    <ToggleButton.Style>
-                                                        <Style TargetType="ToggleButton" BasedOn="{StaticResource SidebarSegmentToggleStyle}">
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding Preferences.ScrollPreset}"
-                                                                             Value="{x:Static enums:ReaderScrollPreset.Balanced}">
-                                                                    <Setter Property="IsChecked" Value="True"/>
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </ToggleButton.Style>
-                                                </ToggleButton>
-                                                <ToggleButton Content="Immersive"
-                                                              Command="{Binding Preferences.SetScrollPresetCommand}"
-                                                              CommandParameter="{x:Static enums:ReaderScrollPreset.Immersive}">
-                                                    <ToggleButton.Style>
-                                                        <Style TargetType="ToggleButton" BasedOn="{StaticResource SidebarSegmentToggleStyle}">
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding Preferences.ScrollPreset}"
-                                                                             Value="{x:Static enums:ReaderScrollPreset.Immersive}">
-                                                                    <Setter Property="IsChecked" Value="True"/>
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </ToggleButton.Style>
-                                                </ToggleButton>
-                                            </UniformGrid>
-                                            <CheckBox Content="Two-page layout"
-                                                      Margin="0,10,0,0"
-                                                      Foreground="{DynamicResource SidebarText}"
-                                                      FontWeight="SemiBold"
-                                                      IsChecked="{Binding Preferences.UseTwoPageLayout, Mode=TwoWay}"/>
-                                            <CheckBox Content="Auto panel width"
-                                                      Margin="0,6,0,0"
-                                                      Foreground="{DynamicResource SidebarText}"
-                                                      FontWeight="SemiBold"
-                                                      IsChecked="{Binding Preferences.AutoAdjustWidth, Mode=TwoWay}"/>
-                                            <CheckBox Content="Page transitions"
-                                                      Margin="0,4,0,0"
-                                                      Foreground="{DynamicResource SidebarText}"
-                                                      FontWeight="SemiBold"
-                                                      IsChecked="{Binding Preferences.EnablePageTransitions, Mode=TwoWay}"/>
-                                            <ToggleButton Content="Immersive scroll"
-                                                          Margin="0,10,0,0"
-                                                          Style="{StaticResource SidebarSegmentToggleStyle}"
-                                                          IsChecked="{Binding Preferences.IsImmersiveMode, Mode=TwoWay}"/>
-                                        </StackPanel>
-                                    </Border>
-
-                    <!-- Chapter list -->
-
-                                    <Border Background="{DynamicResource SurfaceAlt}"
-                                            BorderBrush="{DynamicResource SurfaceBorderSoft}"
-                                            BorderThickness="1"
-                                            CornerRadius="8"
-                                            Padding="10"
-                                            Margin="0,8,0,0">
-                                        <StackPanel>
-                                            <TextBlock Text="Theme"
-                                                       Foreground="{DynamicResource FgMuted}"
-                                                       FontSize="12"
-                                                       FontWeight="SemiBold"/>
-                                            <ComboBox SelectedValue="{Binding Preferences.Theme}"
-                                                      SelectedValuePath="Tag"
-                                                      Margin="0,6,0,0"
-                                                      ToolTip="Change the reader color palette">
-                                                <ComboBoxItem Content="Midnight" Tag="{x:Static enums:ReaderTheme.Midnight}"/>
-                                                <ComboBoxItem Content="Pure black" Tag="{x:Static enums:ReaderTheme.PureBlack}"/>
-                                                <ComboBoxItem Content="Sepia" Tag="{x:Static enums:ReaderTheme.Sepia}"/>
-                                                <ComboBoxItem Content="High contrast" Tag="{x:Static enums:ReaderTheme.HighContrast}"/>
-                                            </ComboBox>
-                                        </StackPanel>
-                                    </Border>
-                                </StackPanel>
-                            </ScrollViewer>
+                            <reader:ReaderPreferencesPanel/>
                         </TabItem>
                         <TabItem Header="Series">
-                            <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                          HorizontalScrollBarVisibility="Disabled">
-                                <Border Background="{DynamicResource SurfaceAlt}"
-                                        BorderBrush="{DynamicResource SurfaceBorderSoft}"
-                                        BorderThickness="1"
-                                        CornerRadius="8"
-                                        Padding="10">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Orientation="Vertical" Margin="0,0,12,0">
-                                            <TextBlock Text="{Binding MangaTitle}"
-                                                      Foreground="{DynamicResource SidebarText}"
-                                                       FontWeight="SemiBold"
-                                                       TextTrimming="CharacterEllipsis"/>
-                                            <TextBlock Text="{Binding ChapterTitle}"
-                                                       Foreground="{DynamicResource FgMuted}"
-                                                       FontSize="12"
-                                                       TextTrimming="CharacterEllipsis"/>
-                                            <StackPanel Orientation="Horizontal"
-                                                        Margin="0,8,0,0"
-                                                        VerticalAlignment="Center"
-                                                        Visibility="{Binding HasTrackingProviders, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                <ContentControl Content="{Binding ActiveTrackingProvider}"/>
-                                                <ComboBox ItemsSource="{Binding TrackingProviders}"
-                                                          SelectedItem="{Binding ActiveTrackingProvider}"
-                                                          DisplayMemberPath="DisplayName"
-                                                          Width="150"
-                                                          Margin="8,0,0,0">
-                                                    <ComboBox.Style>
-                                                        <Style TargetType="ComboBox">
-                                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding HasMultipleTrackingProviders}" Value="True">
-                                                                    <Setter Property="Visibility" Value="Visible"/>
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </ComboBox.Style>
-                                                </ComboBox>
-                                                <TextBlock Text="{Binding ActiveTrackerName}"
-                                                           Margin="8,0,0,0"
-                                                       Foreground="{DynamicResource FgMuted}"
-                                                           FontSize="12"
-                                                           VerticalAlignment="Center">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock">
-                                                            <Setter Property="Visibility" Value="Visible"/>
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding HasMultipleTrackingProviders}" Value="True">
-                                                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </TextBlock.Style>
-                                                </TextBlock>
-                                            </StackPanel>
-                                            <StackPanel Orientation="Vertical"
-                                                        Margin="0,8,0,0"
-                                                        Visibility="{Binding IsTracked, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                <TextBlock Text="{Binding TrackingStatusDisplay}"
-                                                       Foreground="{DynamicResource FgMuted}"
-                                                           FontSize="12"/>
-                                                <TextBlock Text="{Binding TrackingProgressDisplay}"
-                                                           Foreground="{DynamicResource FgMuted}"
-                                                           FontSize="12"/>
-                                                <TextBlock Text="{Binding TrackingScoreDisplay}"
-                                                           Foreground="{DynamicResource FgMuted}"
-                                                           FontSize="12"/>
-                                                <TextBlock Text="{Binding TrackingUpdatedDisplay}"
-                                                           Foreground="{DynamicResource FgSubtle}"
-                                                           FontSize="11"/>
-                                            </StackPanel>
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="1"
-                                                    Orientation="Vertical"
-                                                    HorizontalAlignment="Right"
-                                                    Visibility="{Binding HasTrackingProviders, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                            <Button Content="{Binding TrackButtonText}"
-                                                    Style="{StaticResource AccentButton}"
-                                                    Command="{Binding TrackCommand}"
-                                                    ToolTip="{Binding ActiveTrackerName, StringFormat=Manage {0} tracking, TargetNullValue=Manage tracking}"/>
-                                            <Button Content="{Binding OpenTrackerButtonText}"
-                                                    Margin="0,6,0,0"
-                                                    Command="{Binding OpenInBrowserCommand}"
-                                                    Visibility="{Binding IsTracked, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                                    ToolTip="{Binding ActiveTrackerName, StringFormat=Open this series on {0}, TargetNullValue=Open the tracked series}"/>
-                                            <Button Content="{Binding RemoveTrackerButtonText}"
-                                                    Margin="0,6,0,0"
-                                                    Command="{Binding RemoveTrackingCommand}"
-                                                    Visibility="{Binding IsTracked, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                                    ToolTip="{Binding ActiveTrackerName, StringFormat=Remove {0} tracking, TargetNullValue=Remove tracking}"/>
-                                        </StackPanel>
-                                    </Grid>
-                                </Border>
-                            </ScrollViewer>
+                            <reader:ReaderSeriesPanel/>
                         </TabItem>
                         <TabItem Header="Chapters">
-                            <Grid>
-                                <Border Background="{DynamicResource SurfaceAlt}"
-                                        BorderBrush="{DynamicResource SurfaceBorderSoft}"
-                                        BorderThickness="1"
-                                        CornerRadius="8"
-                                        Padding="2"
-                                        VerticalAlignment="Stretch">
-                                    <ListBox ItemsSource="{Binding Chapters}"
-                                             SelectedItem="{Binding SelectedChapter, Mode=TwoWay}"
-                                             BorderThickness="0"
-                                             Background="Transparent"
-                                             ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                             VirtualizingStackPanel.IsVirtualizing="True"
-                                             VirtualizingStackPanel.VirtualizationMode="Recycling">
-                                        <ListBox.ItemContainerStyle>
-                                            <Style TargetType="ListBoxItem">
-                                                <Setter Property="Foreground" Value="{DynamicResource SidebarText}"/>
-                                                <Setter Property="Padding" Value="8,6"/>
-                                                <Setter Property="Margin" Value="0,2"/>
-                                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                                                <Setter Property="Template">
-                                                    <Setter.Value>
-                                                        <ControlTemplate TargetType="ListBoxItem">
-                                                            <Border x:Name="ItemBorder"
-                                                                    Background="Transparent"
-                                                                    CornerRadius="4">
-                                                                <ContentPresenter VerticalAlignment="Center" Margin="4,0"/>
-                                                            </Border>
-                                                            <ControlTemplate.Triggers>
-                                                                <Trigger Property="IsMouseOver" Value="True">
-                                                                    <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource ControlHover}"/>
-                                                                </Trigger>
-                                                                <Trigger Property="IsSelected" Value="True">
-                                                                    <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource ControlPressed}"/>
-                                                                </Trigger>
-                                                            </ControlTemplate.Triggers>
-                                                        </ControlTemplate>
-                                                    </Setter.Value>
-                                                </Setter>
-                                            </Style>
-                                        </ListBox.ItemContainerStyle>
-                                        <ListBox.ItemTemplate>
-                                            <DataTemplate>
-                                                <TextBlock Text="{Binding Title}"
-                                                           Foreground="{DynamicResource SidebarText}"
-                                                           FontWeight="SemiBold"
-                                                           TextTrimming="CharacterEllipsis"/>
-                                            </DataTemplate>
-                                        </ListBox.ItemTemplate>
-                                    </ListBox>
-                                </Border>
-                            </Grid>
+                            <reader:ReaderChaptersPanel/>
                         </TabItem>
                     </TabControl>
                 </Grid>

@@ -34,12 +34,13 @@ namespace MSCS.ViewModels
         private bool _disposed;
         private readonly MediaTrackingServiceRegistry? _trackingRegistry;
         private readonly UserSettings? _userSettings;
-        private const int MaxCachedChapters = 4;
+        private const int MaxCachedChapters = 2;
         private readonly bool _autoOpenOnLoad;
         private bool _hasAutoOpened;
         private Manga _manga;
         private ObservableCollection<Chapter> _chapters = new();
         private Chapter? _selectedChapter;
+        private Chapter? _lastSelectedChapter;
         private MangaReadingProgress? _initialProgress;
         private string _chapterSearchText = string.Empty;
         private bool _showAllChapters;
@@ -48,6 +49,10 @@ namespace MSCS.ViewModels
         private bool _isEmptyAfterFilter;
         private string? _bookmarkStorageKey;
         private bool _isBookmarked;
+        private readonly ObservableCollection<ChapterSortOption> _chapterSortOptions = new();
+        private ChapterSortOption? _selectedChapterSortOption;
+        private HashSet<Chapter>? _limitedChapterSet;
+        private bool _isApplyingChapterFilters;
 
         public Manga Manga
         {
@@ -84,6 +89,7 @@ namespace MSCS.ViewModels
                         _chapters.CollectionChanged += OnChaptersCollectionChanged;
                     }
 
+                    _lastSelectedChapter = null;
                     RefreshChapterView();
                 }
             }
@@ -96,6 +102,11 @@ namespace MSCS.ViewModels
             {
                 if (SetProperty(ref _selectedChapter, value))
                 {
+                    if (value != null)
+                    {
+                        _lastSelectedChapter = value;
+                    }
+
                     EnsureChapterVisible(value);
                     CommandManager.InvalidateRequerySuggested();
                 }
@@ -137,6 +148,21 @@ namespace MSCS.ViewModels
             }
         }
 
+        public ObservableCollection<ChapterSortOption> ChapterSortOptions => _chapterSortOptions;
+
+        public ChapterSortOption? SelectedChapterSortOption
+        {
+            get => _selectedChapterSortOption;
+            set
+            {
+                var target = value ?? _chapterSortOptions.FirstOrDefault();
+                if (SetProperty(ref _selectedChapterSortOption, target))
+                {
+                    ApplyChapterSort();
+                }
+            }
+        }
+
         public bool IsLoadingChapters
         {
             get => _isLoadingChapters;
@@ -153,6 +179,12 @@ namespace MSCS.ViewModels
         {
             get => _isEmptyAfterFilter;
             private set => SetProperty(ref _isEmptyAfterFilter, value);
+        }
+
+        public bool IsApplyingChapterFilters
+        {
+            get => _isApplyingChapterFilters;
+            private set => SetProperty(ref _isApplyingChapterFilters, value);
         }
 
         public bool IsBookmarked
@@ -259,6 +291,8 @@ namespace MSCS.ViewModels
             ToggleChapterListLengthCommand = new RelayCommand(_ => ToggleChapterListMode(), _ => HasChapterOverflow);
             ToggleBookmarkCommand = new RelayCommand(_ => ToggleBookmark(), _ => CanToggleBookmark());
             InitializeChapterListState();
+            InitializeChapterSortOptions();
+            SelectedChapterSortOption = ChapterSortOptions.FirstOrDefault();
             UpdateBookmarkState();
 
             _ = LoadChaptersAsync();
@@ -272,12 +306,22 @@ namespace MSCS.ViewModels
             ToggleChapterListLengthCommand = new RelayCommand(_ => ToggleChapterListMode(), _ => HasChapterOverflow);
             ToggleBookmarkCommand = new RelayCommand(_ => { }, _ => false);
             InitializeChapterListState();
+            InitializeChapterSortOptions();
+            SelectedChapterSortOption = ChapterSortOptions.FirstOrDefault();
         }
 
         private void InitializeChapterListState()
         {
             _chapters.CollectionChanged += OnChaptersCollectionChanged;
             RefreshChapterView();
+        }
+
+        private void InitializeChapterSortOptions()
+        {
+            _chapterSortOptions.Clear();
+            _chapterSortOptions.Add(new ChapterSortOption("Source order", null, null));
+            _chapterSortOptions.Add(new ChapterSortOption("Newest first", nameof(Chapter.Number), ListSortDirection.Descending));
+            _chapterSortOptions.Add(new ChapterSortOption("Oldest first", nameof(Chapter.Number), ListSortDirection.Ascending));
         }
 
         private void RefreshChapterView()
@@ -296,6 +340,7 @@ namespace MSCS.ViewModels
             }
 
             FilteredChapters = view;
+            ApplyChapterSort();
             UpdateLimitedState();
             RefreshFilteredChapters();
         }
@@ -307,26 +352,25 @@ namespace MSCS.ViewModels
                 return false;
             }
 
-            if (string.IsNullOrWhiteSpace(ChapterSearchText))
+            if (!string.IsNullOrWhiteSpace(ChapterSearchText))
             {
-                if (!HasChapterOverflow || ShowAllChapters)
+                var searchText = ChapterSearchText.Trim();
+                var comparison = StringComparison.OrdinalIgnoreCase;
+                if (!string.IsNullOrEmpty(chapter.Title) && chapter.Title.IndexOf(searchText, comparison) >= 0)
                 {
                     return true;
                 }
 
-                var index = Chapters.IndexOf(chapter);
-                return index >= 0 && index < DefaultChapterLimit;
+                var numberText = chapter.Number.ToString("0.##", CultureInfo.InvariantCulture);
+                return numberText.IndexOf(searchText, comparison) >= 0;
             }
 
-            var searchText = ChapterSearchText.Trim();
-            var comparison = StringComparison.OrdinalIgnoreCase;
-            if (!string.IsNullOrEmpty(chapter.Title) && chapter.Title.IndexOf(searchText, comparison) >= 0)
+            if (_limitedChapterSet != null)
             {
-                return true;
+                return _limitedChapterSet.Contains(chapter);
             }
 
-            var numberText = chapter.Number.ToString("0.##", CultureInfo.InvariantCulture);
-            return numberText.IndexOf(searchText, comparison) >= 0;
+            return true;
         }
 
         private void UpdateLimitedState()
@@ -356,8 +400,12 @@ namespace MSCS.ViewModels
                 return;
             }
 
-            var index = Chapters.IndexOf(chapter);
-            if (index >= DefaultChapterLimit && !ShowAllChapters)
+            if (ShowAllChapters)
+            {
+                return;
+            }
+
+            if (_limitedChapterSet != null && !_limitedChapterSet.Contains(chapter))
             {
                 ShowAllChapters = true;
             }
@@ -395,8 +443,145 @@ namespace MSCS.ViewModels
 
         private void RefreshFilteredChapters()
         {
-            FilteredChapters?.Refresh();
-            UpdateFilteredState();
+            if (FilteredChapters == null)
+            {
+                _limitedChapterSet = null;
+                UpdateFilteredState();
+                return;
+            }
+
+            IsApplyingChapterFilters = true;
+            try
+            {
+                UpdateLimitedChapterSet();
+                FilteredChapters.Refresh();
+                SynchronizeSelectedChapterWithView();
+                UpdateFilteredState();
+            }
+            finally
+            {
+                IsApplyingChapterFilters = false;
+            }
+        }
+
+        private void ApplyChapterSort()
+        {
+            var view = FilteredChapters;
+            if (view == null)
+            {
+                return;
+            }
+
+            view.SortDescriptions.Clear();
+
+            var option = SelectedChapterSortOption;
+            if (option != null && !string.IsNullOrWhiteSpace(option.PropertyName) && option.Direction.HasValue)
+            {
+                view.SortDescriptions.Add(new SortDescription(option.PropertyName, option.Direction.Value));
+            }
+
+            RefreshFilteredChapters();
+        }
+
+        private void SynchronizeSelectedChapterWithView()
+        {
+            var view = FilteredChapters;
+            if (view == null)
+            {
+                return;
+            }
+
+            var selected = SelectedChapter;
+            if (selected != null)
+            {
+                if (_limitedChapterSet != null && !ShowAllChapters && !_limitedChapterSet.Contains(selected))
+                {
+                    ShowAllChapters = true;
+                    return;
+                }
+
+                if (view.Contains(selected))
+                {
+                    return;
+                }
+
+                if (!string.IsNullOrWhiteSpace(ChapterSearchText))
+                {
+                    return;
+                }
+
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(ChapterSearchText))
+            {
+                return;
+            }
+
+            Chapter? replacement = null;
+
+            if (_lastSelectedChapter != null && view.Contains(_lastSelectedChapter))
+            {
+                replacement = _lastSelectedChapter;
+            }
+            else if (!view.IsEmpty)
+            {
+                replacement = view.Cast<Chapter?>().FirstOrDefault();
+            }
+
+            if (replacement != null)
+            {
+                SelectedChapter = replacement;
+            }
+        }
+
+        private void UpdateLimitedChapterSet()
+        {
+            if (!HasChapterOverflow || ShowAllChapters || !string.IsNullOrWhiteSpace(ChapterSearchText))
+            {
+                _limitedChapterSet = null;
+                return;
+            }
+
+            var ordered = EnumerateChaptersInCurrentSortOrder()
+                .Take(DefaultChapterLimit)
+                .ToList();
+
+            _limitedChapterSet = ordered.Count > 0
+                ? new HashSet<Chapter>(ordered)
+                : null;
+        }
+
+        private IEnumerable<Chapter> EnumerateChaptersInCurrentSortOrder()
+        {
+            IEnumerable<Chapter> chapters = Chapters ?? Enumerable.Empty<Chapter>();
+            var option = SelectedChapterSortOption;
+
+            if (option == null || string.IsNullOrWhiteSpace(option.PropertyName) || !option.Direction.HasValue)
+            {
+                return chapters;
+            }
+
+            Func<Chapter, object?> keySelector = option.PropertyName switch
+            {
+                nameof(Chapter.Number) => chapter => chapter.Number,
+                _ => chapter => GetSortPropertyValue(chapter, option.PropertyName)
+            };
+
+            return option.Direction.Value == ListSortDirection.Ascending
+                ? chapters.OrderBy(keySelector)
+                : chapters.OrderByDescending(keySelector);
+        }
+
+        private static object? GetSortPropertyValue(Chapter chapter, string propertyName)
+        {
+            if (string.IsNullOrWhiteSpace(propertyName))
+            {
+                return null;
+            }
+
+            var descriptor = TypeDescriptor.GetProperties(typeof(Chapter)).Find(propertyName, ignoreCase: false);
+            return descriptor?.GetValue(chapter);
         }
 
         private void OnFilteredChaptersCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -464,19 +649,22 @@ namespace MSCS.ViewModels
 
             Debug.WriteLine($"Opening chapter: {chapterToOpen.Title} ({chapterToOpen.Url})");
 
-            // 1) Ensure we have images for THIS index before navigating
             IReadOnlyList<ChapterImage> images;
             if (!TryGetCachedChapterImages(index, out var cachedImages) || cachedImages == null)
             {
-                // kick off and await the fetch for the selected index
-                images = await GetChapterImagesAsync(index).ConfigureAwait(false);
+                images = await GetChapterImagesAsync(index);
             }
             else
             {
                 images = cachedImages;
             }
 
-            // 2) Decide whether to reuse the initial progress or create a new one
+            if (images == null || images.Count == 0)
+            {
+                Debug.WriteLine($"No images returned for chapter: {chapterToOpen.Title} ({chapterToOpen.Url})");
+                return;
+            }
+
             var shouldUseInitialProgress = ShouldUseInitialProgressForChapter(chapterToOpen, index);
             MangaReadingProgress? progressForReader;
 
@@ -504,7 +692,6 @@ namespace MSCS.ViewModels
                 }
             }
 
-            // 3) Navigate to the reader with the prepared context
             var readerViewModel = new ReaderViewModel(
                 images,
                 chapterToOpen.Title ?? string.Empty,
@@ -516,6 +703,7 @@ namespace MSCS.ViewModels
                 progressForReader);
 
             _navigationService.NavigateToViewModel(readerViewModel);
+            _ = PrefetchChapterAsync(index + 1);
         }
 
         private bool ShouldUseInitialProgressForChapter(Chapter chapterToOpen, int index)
@@ -988,6 +1176,22 @@ namespace MSCS.ViewModels
                 _cacheOrder.Clear();
                 _cacheNodes.Clear();
             }
+        }
+
+        public sealed class ChapterSortOption
+        {
+            public ChapterSortOption(string displayName, string? propertyName, ListSortDirection? direction)
+            {
+                DisplayName = displayName;
+                PropertyName = propertyName;
+                Direction = direction;
+            }
+
+            public string DisplayName { get; }
+
+            public string? PropertyName { get; }
+
+            public ListSortDirection? Direction { get; }
         }
     }
 }

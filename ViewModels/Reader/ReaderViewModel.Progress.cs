@@ -44,6 +44,7 @@ namespace MSCS.ViewModels
             _lastKnownViewportHeight = clampedViewport;
 
             SetProperty(ref _scrollProgress, progress, nameof(ScrollProgress));
+            UpdateCurrentPageDisplay();
 
             if (_isRestoringProgress)
             {
@@ -71,6 +72,7 @@ namespace MSCS.ViewModels
             _lastKnownAnchorImageProgress = anchorProgress.HasValue
                 ? Math.Clamp(anchorProgress.Value, 0.0, 1.0)
                 : null;
+            UpdateCurrentPageDisplay();
         }
 
         private bool HasReachedRestoreTarget(double currentOffset)
@@ -148,6 +150,48 @@ namespace MSCS.ViewModels
         }
 
 
+        private void UpdateCurrentPageDisplay()
+        {
+            if (_allImages.Count <= 0)
+            {
+                CurrentPage = 0;
+                return;
+            }
+
+            int newPage = CalculateCurrentPage();
+            newPage = Math.Clamp(newPage, 1, _allImages.Count);
+            CurrentPage = newPage;
+        }
+
+        private int CalculateCurrentPage()
+        {
+            if (_allImages.Count == 0)
+            {
+                return 0;
+            }
+
+            if (!string.IsNullOrWhiteSpace(_lastKnownAnchorImageUrl))
+            {
+                int anchorIndex = GetImageIndex(_lastKnownAnchorImageUrl!);
+                if (anchorIndex >= 0)
+                {
+                    double anchorProgress = _lastKnownAnchorImageProgress ?? 0.0;
+                    bool advanceToNext = anchorProgress >= 0.5 && anchorIndex + 1 < _allImages.Count;
+                    return advanceToNext ? anchorIndex + 2 : anchorIndex + 1;
+                }
+            }
+
+            if (_scrollProgress > 0)
+            {
+                int estimatedIndex = (int)Math.Clamp(
+                    Math.Ceiling(_scrollProgress * _allImages.Count) - 1,
+                    0,
+                    Math.Max(_allImages.Count - 1, 0));
+                return estimatedIndex + 1;
+            }
+
+            return 1;
+        }
         private void RestoreReadingProgress()
         {
             if (_hasRestoredInitialProgress || string.IsNullOrWhiteSpace(MangaTitle))

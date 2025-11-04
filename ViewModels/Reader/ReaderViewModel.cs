@@ -81,6 +81,23 @@ namespace MSCS.ViewModels
 
         private double _scrollProgress;
         public double ScrollProgress => _scrollProgress;
+
+        private int _currentPage;
+        public int CurrentPage
+        {
+            get => _currentPage;
+            private set
+            {
+                if (SetProperty(ref _currentPage, value))
+                {
+                    OnPropertyChanged(nameof(CurrentPagePercentage));
+                }
+            }
+        }
+
+        public double CurrentPagePercentage => TotalImages <= 0
+            ? 0.0
+            : Math.Clamp((double)CurrentPage / TotalImages, 0.0, 1.0);
         private bool _isSidebarOpen;
         public bool IsSidebarOpen
         {
@@ -167,6 +184,7 @@ namespace MSCS.ViewModels
             }
         }
         public ObservableCollection<ChapterImage> ImageUrls { get; }
+        public ChapterListViewModel? ChapterListViewModel => _chapterListViewModel;
         private string? DetermineProfileKey()
         {
             if (!string.IsNullOrWhiteSpace(_chapterListViewModel?.Manga?.Title))

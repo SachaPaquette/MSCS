@@ -144,16 +144,48 @@
 
         <Grid Margin="0">
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto">
+                    <RowDefinition.Style>
+                        <Style TargetType="RowDefinition">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding DataContext.IsReaderFullscreen, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                    <Setter Property="Height" Value="0"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </RowDefinition.Style>
+                </RowDefinition>
                 <!-- top bar -->
-                <RowDefinition Height="16"/>
+                <RowDefinition Height="16">
+                    <RowDefinition.Style>
+                        <Style TargetType="RowDefinition">
+                            <Setter Property="Height" Value="16"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding DataContext.IsReaderFullscreen, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                    <Setter Property="Height" Value="0"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </RowDefinition.Style>
+                </RowDefinition>
                 <RowDefinition Height="*"/>
                 <!-- content -->
             </Grid.RowDefinitions>
             <!-- Tab menu -->
-            <Border Grid.Row="0"
+            <Border x:Name="TabBarContainer"
+                    Grid.Row="0"
                     Margin="24,12,24,0"
                     Background="{x:Null}">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Visibility" Value="Visible"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsReaderFullscreen}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
                 <ListBox ItemsSource="{Binding Tabs}"
                          SelectedItem="{Binding SelectedTab, Mode=TwoWay}"
                          ItemTemplate="{StaticResource MainTabTemplate}"
@@ -172,13 +204,21 @@
 
             <!-- Content host, centered, width not driven by content -->
             <Border Grid.Row="2"
-                    Style="{DynamicResource SurfaceSectionStyle}"
                     HorizontalAlignment="Stretch"
-                    VerticalAlignment="Stretch"
-                    Padding="0"
-                    CornerRadius="22"
-                    BorderThickness="0"
-                    Effect="{x:Null}">
+                    VerticalAlignment="Stretch">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource SurfaceSectionStyle}">
+                        <Setter Property="Padding" Value="0"/>
+                        <Setter Property="CornerRadius" Value="22"/>
+                        <Setter Property="BorderThickness" Value="0"/>
+                        <Setter Property="Effect" Value="{x:Null}"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsReaderFullscreen}" Value="True">
+                                <Setter Property="CornerRadius" Value="0"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
                 <!-- MainWindow.xaml -->
                 <Grid Background="{DynamicResource SurfaceLow}">
                     <ContentControl Content="{Binding CurrentViewModel}"

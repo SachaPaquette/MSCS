@@ -61,6 +61,8 @@ namespace MSCS.ViewModels
             await ResetImagesAsync(result.Images).ConfigureAwait(false);
             Debug.WriteLine($"Navigated to chapter {result.ChapterIndex} with {result.Images.Count} images.");
             CommandManager.InvalidateRequerySuggested();
+            OnPropertyChanged(nameof(CanNavigateToNextChapter));
+            OnPropertyChanged(nameof(CanNavigateToPreviousChapter));
             UpdateSelectedChapter(result.ChapterIndex);
             UpdateChapterTransitionPreview();
 
@@ -120,6 +122,8 @@ namespace MSCS.ViewModels
             return _chapterCoordinator?.CanGoToNext(_currentChapterIndex) ?? false;
         }
 
+        public bool CanNavigateToNextChapter => CanGoToNextChapter();
+
         public async Task GoToNextChapterAsync()
         {
             if (!CanGoToNextChapter())
@@ -133,6 +137,8 @@ namespace MSCS.ViewModels
         {
             return _chapterCoordinator?.CanGoToPrevious(_currentChapterIndex) ?? false;
         }
+
+        public bool CanNavigateToPreviousChapter => CanGoToPreviousChapter();
 
         public async Task GoToPreviousChapterAsync()
         {
@@ -173,6 +179,8 @@ namespace MSCS.ViewModels
             OnPropertyChanged(nameof(GoHomeCommand));
             OnPropertyChanged(nameof(NextChapterCommand));
             OnPropertyChanged(nameof(PreviousChapterCommand));
+            OnPropertyChanged(nameof(CanNavigateToNextChapter));
+            OnPropertyChanged(nameof(CanNavigateToPreviousChapter));
         }
 
         private void OnNavigationCanGoBackChanged(object? sender, EventArgs e)
@@ -214,6 +222,10 @@ namespace MSCS.ViewModels
             {
                 _isUpdatingSelectedChapter = true;
                 SelectedChapter = _chapterListViewModel.Chapters[_currentChapterIndex];
+                if (!ReferenceEquals(_chapterListViewModel.SelectedChapter, SelectedChapter))
+                {
+                    _chapterListViewModel.SelectedChapter = SelectedChapter;
+                }
                 ChapterTitle = SelectedChapter?.Title ?? ChapterTitle;
                 _isUpdatingSelectedChapter = false;
                 UpdateChapterTransitionPreview();
@@ -231,20 +243,43 @@ namespace MSCS.ViewModels
             {
                 _isUpdatingSelectedChapter = true;
                 SelectedChapter = _chapterListViewModel.Chapters[index];
+                if (!ReferenceEquals(_chapterListViewModel.SelectedChapter, SelectedChapter))
+                {
+                    _chapterListViewModel.SelectedChapter = SelectedChapter;
+                }
                 ChapterTitle = SelectedChapter?.Title ?? ChapterTitle;
                 _isUpdatingSelectedChapter = false;
                 UpdateChapterTransitionPreview();
             }
         }
 
+
         private void ChapterListViewModelOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            if (e.PropertyName == nameof(ChapterListViewModel.Chapters) && _chapterListViewModel != null)
+            if (_chapterListViewModel == null)
+            {
+                return;
+            }
+
+            if (e.PropertyName == nameof(ChapterListViewModel.Chapters))
             {
                 Chapters = _chapterListViewModel.Chapters;
                 SelectInitialChapter();
                 RestoreReadingProgress();
                 _preferences.SetProfileKey(DetermineProfileKey());
+            }
+            else if (e.PropertyName == nameof(ChapterListViewModel.SelectedChapter))
+            {
+                if (_isUpdatingSelectedChapter || _chapterListViewModel.IsApplyingChapterFilters)
+                {
+                    return;
+                }
+
+                var selected = _chapterListViewModel.SelectedChapter;
+                if (!ReferenceEquals(SelectedChapter, selected))
+                {
+                    SelectedChapter = selected;
+                }
             }
         }
     }

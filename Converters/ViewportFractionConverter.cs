@@ -17,11 +17,14 @@ namespace MSCS.Converters
 
             if (vp <= 0) vp = 800;
             double pages = twoPage ? 2.0 : 1.0;
-            var target = autoWidth ? vp / Math.Max(pages, 1.0) : (vp * frac) / Math.Max(pages, 1.0);
-            if (!double.IsInfinity(max) && max > 0) target = Math.Min(target, max);
-            return Math.Max(320, target); // évite trop petit
+            var divisor = Math.Max(pages, 1.0);
+            var target = autoWidth ? vp / divisor : (vp * frac) / divisor;
+            if (autoWidth && !double.IsInfinity(max) && max > 0)
+            {
+                target = Math.Min(target, max);
+            }
+            return Math.Max(320, target);
         }
-
 
         public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
             => throw new NotSupportedException();

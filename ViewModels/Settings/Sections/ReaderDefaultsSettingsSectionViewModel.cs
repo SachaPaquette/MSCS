@@ -128,7 +128,7 @@ namespace MSCS.ViewModels.Settings
 
         private void UpdateReaderWidthFactor(double value, bool persist)
         {
-            var clamped = Math.Clamp(value, 0.3, 1.0);
+            var clamped = Math.Clamp(value, 0.3, 2.0);
             if (SetProperty(ref _readerWidthFactor, clamped, nameof(ReaderWidthFactor)))
             {
                 OnPropertyChanged(nameof(ReaderZoomPercent));
@@ -141,7 +141,10 @@ namespace MSCS.ViewModels.Settings
 
         private void UpdateReaderMaxPageWidth(double value, bool persist)
         {
-            var clamped = Math.Clamp(value, 600, 1600);
+            var normalized = Math.Abs(value - Constants.LegacyDefaultMaxPageWidth) < 0.5
+                ? Constants.DefaultMaxPageWidth
+                : value;
+            var clamped = Math.Clamp(normalized, 600, 3200);
             if (SetProperty(ref _readerMaxPageWidth, clamped, nameof(ReaderMaxPageWidth)) && persist && !_suppressUpdate)
             {
                 PersistDefaultReaderProfile();

@@ -40,8 +40,8 @@ namespace MSCS.Models
             ? string.Format(CultureInfo.CurrentCulture, "{0:0}", MeanScore.Value)
             : null;
         public string? UserStatusDisplay => UserStatus?.ToDisplayString();
-        public string? UserScoreDisplay => UserScore.HasValue
-            ? string.Format(CultureInfo.CurrentCulture, "{0:0.#}", UserScore.Value)
+        public string? UserScoreDisplay => UserScore.HasValue && UserScore.Value > 0
+            ? string.Format(CultureInfo.CurrentCulture, "Score: {0:0.#}", UserScore.Value)
             : null;
         public string? UserProgressDisplay
         {
