@@ -536,6 +536,16 @@ namespace MSCS.Views
             }
         }
 
+        private void ImageList_RequestBringIntoView(object sender, RequestBringIntoViewEventArgs e)
+        {
+            if (_anchorBringIntoViewRequested)
+            {
+                return;
+            }
+
+            e.Handled = true;
+        }
+
         private void FinalizeScrollRestore(ReaderViewModel? vm)
         {
             ClearPendingScrollRestoration();

@@ -102,6 +102,7 @@
                  VirtualizingPanel.CacheLength="1"
                  VirtualizingPanel.ScrollUnit="Pixel"
                  VirtualizingStackPanel.CleanUpVirtualizedItem="Images_CleanUpVirtualizedItem"
+                 RequestBringIntoView="ImageList_RequestBringIntoView"
                  Loaded="ImageList_Loaded"
                  ItemsSource="{Binding ImageUrls}">
             <ListBox.Style>
