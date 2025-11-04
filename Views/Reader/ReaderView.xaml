@@ -289,7 +289,8 @@
             <StackPanel Grid.Column="0"
                         VerticalAlignment="Top"
                         HorizontalAlignment="Left">
-                <Border Background="{DynamicResource SurfaceAlt}"
+                <Border x:Name="SidebarButtonsContainer"
+                        Background="{DynamicResource SurfaceAlt}"
                         BorderBrush="{DynamicResource SurfaceBorderSoft}"
                         BorderThickness="1"
                         CornerRadius="10"
@@ -370,7 +371,7 @@
                                         <Binding ElementName="SidebarToggleButton" Path="IsChecked" TargetNullValue="False" FallbackValue="False"/>
                                         <Binding ElementName="SidebarToggleButton" Path="IsMouseOver"/>
                                         <Binding RelativeSource="{RelativeSource Self}" Path="IsMouseOver"/>
-                                        <Binding ElementName="SidebarHost" Path="IsMouseOver"/>
+                                        <Binding ElementName="SidebarButtonsContainer" Path="IsMouseOver"/>
                                     </MultiBinding>
                                 </DataTrigger.Binding>
                                 <Setter Property="Visibility" Value="Visible"/>
