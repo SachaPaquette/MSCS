@@ -5,9 +5,9 @@ using System.Linq;
 using MSCS.Enums;
 using MSCS.Models;
 
-namespace MSCS.ViewModels
+namespace MSCS.ViewModels.Library
 {
-    public class AniListStatisticsViewModel : BaseViewModel
+    public class TrackingLibraryStatisticsViewModel : BaseViewModel
     {
         private int _totalSeries;
         private int _completedSeries;
@@ -100,52 +100,17 @@ namespace MSCS.ViewModels
             ? LastUpdated.Value.ToLocalTime().ToString("g", CultureInfo.CurrentCulture)
             : "—";
 
-        public void Update(IReadOnlyDictionary<AniListMediaListStatus, IReadOnlyList<AniListMedia>>? lists)
+        public void Update(TrackingLibraryStatisticsSummary summary)
         {
-            if (lists == null)
-            {
-                Reset();
-                return;
-            }
-
-            var allEntries = lists.Values
-                .Where(static group => group != null)
-                .SelectMany(static group => group!)
-                .Where(static media => media != null)
-                .ToList();
-
-            if (allEntries.Count == 0)
-            {
-                Reset();
-                return;
-            }
-
-            TotalSeries = allEntries.Count;
-            CompletedSeries = CountByStatus(allEntries, AniListMediaListStatus.Completed);
-            InProgressSeries = CountByStatus(allEntries, AniListMediaListStatus.Current) +
-                               CountByStatus(allEntries, AniListMediaListStatus.Repeating);
-            PlannedSeries = CountByStatus(allEntries, AniListMediaListStatus.Planning);
-            PausedSeries = CountByStatus(allEntries, AniListMediaListStatus.Paused);
-            DroppedSeries = CountByStatus(allEntries, AniListMediaListStatus.Dropped);
-            ChaptersRead = allEntries.Sum(static media => media.UserProgress ?? 0);
-
-            var scoredEntries = allEntries
-                .Select(static media => media.UserScore)
-                .Where(static score => score.HasValue)
-                .Select(static score => score!.Value)
-                .ToList();
-
-            AverageScore = scoredEntries.Count > 0
-                ? scoredEntries.Average()
-                : null;
-
-            LastUpdated = allEntries
-                .Select(static media => media.UserUpdatedAt)
-                .Where(static updated => updated.HasValue)
-                .Select(static updated => updated!.Value)
-                .DefaultIfEmpty()
-                .Max();
-
+            TotalSeries = summary.TotalSeries;
+            CompletedSeries = summary.CompletedSeries;
+            InProgressSeries = summary.InProgressSeries;
+            PlannedSeries = summary.PlannedSeries;
+            PausedSeries = summary.PausedSeries;
+            DroppedSeries = summary.DroppedSeries;
+            ChaptersRead = summary.ChaptersRead;
+            AverageScore = summary.AverageScore;
+            LastUpdated = summary.LastUpdated;
             HasData = true;
         }
 
@@ -163,9 +128,39 @@ namespace MSCS.ViewModels
             HasData = false;
         }
 
-        private static int CountByStatus(IEnumerable<AniListMedia> items, AniListMediaListStatus status)
+        public readonly struct TrackingLibraryStatisticsSummary
         {
-            return items.Count(media => media.UserStatus == status);
+            public TrackingLibraryStatisticsSummary(
+                int totalSeries,
+                int completedSeries,
+                int inProgressSeries,
+                int plannedSeries,
+                int pausedSeries,
+                int droppedSeries,
+                int chaptersRead,
+                double? averageScore,
+                DateTimeOffset? lastUpdated)
+            {
+                TotalSeries = totalSeries;
+                CompletedSeries = completedSeries;
+                InProgressSeries = inProgressSeries;
+                PlannedSeries = plannedSeries;
+                PausedSeries = pausedSeries;
+                DroppedSeries = droppedSeries;
+                ChaptersRead = chaptersRead;
+                AverageScore = averageScore;
+                LastUpdated = lastUpdated;
+            }
+
+            public int TotalSeries { get; }
+            public int CompletedSeries { get; }
+            public int InProgressSeries { get; }
+            public int PlannedSeries { get; }
+            public int PausedSeries { get; }
+            public int DroppedSeries { get; }
+            public int ChaptersRead { get; }
+            public double? AverageScore { get; }
+            public DateTimeOffset? LastUpdated { get; }
         }
     }
 }

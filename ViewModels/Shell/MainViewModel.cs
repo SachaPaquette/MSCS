@@ -31,7 +31,7 @@ namespace MSCS.ViewModels
             MangaListViewModel mangaListViewModel,
             LocalLibraryViewModel localLibraryViewModel,
             BookmarkLibraryViewModel bookmarkLibraryViewModel,
-            AniListCollectionViewModel aniListCollectionViewModel,
+            TrackingLibrariesViewModel trackingLibrariesViewModel,
             AniListRecommendationsViewModel recommendationsViewModel,
             ContinueReadingViewModel continueReadingViewModel,
             SettingsViewModel settingsViewModel)
@@ -54,7 +54,7 @@ namespace MSCS.ViewModels
             BookmarksVM = bookmarkLibraryViewModel ?? throw new ArgumentNullException(nameof(bookmarkLibraryViewModel));
             BookmarksVM.BookmarkSelected += OnBookmarkSelected;
 
-            AniListCollectionVM = aniListCollectionViewModel ?? throw new ArgumentNullException(nameof(aniListCollectionViewModel));
+            TrackingLibrariesVM = trackingLibrariesViewModel ?? throw new ArgumentNullException(nameof(trackingLibrariesViewModel));
             RecommendationsVM = recommendationsViewModel ?? throw new ArgumentNullException(nameof(recommendationsViewModel));
 
             ContinueReadingVM = continueReadingViewModel ?? throw new ArgumentNullException(nameof(continueReadingViewModel));
@@ -67,7 +67,7 @@ namespace MSCS.ViewModels
                 new("external", "External Sources", "\uE774", MangaListVM),
                 new("local", "Local Library", "\uE8D2", LocalLibraryVM),
                 new("bookmarks", "Bookmarks", "\uE735", BookmarksVM),
-                new("anilist-library", "AniList Library", "\uE12B", AniListCollectionVM),
+                new("tracking-libraries", "Tracking Libraries", "\uE12B", TrackingLibrariesVM),
                 new("recommendations", "AniList Recommendations", "\uE734", RecommendationsVM),
                 new("continue", "Continue Reading", "\uE823", ContinueReadingVM),
                 new("settings", "Settings", "\uE713", SettingsVM)
@@ -89,7 +89,7 @@ namespace MSCS.ViewModels
         public MangaListViewModel MangaListVM { get; }
         public LocalLibraryViewModel LocalLibraryVM { get; }
         public BookmarkLibraryViewModel BookmarksVM { get; }
-        public AniListCollectionViewModel AniListCollectionVM { get; }
+        public TrackingLibrariesViewModel TrackingLibrariesVM { get; }
         public AniListRecommendationsViewModel RecommendationsVM { get; }
         public SettingsViewModel SettingsVM { get; }
         public ContinueReadingViewModel ContinueReadingVM { get; }
@@ -412,7 +412,7 @@ namespace MSCS.ViewModels
             LocalLibraryVM.Dispose();
             BookmarksVM.Dispose();
             RecommendationsVM.Dispose();
-            AniListCollectionVM.Dispose();
+            TrackingLibrariesVM.Dispose();
             ContinueReadingVM.Dispose();
             SettingsVM.Dispose();
         }

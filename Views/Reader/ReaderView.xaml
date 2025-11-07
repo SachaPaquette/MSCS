@@ -106,7 +106,7 @@
                  ItemsSource="{Binding ImageUrls}">
             <ListBox.Style>
                 <Style TargetType="ListBox">
-                    <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+                    <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Visible"/>
                     <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
                     <Style.Triggers>
                         <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=UserControl}, Path=IsFullscreenMode}" Value="True">
