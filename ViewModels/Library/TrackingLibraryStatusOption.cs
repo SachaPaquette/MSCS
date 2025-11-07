@@ -19,6 +19,6 @@
 
         public string DisplayName { get; }
 
-        object ITrackingLibraryStatusOption.StatusValue => Value!;
+        public object StatusValue => Value!;
     }
 }
