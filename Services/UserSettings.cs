@@ -52,6 +52,59 @@ namespace MSCS.Services
             }
         }
 
+
+        public IReadOnlyList<string> LocalLibraryIgnoreList
+        {
+            get
+            {
+                var list = _data.LocalLibraryIgnoreList ??= new List<string>();
+                return list.AsReadOnly();
+            }
+        }
+
+        public void SetLocalLibraryIgnoreList(IEnumerable<string>? entries)
+        {
+            var sanitized = (entries ?? Array.Empty<string>())
+                .Select(entry => NormalizeIgnoreEntry(entry))
+                .Where(entry => !string.IsNullOrEmpty(entry))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(entry => entry, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var existing = _data.LocalLibraryIgnoreList ??= new List<string>();
+            var normalizedExisting = existing
+                .Select(entry => NormalizeIgnoreEntry(entry))
+                .Where(entry => !string.IsNullOrEmpty(entry))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(entry => entry, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (sanitized.SequenceEqual(normalizedExisting, StringComparer.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            _data.LocalLibraryIgnoreList = sanitized;
+            SaveInternal();
+            SettingsChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public bool IncludeHiddenLibraryItems
+        {
+            get => _data.IncludeHiddenLibraryItems;
+            set
+            {
+                if (_data.IncludeHiddenLibraryItems == value)
+                {
+                    return;
+                }
+
+                _data.IncludeHiddenLibraryItems = value;
+                SaveInternal();
+                SettingsChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
         public string? AniListAccessToken
         {
             get => _data.AniListAccessToken;
@@ -869,6 +922,13 @@ namespace MSCS.Services
                 MigrateReadingProgressKeys(data);
                 data.ReaderProfiles ??= new Dictionary<string, ReaderProfileData>();
                 data.DefaultReaderProfile ??= new ReaderProfileData();
+                data.LocalLibraryIgnoreList ??= new List<string>();
+                data.LocalLibraryIgnoreList = data.LocalLibraryIgnoreList
+                    .Select(entry => NormalizeIgnoreEntry(entry))
+                    .Where(entry => !string.IsNullOrEmpty(entry))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(entry => entry, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
                 return data;
             }
             catch
@@ -1102,6 +1162,19 @@ namespace MSCS.Services
             return string.Empty;
         }
 
+        private static string NormalizeIgnoreEntry(string? entry)
+        {
+            if (string.IsNullOrWhiteSpace(entry))
+            {
+                return string.Empty;
+            }
+
+            var normalized = entry.Trim();
+            normalized = normalized.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+            normalized = Path.TrimEndingDirectorySeparator(normalized);
+            return normalized;
+        }
+
         private static string CreateTitleStorageKey(string title)
         {
             return string.IsNullOrWhiteSpace(title)
@@ -1147,6 +1220,8 @@ namespace MSCS.Services
         private class SettingsData
         {
             public string? LocalLibraryPath { get; set; }
+            public List<string> LocalLibraryIgnoreList { get; set; } = new();
+            public bool IncludeHiddenLibraryItems { get; set; }
             public string? AniListAccessToken { get; set; }
             public DateTimeOffset? AniListAccessTokenExpiry { get; set; }
             public string? AniListUserName { get; set; }
