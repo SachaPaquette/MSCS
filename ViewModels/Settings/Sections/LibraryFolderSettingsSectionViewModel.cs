@@ -82,8 +82,13 @@ namespace MSCS.ViewModels.Settings
             }
         }
 
-        private void OnLibraryPathChanged(object? sender, EventArgs e)
+        private void OnLibraryPathChanged(object? sender, LibraryChangedEventArgs e)
         {
+            if (e.Kind != LibraryChangeKind.Reset)
+            {
+                return;
+            }
+
             try
             {
                 _suppressUpdate = true;

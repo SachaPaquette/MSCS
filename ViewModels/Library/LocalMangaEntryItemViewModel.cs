@@ -13,17 +13,30 @@ namespace MSCS.ViewModels
         private bool _isBookmarked;
         private bool _disposed;
         private string? _bookmarkStorageKey;
-
+        private LocalMangaEntry _entry;
         public LocalMangaEntryItemViewModel(LocalMangaEntry entry, UserSettings userSettings)
         {
-            Entry = entry ?? throw new ArgumentNullException(nameof(entry));
+            _entry = entry ?? throw new ArgumentNullException(nameof(entry));
             _userSettings = userSettings ?? throw new ArgumentNullException(nameof(userSettings));
 
             ToggleBookmarkCommand = new RelayCommand(_ => ToggleBookmark(), _ => CanToggleBookmark());
             UpdateBookmarkState();
         }
 
-        public LocalMangaEntry Entry { get; }
+        public LocalMangaEntry Entry
+        {
+            get => _entry;
+            private set
+            {
+                _entry = value;
+                OnPropertyChanged(nameof(Entry));
+                OnPropertyChanged(nameof(Title));
+                OnPropertyChanged(nameof(Path));
+                OnPropertyChanged(nameof(ChapterCount));
+                OnPropertyChanged(nameof(LastModifiedUtc));
+                OnPropertyChanged(nameof(GroupKey));
+            }
+        }
 
         public string Title => Entry.Title;
 
@@ -90,6 +103,17 @@ namespace MSCS.ViewModels
                 _bookmarkStorageKey = null;
                 IsBookmarked = false;
             }
+        }
+
+        public void UpdateEntry(LocalMangaEntry entry)
+        {
+            if (entry == null)
+            {
+                throw new ArgumentNullException(nameof(entry));
+            }
+
+            Entry = entry;
+            UpdateBookmarkState();
         }
 
         public void Dispose()

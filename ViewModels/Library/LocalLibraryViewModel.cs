@@ -5,6 +5,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Windows.Input;
 using System;
+using System.IO;
 
 namespace MSCS.ViewModels
 {
@@ -28,7 +29,9 @@ namespace MSCS.ViewModels
         private int _visibleEntryCursor;
         private bool _hasMoreResults;
         private CancellationTokenSource? _reloadCancellationTokenSource;
-
+        private readonly SemaphoreSlim _incrementalUpdateSemaphore = new(1, 1);
+        private bool _isIncrementalRefresh;
+        private string? _incrementalStatusMessage;
         public LocalLibraryViewModel(LocalLibraryService libraryService, UserSettings userSettings)
         {
             _libraryService = libraryService ?? throw new ArgumentNullException(nameof(libraryService));
@@ -134,6 +137,24 @@ namespace MSCS.ViewModels
 
         public bool IsLibraryEmpty => HasLibraryPath && _isLibraryLoaded && !IsLoading && _visibleEntries.Count == 0;
 
+        public bool IsIncrementalRefresh
+        {
+            get => _isIncrementalRefresh;
+            private set
+            {
+                if (SetProperty(ref _isIncrementalRefresh, value))
+                {
+                    CommandManager.InvalidateRequerySuggested();
+                }
+            }
+        }
+
+        public string? IncrementalStatusMessage
+        {
+            get => _incrementalStatusMessage;
+            private set => SetProperty(ref _incrementalStatusMessage, value);
+        }
+
         public void EnsureLibraryLoaded()
         {
             if (_disposed) return;
@@ -155,6 +176,7 @@ namespace MSCS.ViewModels
             _allEntries.Clear();
             _filteredEntries.Clear();
             _visibleEntries.Clear();
+            _incrementalUpdateSemaphore.Dispose();
         }
 
         private async Task ReloadLibraryAsync()
@@ -243,6 +265,62 @@ namespace MSCS.ViewModels
         }
 
 
+        private async Task HandleLibraryChangeAsync(LibraryChangedEventArgs e)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            if (!_libraryService.LibraryPathExists())
+            {
+                await ReloadLibraryAsync();
+                return;
+            }
+
+            var entryPath = e.EntryPath ?? (!string.IsNullOrEmpty(e.FullPath) ? _libraryService.ResolveEntryPath(e.FullPath) : null);
+            var oldEntryPath = e.OldEntryPath ?? (!string.IsNullOrEmpty(e.OldPath) ? _libraryService.ResolveEntryPath(e.OldPath) : null);
+
+            if (string.IsNullOrEmpty(entryPath) && string.IsNullOrEmpty(oldEntryPath))
+            {
+                await ReloadLibraryAsync();
+                return;
+            }
+
+            await _incrementalUpdateSemaphore.WaitAsync();
+            try
+            {
+                var targetPath = entryPath ?? oldEntryPath;
+                if (string.IsNullOrEmpty(targetPath))
+                {
+                    return;
+                }
+
+                UpdateIncrementalStatus(true, CreateIncrementalStatusMessage(targetPath));
+
+                if (e.Kind == LibraryChangeKind.DirectoryRemoved)
+                {
+                    await ApplyEntryRemovalAsync(oldEntryPath ?? targetPath);
+                    return;
+                }
+
+                if (e.Kind == LibraryChangeKind.Renamed &&
+                    !string.IsNullOrEmpty(oldEntryPath) &&
+                    !string.Equals(oldEntryPath, entryPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    await ApplyEntryRemovalAsync(oldEntryPath);
+                }
+
+                var refreshedEntry = await _libraryService.GetMangaEntryAsync(targetPath);
+                await ApplyEntryUpdateAsync(targetPath, refreshedEntry);
+            }
+            finally
+            {
+                UpdateIncrementalStatus(false, null);
+                _incrementalUpdateSemaphore.Release();
+            }
+        }
+
         private void ReplaceAllEntries(List<LocalMangaEntryItemViewModel> newItems)
         {
             DisposeEntries(_allEntries);
@@ -305,14 +383,27 @@ namespace MSCS.ViewModels
             }
         }
 
-        private void OnLibraryPathChanged(object? sender, EventArgs e)
+
+        private void OnLibraryPathChanged(object? sender, LibraryChangedEventArgs e)
         {
-            if (_isLibraryLoaded)
+            if (_disposed)
             {
-                _isLibraryLoaded = false;
-                OnPropertyChanged(nameof(IsLibraryEmpty));
+                return;
             }
-            _ = ReloadLibraryAsync();
+
+            if (e.Kind == LibraryChangeKind.Reset)
+            {
+                if (_isLibraryLoaded)
+                {
+                    _isLibraryLoaded = false;
+                    OnPropertyChanged(nameof(IsLibraryEmpty));
+                }
+
+                _ = ReloadLibraryAsync();
+                return;
+            }
+
+            _ = HandleLibraryChangeAsync(e);
         }
 
         private void ApplyFilters(bool resetCursor)
@@ -445,6 +536,129 @@ namespace MSCS.ViewModels
             {
                 entry.UpdateBookmarkState();
             }
+        }
+
+
+        private async Task ApplyEntryUpdateAsync(string path, LocalMangaEntry? entry)
+        {
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher != null && !dispatcher.CheckAccess())
+            {
+                await dispatcher.InvokeAsync(() => ApplyEntryUpdateInternal(path, entry));
+            }
+            else
+            {
+                ApplyEntryUpdateInternal(path, entry);
+            }
+        }
+
+        private async Task ApplyEntryRemovalAsync(string? path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return;
+            }
+
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher != null && !dispatcher.CheckAccess())
+            {
+                await dispatcher.InvokeAsync(() => RemoveEntry(path));
+            }
+            else
+            {
+                RemoveEntry(path);
+            }
+        }
+
+        private void ApplyEntryUpdateInternal(string path, LocalMangaEntry? entry)
+        {
+            if (entry == null)
+            {
+                RemoveEntry(path);
+                return;
+            }
+
+            UpsertEntry(entry);
+        }
+
+        private void UpsertEntry(LocalMangaEntry entry)
+        {
+            var existingIndex = _allEntries.FindIndex(vm => string.Equals(vm.Path, entry.Path, StringComparison.OrdinalIgnoreCase));
+            if (existingIndex >= 0)
+            {
+                var existing = _allEntries[existingIndex];
+                var wasSelected = ReferenceEquals(SelectedManga, existing);
+                _allEntries.RemoveAt(existingIndex);
+                existing.UpdateEntry(entry);
+                InsertSorted(_allEntries, existing);
+
+                if (wasSelected)
+                {
+                    SelectedManga = existing;
+                }
+            }
+            else
+            {
+                var viewModel = new LocalMangaEntryItemViewModel(entry, _userSettings);
+                InsertSorted(_allEntries, viewModel);
+            }
+
+            UpdateGroups(_allEntries);
+            UpdateBookmarkStates();
+            ApplyFilters(resetCursor: false);
+        }
+
+        private void RemoveEntry(string path)
+        {
+            var index = _allEntries.FindIndex(vm => string.Equals(vm.Path, path, StringComparison.OrdinalIgnoreCase));
+            if (index < 0)
+            {
+                return;
+            }
+
+            var entry = _allEntries[index];
+            var wasSelected = ReferenceEquals(SelectedManga, entry);
+
+            _allEntries.RemoveAt(index);
+            entry.Dispose();
+
+            if (wasSelected)
+            {
+                SelectedManga = null;
+            }
+
+            UpdateGroups(_allEntries);
+            ApplyFilters(resetCursor: false);
+        }
+
+        private static void InsertSorted(List<LocalMangaEntryItemViewModel> entries, LocalMangaEntryItemViewModel item)
+        {
+            var insertIndex = entries.FindIndex(existing => string.Compare(existing.Title, item.Title, StringComparison.OrdinalIgnoreCase) > 0);
+            if (insertIndex >= 0)
+            {
+                entries.Insert(insertIndex, item);
+            }
+            else
+            {
+                entries.Add(item);
+            }
+        }
+
+        private void UpdateIncrementalStatus(bool isActive, string? message)
+        {
+            IsIncrementalRefresh = isActive;
+            IncrementalStatusMessage = message;
+        }
+
+        private static string CreateIncrementalStatusMessage(string path)
+        {
+            var name = Path.GetFileName(path);
+            if (string.IsNullOrEmpty(name))
+            {
+                name = path;
+            }
+
+            return $"Refreshing {name}...";
         }
 
         private static void DisposeEntries(IEnumerable<LocalMangaEntryItemViewModel> entries)
