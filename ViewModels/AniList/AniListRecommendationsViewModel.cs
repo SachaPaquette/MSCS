@@ -22,7 +22,7 @@ namespace MSCS.ViewModels
         private const int ItemsIncrement = 12;
         private const int MaxItemsPerCategory = 50;
 
-        private readonly AniListService _aniListService;
+        private readonly IAniListService _aniListService;
         private readonly CancellationTokenSource _cts = new();
         private readonly Dictionary<AniListRecommendationCategory, Task<bool>> _categoryLoadTasks = new();
         private readonly HashSet<AniListRecommendationCategory> _loadedCategories = new();
@@ -36,7 +36,7 @@ namespace MSCS.ViewModels
         private int _trendingItemsToLoad = DefaultItemsPerCategory;
         private int _newReleasesItemsToLoad = DefaultItemsPerCategory;
         private int _staffPicksItemsToLoad = DefaultItemsPerCategory;
-        public AniListRecommendationsViewModel(AniListService aniListService)
+        public AniListRecommendationsViewModel(IAniListService aniListService)
         {
             _aniListService = aniListService ?? throw new ArgumentNullException(nameof(aniListService));
 

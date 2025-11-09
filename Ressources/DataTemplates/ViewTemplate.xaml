@@ -20,8 +20,8 @@
     <DataTemplate DataType="{x:Type vm:ContinueReadingViewModel}">
         <views:ContinueReadingView />
     </DataTemplate>
-    <DataTemplate DataType="{x:Type vm:AniListCollectionViewModel}">
-        <views:AniListCollectionView />
+    <DataTemplate DataType="{x:Type vm:TrackingLibrariesViewModel}">
+        <views:TrackingLibrariesView />
     </DataTemplate>
     <DataTemplate DataType="{x:Type vm:AniListRecommendationsViewModel}">
         <views:AniListRecommendationsView />

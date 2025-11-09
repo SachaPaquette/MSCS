@@ -68,14 +68,14 @@ public partial class App : System.Windows.Application
         services.AddSingleton<ReadingListService>();
         services.AddSingleton<LocalSource>();
 
-        services.AddSingleton<AniListService>();
+        services.AddSingleton<IAniListService, AniListService>();
         services.AddSingleton<MyAnimeListService>();
         services.AddSingleton<KitsuService>();
 
         services.AddSingleton<MediaTrackingServiceRegistry>(provider =>
         {
             var registry = new MediaTrackingServiceRegistry();
-            registry.Register(provider.GetRequiredService<AniListService>());
+            registry.Register(provider.GetRequiredService<IAniListService>());
             registry.Register(provider.GetRequiredService<MyAnimeListService>());
             registry.Register(provider.GetRequiredService<KitsuService>());
             return registry;
@@ -99,8 +99,11 @@ public partial class App : System.Windows.Application
         provider.GetRequiredService<UserSettings>()));
         services.AddSingleton<LocalLibraryViewModel>();
         services.AddSingleton<BookmarkLibraryViewModel>();
-        services.AddSingleton(provider => new AniListCollectionViewModel(provider.GetRequiredService<AniListService>()));
-        services.AddSingleton(provider => new AniListRecommendationsViewModel(provider.GetRequiredService<AniListService>()));
+        services.AddSingleton<AniListTrackingLibraryViewModel>();
+        services.AddSingleton<MyAnimeListTrackingLibraryViewModel>();
+        services.AddSingleton<KitsuTrackingLibraryViewModel>();
+        services.AddSingleton<TrackingLibrariesViewModel>();
+        services.AddSingleton(provider => new AniListRecommendationsViewModel(provider.GetRequiredService<IAniListService>()));
         services.AddSingleton(provider => new ContinueReadingViewModel(
         provider.GetRequiredService<UserSettings>(),
         provider.GetRequiredService<ReadingListService>()));
