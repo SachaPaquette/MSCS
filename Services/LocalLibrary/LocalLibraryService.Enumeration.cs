@@ -9,9 +9,9 @@ namespace MSCS.Services
 {
     public partial class LocalLibraryService
     {
-        private static List<string> EnumerateImageFiles(string directory) => EnumerateFilteredFiles(directory, IsImageFile, "images");
+        private List<string> EnumerateImageFiles(string directory) => EnumerateFilteredFiles(directory, IsImageFile, "images");
 
-        private static bool ContainsChapterContent(DirectoryInfo directory, IDictionary<string, DirectoryScanResult> cache)
+        private bool ContainsChapterContent(DirectoryInfo directory, IDictionary<string, DirectoryScanResult> cache)
         {
             try
             {
@@ -39,16 +39,40 @@ namespace MSCS.Services
             }
         }
 
-        private static List<string> EnumerateArchiveFiles(string directory) => EnumerateFilteredFiles(directory, IsArchive, "archives");
+        private List<string> EnumerateArchiveFiles(string directory) => EnumerateFilteredFiles(directory, IsArchive, "archives");
 
-        private static List<string> EnumerateFilteredFiles(string directory, Func<string, bool> predicate, string description)
+        private List<string> EnumerateFilteredFiles(string directory, Func<string, bool> predicate, string description)
         {
             try
             {
-                return Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly)
-                    .Where(predicate)
-                    .OrderBy(path => path, NaturalSortComparer.Instance)
-                    .ToList();
+                var files = new List<string>();
+
+                foreach (var path in Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly))
+                {
+                    FileInfo info;
+                    try
+                    {
+                        info = new FileInfo(path);
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    {
+                        Debug.WriteLine($"Failed to inspect file '{path}': {ex.Message}");
+                        continue;
+                    }
+
+                    if (!ShouldInclude(info))
+                    {
+                        continue;
+                    }
+
+                    if (predicate(path))
+                    {
+                        files.Add(path);
+                    }
+                }
+
+                files.Sort(NaturalSortComparer.Instance);
+                return files;
             }
             catch (Exception ex)
             {
@@ -57,7 +81,7 @@ namespace MSCS.Services
             }
         }
 
-        private static int CountChapters(DirectoryInfo info, IDictionary<string, DirectoryScanResult> cache)
+        private int CountChapters(DirectoryInfo info, IDictionary<string, DirectoryScanResult> cache)
         {
             try
             {
@@ -95,17 +119,19 @@ namespace MSCS.Services
             }
         }
 
-        private static LocalMangaEntry CreateEntry(DirectoryInfo info, IDictionary<string, DirectoryScanResult> cache)
+        private LocalMangaEntry CreateEntry(DirectoryInfo info, IDictionary<string, DirectoryScanResult> cache)
         {
             var chapters = CountChapters(info, cache);
             return new LocalMangaEntry(info.Name, info.FullName, chapters, info.LastWriteTimeUtc);
         }
 
-        private static IEnumerable<DirectoryInfo> SafeEnumerateDirectories(DirectoryInfo root)
+        private IEnumerable<DirectoryInfo> SafeEnumerateDirectories(DirectoryInfo root)
         {
             try
             {
-                return root.EnumerateDirectories();
+                return root.EnumerateDirectories()
+                    .Where(ShouldInclude)
+                    .ToArray();
             }
             catch (Exception ex)
             {
@@ -113,6 +139,131 @@ namespace MSCS.Services
                 return Array.Empty<DirectoryInfo>();
             }
         }
+
+
+        private bool ShouldInclude(FileSystemInfo entry)
+        {
+            if (entry == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                if (!_settings.IncludeHiddenLibraryItems)
+                {
+                    var attributes = entry.Attributes;
+                    if ((attributes & (FileAttributes.Hidden | FileAttributes.System)) != 0)
+                    {
+                        return false;
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Debug.WriteLine($"Failed to inspect attributes for '{entry.FullName}': {ex.Message}");
+                return false;
+            }
+
+            var ignoreList = _settings.LocalLibraryIgnoreList;
+            if (ignoreList.Count == 0)
+            {
+                return true;
+            }
+
+            var comparer = StringComparer.OrdinalIgnoreCase;
+            var entryName = entry.Name;
+            var fullName = NormalizePathForComparison(entry.FullName);
+            var relativePath = TryGetRelativePath(LibraryPath, entry.FullName);
+
+            foreach (var ignore in ignoreList)
+            {
+                if (string.IsNullOrWhiteSpace(ignore))
+                {
+                    continue;
+                }
+
+                var normalizedIgnore = NormalizePathForComparison(ignore);
+
+                if (comparer.Equals(entryName, normalizedIgnore))
+                {
+                    return false;
+                }
+
+                if (comparer.Equals(fullName, normalizedIgnore))
+                {
+                    return false;
+                }
+
+                var requiresHierarchyMatch = Path.IsPathRooted(normalizedIgnore) || normalizedIgnore.IndexOf(Path.DirectorySeparatorChar) >= 0;
+
+                if (requiresHierarchyMatch && !string.IsNullOrEmpty(fullName))
+                {
+                    var absolutePrefix = normalizedIgnore + Path.DirectorySeparatorChar;
+                    if (fullName.StartsWith(absolutePrefix, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return false;
+                    }
+                }
+
+                if (requiresHierarchyMatch && !string.IsNullOrEmpty(relativePath))
+                {
+                    if (comparer.Equals(relativePath, normalizedIgnore))
+                    {
+                        return false;
+                    }
+
+                    var relativePrefix = normalizedIgnore + Path.DirectorySeparatorChar;
+                    if (relativePath.StartsWith(relativePrefix, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        private static string NormalizePathForComparison(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return string.Empty;
+            }
+
+            var normalized = path.Trim();
+            normalized = normalized.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+            return Path.TrimEndingDirectorySeparator(normalized);
+        }
+
+        private static string? TryGetRelativePath(string? root, string fullPath)
+        {
+            if (string.IsNullOrWhiteSpace(root))
+            {
+                return null;
+            }
+
+            try
+            {
+                var relative = Path.GetRelativePath(root, fullPath);
+                if (string.IsNullOrEmpty(relative) || string.Equals(relative, ".", StringComparison.Ordinal))
+                {
+                    return string.Empty;
+                }
+
+                if (relative.StartsWith("..", StringComparison.Ordinal))
+                {
+                    return null;
+                }
+
+                return NormalizePathForComparison(relative);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         private static bool IsImageFile(string path)
         {
             var extension = Path.GetExtension(path);
@@ -124,14 +275,14 @@ namespace MSCS.Services
             return !string.IsNullOrWhiteSpace(extension) && ArchiveExtensions.Contains(extension);
         }
 
-        private static DirectoryScanResult GetDirectoryScan(DirectoryInfo directory, IDictionary<string, DirectoryScanResult> cache)
+        private DirectoryScanResult GetDirectoryScan(DirectoryInfo directory, IDictionary<string, DirectoryScanResult> cache)
         {
             if (cache.TryGetValue(directory.FullName, out var cached))
             {
                 return cached;
             }
 
-            var scan = DirectoryScanResult.Create(directory);
+            var scan = DirectoryScanResult.Create(directory, ShouldInclude);
             cache[directory.FullName] = scan;
             return scan;
         }
@@ -155,7 +306,7 @@ namespace MSCS.Services
 
             public bool HasChapterFiles => ArchiveFiles.Count > 0 || ImageFiles.Count > 0;
 
-            public static DirectoryScanResult Create(DirectoryInfo directory)
+            public static DirectoryScanResult Create(DirectoryInfo directory, Func<FileSystemInfo, bool> includePredicate)
             {
                 try
                 {
@@ -165,6 +316,25 @@ namespace MSCS.Services
 
                     foreach (var entry in directory.EnumerateFileSystemInfos())
                     {
+                        var shouldInclude = true;
+                        if (includePredicate != null)
+                        {
+                            try
+                            {
+                                shouldInclude = includePredicate(entry);
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"Failed to evaluate entry '{entry.FullName}': {ex.Message}");
+                                shouldInclude = false;
+                            }
+                        }
+
+                        if (!shouldInclude)
+                        {
+                            continue;
+                        }
+
                         if (entry is DirectoryInfo subDirectory)
                         {
                             subdirectories.Add(subDirectory);

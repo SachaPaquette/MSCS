@@ -36,7 +36,8 @@ namespace MSCS.Services
                         .ToList();
                 }
 
-                var subDirectories = directory.GetDirectories()
+                var subDirectories = directory.EnumerateDirectories()
+                    .Where(ShouldInclude)
                     .OrderBy(dir => dir.Name, NaturalSortComparer.Instance)
                     .ToList();
 

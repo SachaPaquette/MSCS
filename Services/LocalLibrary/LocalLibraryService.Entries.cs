@@ -19,6 +19,8 @@ namespace MSCS.Services
                 return Array.Empty<LocalMangaEntry>();
             }
 
+            var visitedManifestPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
             try
             {
                 var results = new List<LocalMangaEntry>();
@@ -29,45 +31,126 @@ namespace MSCS.Services
                 {
                     if (ct.IsCancellationRequested)
                     {
-                        return FinalizeResults(results);
+                        PersistManifestSafely();
+                        return SortResults(results);
+                    }
+
+                    if (TryGetCachedEntry(directory, visitedManifestPaths, out var cachedEntry))
+                    {
+                        results.Add(cachedEntry);
+                        continue;
                     }
 
                     if (ContainsChapterContent(directory, scanCache))
                     {
-                        results.Add(CreateEntry(directory, scanCache));
+                        var entry = CreateEntry(directory, scanCache);
+                        results.Add(entry);
+                        _manifest.UpdateEntry(directory, entry);
+                        visitedManifestPaths.Add(directory.FullName);
                         continue;
                     }
+
+                    _manifest.RemoveEntry(directory.FullName);
 
                     var directoryScan = GetDirectoryScan(directory, scanCache);
                     foreach (var subDirectory in directoryScan.Subdirectories)
                     {
                         if (ct.IsCancellationRequested)
                         {
-                            return FinalizeResults(results);
+                            PersistManifestSafely();
+                            return SortResults(results);
+                        }
+
+                        if (TryGetCachedEntry(subDirectory, visitedManifestPaths, out var cachedSubEntry))
+                        {
+                            results.Add(cachedSubEntry);
+                            continue;
                         }
 
                         if (ContainsChapterContent(subDirectory, scanCache))
                         {
-                            results.Add(CreateEntry(subDirectory, scanCache));
+                            var entry = CreateEntry(subDirectory, scanCache);
+                            results.Add(entry);
+                            _manifest.UpdateEntry(subDirectory, entry);
+                            visitedManifestPaths.Add(subDirectory.FullName);
+                        }
+                        else
+                        {
+                            _manifest.RemoveEntry(subDirectory.FullName);
                         }
                     }
                 }
 
-                if (results.Count == 0 && ContainsChapterContent(rootInfo, scanCache))
+                if (results.Count == 0)
                 {
-                    results.Add(CreateEntry(rootInfo, scanCache));
+                    if (TryGetCachedEntry(rootInfo, visitedManifestPaths, out var cachedRoot))
+                    {
+                        results.Add(cachedRoot);
+                    }
+                    else if (ContainsChapterContent(rootInfo, scanCache))
+                    {
+                        var entry = CreateEntry(rootInfo, scanCache);
+                        results.Add(entry);
+                        _manifest.UpdateEntry(rootInfo, entry);
+                        visitedManifestPaths.Add(rootInfo.FullName);
+                    }
+                    else
+                    {
+                        _manifest.RemoveEntry(rootInfo.FullName);
+                    }
                 }
 
-                return FinalizeResults(results);
+                return FinalizeResults(results, rootInfo, visitedManifestPaths);
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Failed to enumerate local manga entries: {ex.Message}");
+                PersistManifestSafely();
                 return Array.Empty<LocalMangaEntry>();
             }
         }
 
-        private static IReadOnlyList<LocalMangaEntry> FinalizeResults(List<LocalMangaEntry> results)
+
+        private bool TryGetCachedEntry(DirectoryInfo directory, ISet<string> visitedPaths, out LocalMangaEntry entry)
+        {
+            if (_manifest.TryGetEntry(directory, out entry))
+            {
+                visitedPaths.Add(directory.FullName);
+                return true;
+            }
+
+            entry = null!;
+            return false;
+        }
+
+        private IReadOnlyList<LocalMangaEntry> FinalizeResults(List<LocalMangaEntry> results, DirectoryInfo rootInfo, ISet<string> visitedPaths)
+        {
+            try
+            {
+                _manifest.PruneEntries(rootInfo.FullName, visitedPaths);
+                _manifest.SaveIfDirty();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to update library manifest: {ex.Message}");
+            }
+
+            return SortResults(results);
+        }
+
+        private void PersistManifestSafely()
+        {
+            try
+            {
+                _manifest.SaveIfDirty();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to persist library manifest: {ex.Message}");
+            }
+        }
+
+        private static IReadOnlyList<LocalMangaEntry> SortResults(List<LocalMangaEntry> results)
         {
             if (results.Count == 0)
             {
@@ -77,6 +160,49 @@ namespace MSCS.Services
             return results
                 .OrderBy(entry => entry.Title, StringComparer.OrdinalIgnoreCase)
                 .ToList();
+        }
+
+        private LocalMangaEntry? GetMangaEntryInternal(string directoryPath, CancellationToken ct)
+        {
+            if (string.IsNullOrWhiteSpace(directoryPath))
+            {
+                return null;
+            }
+
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                var info = new DirectoryInfo(directoryPath);
+                if (!info.Exists)
+                {
+                    _manifest.RemoveEntry(directoryPath);
+                    PersistManifestSafely();
+                    return null;
+                }
+
+                var cache = new Dictionary<string, DirectoryScanResult>(StringComparer.OrdinalIgnoreCase);
+                if (!ContainsChapterContent(info, cache))
+                {
+                    _manifest.RemoveEntry(info.FullName);
+                    PersistManifestSafely();
+                    return null;
+                }
+
+                var entry = CreateEntry(info, cache);
+                _manifest.UpdateEntry(info, entry);
+                PersistManifestSafely();
+                return entry;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to refresh manga entry '{directoryPath}': {ex.Message}");
+                return null;
+            }
         }
     }
 }
