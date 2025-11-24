@@ -28,6 +28,7 @@ namespace MSCS.ViewModels
             ThemeService themeService,
             MediaTrackingServiceRegistry mediaTrackingRegistry,
             LocalSource localSource,
+            HomeViewModel homeViewModel,
             MangaListViewModel mangaListViewModel,
             LocalLibraryViewModel localLibraryViewModel,
             BookmarkLibraryViewModel bookmarkLibraryViewModel,
@@ -41,6 +42,7 @@ namespace MSCS.ViewModels
             _themeService = themeService ?? throw new ArgumentNullException(nameof(themeService));
             _mediaTrackingRegistry = mediaTrackingRegistry ?? throw new ArgumentNullException(nameof(mediaTrackingRegistry));
             _localSource = localSource ?? throw new ArgumentNullException(nameof(localSource));
+            HomeVM = homeViewModel ?? throw new ArgumentNullException(nameof(homeViewModel));
 
             _themeService.ApplyTheme(_userSettings.AppTheme);
 
@@ -64,6 +66,7 @@ namespace MSCS.ViewModels
 
             Tabs = new ObservableCollection<MainMenuTab>
             {
+                new("home", "Home", "\uE80F", HomeVM),
                 new("external", "External Sources", "\uE774", MangaListVM),
                 new("local", "Local Library", "\uE8D2", LocalLibraryVM),
                 new("bookmarks", "Bookmarks", "\uE735", BookmarksVM),
@@ -93,6 +96,7 @@ namespace MSCS.ViewModels
         public AniListRecommendationsViewModel RecommendationsVM { get; }
         public SettingsViewModel SettingsVM { get; }
         public ContinueReadingViewModel ContinueReadingVM { get; }
+        public HomeViewModel HomeVM { get; }
         public ObservableCollection<MainMenuTab> Tabs { get; }
         public MediaTrackingServiceRegistry MediaTrackingRegistry => _mediaTrackingRegistry;
 

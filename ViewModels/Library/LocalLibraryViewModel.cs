@@ -1,11 +1,12 @@
 ﻿using MSCS.Commands;
 using MSCS.Models;
 using MSCS.Services;
-using System.Collections.ObjectModel;
-using System.Diagnostics;
-using System.Windows.Input;
 using System;
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.Diagnostics;
 using System.IO;
+using System.Windows.Input;
 
 namespace MSCS.ViewModels
 {
@@ -23,15 +24,23 @@ namespace MSCS.ViewModels
         private const int MangaDisplayBatchSize = 60;
         private readonly ObservableCollection<LocalMangaEntryItemViewModel> _visibleEntries = new();
         private readonly ReadOnlyObservableCollection<LocalMangaEntryItemViewModel> _readOnlyVisibleEntries;
+        private readonly ObservableCollection<object> _previewEntries = new();
+        private readonly ReadOnlyObservableCollection<object> _readOnlyPreviewEntries;
         private readonly List<LocalMangaEntryItemViewModel> _allEntries = new();
         private readonly List<LocalMangaEntryItemViewModel> _filteredEntries = new();
         private readonly ObservableCollection<string> _groupFilters = new();
+        private readonly ObservableCollection<LocalLibraryFolderEntryViewModel> _folderEntries = new();
+        private readonly ReadOnlyObservableCollection<LocalLibraryFolderEntryViewModel> _readOnlyFolderEntries;
+        private readonly ObservableCollection<LocalLibraryChapterEntryViewModel> _chapterFileEntries = new();
+        private readonly ReadOnlyObservableCollection<LocalLibraryChapterEntryViewModel> _readOnlyChapterFileEntries;
         private int _visibleEntryCursor;
         private bool _hasMoreResults;
         private CancellationTokenSource? _reloadCancellationTokenSource;
         private readonly SemaphoreSlim _incrementalUpdateSemaphore = new(1, 1);
         private bool _isIncrementalRefresh;
         private string? _incrementalStatusMessage;
+        private string? _currentFolderPath = string.Empty;
+        private LocalLibraryFolderEntryViewModel? _selectedFolder;
         public LocalLibraryViewModel(LocalLibraryService libraryService, UserSettings userSettings)
         {
             _libraryService = libraryService ?? throw new ArgumentNullException(nameof(libraryService));
@@ -39,10 +48,19 @@ namespace MSCS.ViewModels
             _libraryService.LibraryPathChanged += OnLibraryPathChanged;
             _userSettings.BookmarksChanged += OnBookmarksChanged;
             _readOnlyVisibleEntries = new ReadOnlyObservableCollection<LocalMangaEntryItemViewModel>(_visibleEntries);
+            _readOnlyPreviewEntries = new ReadOnlyObservableCollection<object>(_previewEntries);
+            _readOnlyFolderEntries = new ReadOnlyObservableCollection<LocalLibraryFolderEntryViewModel>(_folderEntries);
+            _readOnlyChapterFileEntries = new ReadOnlyObservableCollection<LocalLibraryChapterEntryViewModel>(_chapterFileEntries);
+
+            _visibleEntries.CollectionChanged += OnPreviewSourceCollectionChanged;
+            _folderEntries.CollectionChanged += OnPreviewSourceCollectionChanged;
+            _chapterFileEntries.CollectionChanged += OnPreviewSourceCollectionChanged;
 
             RefreshCommand = new AsyncRelayCommand(ReloadLibraryAsync, () => !_isLoading);
             OpenLibraryFolderCommand = new RelayCommand(_ => OpenLibraryFolder(), _ => HasLibraryPath);
             LoadMoreMangaCommand = new RelayCommand(_ => LoadMoreVisibleManga(), _ => HasMoreResults);
+            NavigateUpCommand = new RelayCommand(_ => NavigateUpOneLevel(), _ => CanNavigateUp);
+            NavigateToFolderCommand = new RelayCommand(folder => NavigateToFolder(folder as LocalLibraryFolderEntryViewModel), folder => folder is LocalLibraryFolderEntryViewModel);
             InitializeGroups();
             _ = ReloadLibraryAsync();
         }
@@ -51,7 +69,11 @@ namespace MSCS.ViewModels
 
         public ReadOnlyObservableCollection<LocalMangaEntryItemViewModel> MangaEntries => _readOnlyVisibleEntries;
 
+        public ReadOnlyObservableCollection<object> PreviewEntries => _readOnlyPreviewEntries;
+
         public ObservableCollection<string> GroupFilters => _groupFilters;
+
+        public ReadOnlyObservableCollection<LocalLibraryFolderEntryViewModel> FolderEntries => _readOnlyFolderEntries;
 
         public bool HasLibraryPath
         {
@@ -62,6 +84,7 @@ namespace MSCS.ViewModels
                 {
                     CommandManager.InvalidateRequerySuggested();
                     OnPropertyChanged(nameof(IsLibraryEmpty));
+                    OnPropertyChanged(nameof(CanNavigateUp));
                 }
             }
         }
@@ -119,9 +142,42 @@ namespace MSCS.ViewModels
             }
         }
 
+        public LocalLibraryFolderEntryViewModel? SelectedFolder
+        {
+            get => _selectedFolder;
+            set => SetProperty(ref _selectedFolder, value);
+        }
+
         public ICommand RefreshCommand { get; }
         public ICommand OpenLibraryFolderCommand { get; }
         public ICommand LoadMoreMangaCommand { get; }
+        public ICommand NavigateUpCommand { get; }
+        public ICommand NavigateToFolderCommand { get; }
+
+        public void NavigateToPath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return;
+            }
+
+            try
+            {
+                if (!Directory.Exists(path) || !IsWithinLibrary(path))
+                {
+                    return;
+                }
+
+                CurrentFolderPath = path;
+                SelectedFolder = null;
+                LoadFolderEntries();
+                ApplyFilters(resetCursor: true);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to open folder '{path}': {ex.Message}");
+            }
+        }
 
         public bool HasMoreResults
         {
@@ -155,6 +211,33 @@ namespace MSCS.ViewModels
             private set => SetProperty(ref _incrementalStatusMessage, value);
         }
 
+
+        public string CurrentFolderPath
+        {
+            get => _currentFolderPath ?? string.Empty;
+            private set
+            {
+                if (SetProperty(ref _currentFolderPath, value))
+                {
+                    OnPropertyChanged(nameof(CanNavigateUp));
+                    CommandManager.InvalidateRequerySuggested();
+                }
+            }
+        }
+
+        public bool CanNavigateUp
+        {
+            get
+            {
+                if (!HasLibraryPath || string.IsNullOrWhiteSpace(CurrentFolderPath) || string.IsNullOrWhiteSpace(LibraryPath))
+                {
+                    return false;
+                }
+
+                return !PathsEqual(CurrentFolderPath, LibraryPath);
+            }
+        }
+
         public void EnsureLibraryLoaded()
         {
             if (_disposed) return;
@@ -171,11 +254,16 @@ namespace MSCS.ViewModels
             _disposed = true;
             _libraryService.LibraryPathChanged -= OnLibraryPathChanged;
             _userSettings.BookmarksChanged -= OnBookmarksChanged;
+            _visibleEntries.CollectionChanged -= OnPreviewSourceCollectionChanged;
+            _folderEntries.CollectionChanged -= OnPreviewSourceCollectionChanged;
+            _chapterFileEntries.CollectionChanged -= OnPreviewSourceCollectionChanged;
+
             _reloadCancellationTokenSource?.Cancel();
             DisposeEntries(_allEntries);
             _allEntries.Clear();
             _filteredEntries.Clear();
             _visibleEntries.Clear();
+            _folderEntries.Clear();
             _incrementalUpdateSemaphore.Dispose();
         }
 
@@ -264,7 +352,6 @@ namespace MSCS.ViewModels
             }
         }
 
-
         private async Task HandleLibraryChangeAsync(LibraryChangedEventArgs e)
         {
             if (_disposed)
@@ -329,6 +416,9 @@ namespace MSCS.ViewModels
 
             UpdateGroups(_allEntries);
             UpdateBookmarkStates();
+            EnsureCurrentFolderValid();
+            LoadFolderEntries();
+            LoadChapterFileEntries();
             ApplyFilters(resetCursor: true);
             OnPropertyChanged(nameof(LibraryPath));
         }
@@ -435,6 +525,11 @@ namespace MSCS.ViewModels
         {
             if (!string.IsNullOrWhiteSpace(SearchQuery) &&
                 entry.Title.IndexOf(SearchQuery, StringComparison.OrdinalIgnoreCase) < 0)
+            {
+                return false;
+            }
+
+            if (!IsEntryInCurrentFolder(entry))
             {
                 return false;
             }
@@ -606,6 +701,7 @@ namespace MSCS.ViewModels
             UpdateGroups(_allEntries);
             UpdateBookmarkStates();
             ApplyFilters(resetCursor: false);
+            LoadFolderEntries();
         }
 
         private void RemoveEntry(string path)
@@ -629,6 +725,7 @@ namespace MSCS.ViewModels
 
             UpdateGroups(_allEntries);
             ApplyFilters(resetCursor: false);
+            LoadFolderEntries();
         }
 
         private static void InsertSorted(List<LocalMangaEntryItemViewModel> entries, LocalMangaEntryItemViewModel item)
@@ -659,6 +756,181 @@ namespace MSCS.ViewModels
             }
 
             return $"Refreshing {name}...";
+        }
+
+
+
+        private void NavigateUpOneLevel()
+        {
+            if (!CanNavigateUp)
+            {
+                return;
+            }
+
+            try
+            {
+                var parent = Directory.GetParent(CurrentFolderPath);
+                if (parent == null || !IsWithinLibrary(parent.FullName))
+                {
+                    return;
+                }
+
+                CurrentFolderPath = parent.FullName;
+                SelectedFolder = null;
+                LoadFolderEntries();
+                LoadChapterFileEntries();
+                ApplyFilters(resetCursor: true);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to navigate up from '{CurrentFolderPath}': {ex.Message}");
+            }
+        }
+
+        private void NavigateToFolder(LocalLibraryFolderEntryViewModel? folder)
+        {
+            if (folder == null)
+            {
+                return;
+            }
+
+            NavigateToPath(folder.FullPath);
+        }
+
+        private bool IsWithinLibrary(string path)
+        {
+            if (string.IsNullOrWhiteSpace(LibraryPath))
+            {
+                return false;
+            }
+
+            try
+            {
+                var normalizedLibrary = NormalizePath(LibraryPath);
+                var normalizedPath = NormalizePath(path);
+                return normalizedPath.StartsWith(normalizedLibrary, StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private bool PathsEqual(string first, string second)
+        {
+            try
+            {
+                return string.Equals(NormalizePath(first), NormalizePath(second), StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return string.Equals(first, second, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        private static string NormalizePath(string path)
+        {
+            return Path.GetFullPath(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        }
+
+        private void LoadFolderEntries()
+        {
+            _folderEntries.Clear();
+
+            if (!HasLibraryPath || string.IsNullOrWhiteSpace(CurrentFolderPath) || !Directory.Exists(CurrentFolderPath))
+            {
+                return;
+            }
+
+            foreach (var directoryPath in _libraryService.GetChildDirectories(CurrentFolderPath))
+            {
+                _folderEntries.Add(new LocalLibraryFolderEntryViewModel(directoryPath));
+            }
+        }
+
+        private void LoadChapterFileEntries()
+        {
+            _chapterFileEntries.Clear();
+
+            if (!HasLibraryPath || string.IsNullOrWhiteSpace(CurrentFolderPath) || !Directory.Exists(CurrentFolderPath))
+            {
+                return;
+            }
+
+            foreach (var filePath in _libraryService.GetChildArchiveFiles(CurrentFolderPath))
+            {
+                _chapterFileEntries.Add(new LocalLibraryChapterEntryViewModel(filePath));
+            }
+        }
+
+        private void OnPreviewSourceCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            RebuildPreviewEntries();
+        }
+
+        private void RebuildPreviewEntries()
+        {
+            _previewEntries.Clear();
+
+            var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var entry in _visibleEntries)
+            {
+                if (seenPaths.Add(entry.Path))
+                {
+                    _previewEntries.Add(entry);
+                }
+            }
+
+            foreach (var folder in _folderEntries)
+            {
+                if (seenPaths.Add(folder.FullPath))
+                {
+                    _previewEntries.Add(folder);
+                }
+            }
+
+            foreach (var chapterFile in _chapterFileEntries)
+            {
+                if (seenPaths.Add(chapterFile.FullPath))
+                {
+                    _previewEntries.Add(chapterFile);
+                }
+            }
+        }
+
+        private void EnsureCurrentFolderValid()
+        {
+            if (!HasLibraryPath || string.IsNullOrWhiteSpace(LibraryPath))
+            {
+                CurrentFolderPath = string.Empty;
+                _folderEntries.Clear();
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(CurrentFolderPath) || !IsWithinLibrary(CurrentFolderPath) || !Directory.Exists(CurrentFolderPath))
+            {
+                CurrentFolderPath = LibraryPath;
+            }
+        }
+
+        private bool IsEntryInCurrentFolder(LocalMangaEntryItemViewModel entry)
+        {
+            if (string.IsNullOrWhiteSpace(CurrentFolderPath))
+            {
+                return true;
+            }
+
+            try
+            {
+                var normalizedEntryPath = NormalizePath(entry.Path);
+                var parent = Path.GetDirectoryName(normalizedEntryPath);
+                return !string.IsNullOrEmpty(parent) && PathsEqual(parent, CurrentFolderPath);
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private static void DisposeEntries(IEnumerable<LocalMangaEntryItemViewModel> entries)

@@ -46,7 +46,7 @@
 
         <TextBlock Text="Add Tracking"
                    FontSize="22"
-                   Foreground="#E9EEF7"
+                   Foreground="{DynamicResource SidebarText}"
                    FontWeight="SemiBold" />
 
         <DockPanel Grid.Row="1" Margin="0,12,0,12">
@@ -60,14 +60,14 @@
                      Height="36"
                      Padding="10,4"
                      VerticalContentAlignment="Center"
-                     Background="#1C2434"
-                     Foreground="White"
-                     BorderBrush="#2B3448" />
+                     Background="{DynamicResource SurfaceAlt}"
+                     Foreground="{DynamicResource SidebarText}"
+                     BorderBrush="{DynamicResource SurfaceBorder}" />
         </DockPanel>
 
         <Border Grid.Row="2"
-                Background="#1A2230"
-                BorderBrush="#273145"
+                Background="{DynamicResource Surface}"
+                BorderBrush="{DynamicResource SurfaceBorderSoft}"
                 BorderThickness="1"
                 CornerRadius="8"
                 Padding="4">
@@ -93,10 +93,10 @@
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="ItemBorder" Property="Background" Value="#1F2A3D" />
+                                            <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource ControlHover}" />
                                         </Trigger>
                                         <Trigger Property="IsSelected" Value="True">
-                                            <Setter TargetName="ItemBorder" Property="Background" Value="#2C3A50" />
+                                            <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource ControlPressed}" />
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
@@ -115,7 +115,7 @@
                             <Border Grid.Column="0"
                                     Width="80"
                                     Height="110"
-                                    Background="#1F293A"
+                                    Background="{DynamicResource SurfaceAlt}"
                                     CornerRadius="4">        
                                 <Image Source="{Binding CoverImageUrl}"
                                        Stretch="UniformToFill"
@@ -124,18 +124,18 @@
                             </Border>
                             <StackPanel Grid.Column="2" VerticalAlignment="Center">
                                 <TextBlock Text="{Binding DisplayTitle}"
-                                           Foreground="#E9EEF7"
+                                           Foreground="{DynamicResource SidebarText}"
                                            FontWeight="SemiBold" />
                                 <TextBlock Text="{Binding NativeTitle}"
-                                           Foreground="#8F9BB4"
+                                           Foreground="{DynamicResource FgMuted}"
                                            FontSize="12"
                                            TextTrimming="CharacterEllipsis" />
                                 <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                                    <TextBlock Text="Status:" Foreground="#60708E" FontSize="12" />
-                                    <TextBlock Text="{Binding Status}" Foreground="#8F9BB4" FontSize="12" Margin="4,0,0,0" />
+                                    <TextBlock Text="Status:" Foreground="{DynamicResource FgSubtle}" FontSize="12" />
+                                    <TextBlock Text="{Binding Status}" Foreground="{DynamicResource FgMuted}" FontSize="12" Margin="4,0,0,0" />
                                 </StackPanel>
                                 <TextBlock Text="{Binding StartDateText, StringFormat=Started {0}}"
-                                           Foreground="#8F9BB4"
+                                           Foreground="{DynamicResource FgMuted}"
                                            FontSize="12" />
                             </StackPanel>
                         </Grid>
@@ -145,8 +145,8 @@
         </Border>
 
         <Border Grid.Row="3"
-                Background="#121B29"
-                BorderBrush="#273145"
+                Background="{DynamicResource SurfaceLow}"
+                BorderBrush="{DynamicResource SurfaceBorderSoft}"
                 BorderThickness="1"
                 CornerRadius="8"
                 Padding="12"
@@ -163,36 +163,36 @@
             </Border.Style>
             <StackPanel>
                 <TextBlock Text="Selected series"
-                           Foreground="#E9EEF7"
+                           Foreground="{DynamicResource SidebarText}"
                            FontWeight="SemiBold" />
                 <TextBlock Text="{Binding SelectedMedia.DisplayTitle}"
-                           Foreground="#8F9BB4"
+                           Foreground="{DynamicResource FgMuted}"
                            Margin="0,2,0,4"
                            TextWrapping="Wrap" />
                 <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
                     <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
-                        <TextBlock Text="Format:" Foreground="#60708E" FontSize="12" />
-                        <TextBlock Text="{Binding SelectedMedia.FormatDisplay}" Foreground="#8F9BB4" FontSize="12" Margin="4,0,0,0" />
+                        <TextBlock Text="Format:" Foreground="{DynamicResource FgSubtle}" FontSize="12" />
+                        <TextBlock Text="{Binding SelectedMedia.FormatDisplay}" Foreground="{DynamicResource FgMuted}" FontSize="12" Margin="4,0,0,0" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
-                        <TextBlock Text="Chapters:" Foreground="#60708E" FontSize="12" />
-                        <TextBlock Text=" {Binding SelectedMedia.Chapters}" Foreground="#8F9BB4" FontSize="12" />
+                        <TextBlock Text="Chapters:" Foreground="{DynamicResource FgSubtle}" FontSize="12" />
+                        <TextBlock Text=" {Binding SelectedMedia.Chapters}" Foreground="{DynamicResource FgMuted}" FontSize="12" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Score:" Foreground="#60708E" FontSize="12" />
-                        <TextBlock Text=" {Binding SelectedMedia.MeanScoreDisplay}" Foreground="#8F9BB4" FontSize="12" />
+                        <TextBlock Text="Score:" Foreground="{DynamicResource FgSubtle}" FontSize="12" />
+                        <TextBlock Text=" {Binding SelectedMedia.MeanScoreDisplay}" Foreground="{DynamicResource FgMuted}" FontSize="12" />
                     </StackPanel>
                 </StackPanel>
                 <TextBlock Text="{Binding ExistingEntrySummary}"
-                           Foreground="#8F9BB4"
+                           Foreground="{DynamicResource FgMuted}"
                            FontSize="12"
                            Margin="0,6,0,0"
                            TextWrapping="Wrap" />
 
-                <Separator Margin="0,12,0,12" Background="#273145" />
+                <Separator Margin="0,12,0,12" Background="{DynamicResource SurfaceBorderSoft}" />
 
                 <TextBlock Text="Update AniList entry"
-                           Foreground="#E9EEF7"
+                           Foreground="{DynamicResource SidebarText}"
                            FontWeight="SemiBold" />
                 <ComboBox ItemsSource="{Binding StatusOptions}"
                           SelectedValuePath="Value"
@@ -200,21 +200,21 @@
                           SelectedValue="{Binding SelectedStatus, Mode=TwoWay}"
                           Margin="0,6,0,0"
                           Height="32"
-                          Background="#1C2434"
-                          Foreground="White"
-                          BorderBrush="#2B3448" />
+                          Background="{DynamicResource SurfaceAlt}"
+                          Foreground="{DynamicResource SidebarText}"
+                          BorderBrush="{DynamicResource SurfaceBorder}" />
 
                 <CheckBox Content="Update progress to current chapter"
                           Margin="0,10,0,0"
                           IsChecked="{Binding ApplySuggestedProgress}"
                           IsEnabled="{Binding CanApplySuggestedProgress}"
-                          Foreground="#E9EEF7"
+                          Foreground="{DynamicResource SidebarText}"
                           ToolTip="Use the reader's current chapter as your AniList progress" />
 
                 <StackPanel Orientation="Horizontal" Margin="0,10,0,0" VerticalAlignment="Center">
                     <CheckBox Content="Update score"
                               IsChecked="{Binding UseScore}"
-                              Foreground="#E9EEF7"
+                              Foreground="{DynamicResource SidebarText}"
                               Margin="0,0,8,0" />
                     <Slider Minimum="0"
                             Maximum="100"
@@ -224,7 +224,7 @@
                             TickFrequency="5"
                             IsSnapToTickEnabled="True" />
                     <TextBlock Text="{Binding ScoreDisplay}"
-                               Foreground="#8F9BB4"
+                               Foreground="{DynamicResource FgMuted}"
                                Margin="8,0,0,0" />
                 </StackPanel>
             </StackPanel>
@@ -232,7 +232,7 @@
 
         <StackPanel Grid.Row="4" Margin="0,12,0,0">
             <TextBlock Text="{Binding StatusMessage}"
-                       Foreground="#8F9BB4"
+                       Foreground="{DynamicResource FgMuted}"
                        Margin="0,0,0,12" />
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="Cancel"

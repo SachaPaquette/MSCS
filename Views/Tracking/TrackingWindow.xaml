@@ -5,7 +5,7 @@
         xmlns:views="clr-namespace:MSCS.Views"
         Height="640"
         Width="420"
-        Background="#0F151F"
+        Background="{DynamicResource SurfaceLow}"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         WindowStyle="SingleBorderWindow">
@@ -17,32 +17,35 @@
             <views:MyAnimeListTrackingView />
         </DataTemplate>
         <Style TargetType="TabControl">
-            <Setter Property="Background" Value="#0F151F" />
-            <Setter Property="Foreground" Value="#E9EEF7" />
-            <Setter Property="BorderBrush" Value="#273145" />
+            <Setter Property="Background" Value="{DynamicResource Surface}" />
+            <Setter Property="Foreground" Value="{DynamicResource SidebarText}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorder}" />
+            <Setter Property="Padding" Value="6,4" />
         </Style>
         <Style TargetType="TabItem">
-            <Setter Property="Foreground" Value="#E9EEF7" />
+            <Setter Property="Foreground" Value="{DynamicResource SidebarText}" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Padding" Value="12,6" />
-            <Setter Property="Background" Value="#121B29" />
-            <Setter Property="BorderBrush" Value="#273145" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceLow}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderSoft}" />
             <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="SnapsToDevicePixels" Value="True" />
             <Style.Triggers>
                 <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="#1A2230" />
+                    <Setter Property="Background" Value="{DynamicResource Accent}" />
+                    <Setter Property="Foreground" Value="{DynamicResource AccentForeground}" />
                 </Trigger>
             </Style.Triggers>
         </Style>
     </Window.Resources>
-    <Border Margin="12" Background="#121B29" BorderBrush="#273145" BorderThickness="1" CornerRadius="10">
+    <Border Margin="12" Background="{DynamicResource SurfaceLow}" BorderBrush="{DynamicResource SurfaceBorderSoft}" BorderThickness="1" CornerRadius="10">
         <TabControl ItemsSource="{Binding Providers}"
                     SelectedItem="{Binding SelectedProvider}"
                     Margin="-1">
             <TabControl.ItemTemplate>
                 <DataTemplate>
                     <TextBlock Text="{Binding DisplayName}"
-                               Foreground="#F7FAFF"
+                               Foreground="{DynamicResource SidebarText}"
                                FontSize="14"
                                FontWeight="SemiBold"
                                Opacity="1" />
