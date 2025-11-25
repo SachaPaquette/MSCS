@@ -156,7 +156,6 @@
         </DataTemplate>
     </UserControl.Resources>
 
-    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
         <Grid Margin="24">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
@@ -212,12 +211,11 @@
                              ToolTip="Type to search"
                              Margin="0,0,0,12"/>
 
-                    <ListView Grid.Row="3"
-                              ItemsSource="{Binding LocalLibrary.PreviewEntries}"
-                              Background="Transparent"
-                              BorderThickness="0"
-                              ScrollViewer.VerticalScrollBarVisibility="Auto"
-                              Height="360">
+                <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
+                    <ListView ItemsSource="{Binding LocalLibrary.PreviewEntries}"
+                                  Background="Transparent"
+                                  BorderThickness="0"
+                                  VerticalAlignment="Stretch">
                         <ListView.ItemContainerStyle>
                             <Style TargetType="ListViewItem">
                                 <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
@@ -228,7 +226,8 @@
                             </Style>
                         </ListView.ItemContainerStyle>
                     </ListView>
-                </Grid>
+                </ScrollViewer>
+            </Grid>
             </Border>
 
             <!-- Bookmarks preview -->
@@ -259,13 +258,13 @@
                                 </Style.Triggers>
                             </Style>
                         </Grid.Style>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <ListView ItemsSource="{Binding Bookmarks.Bookmarks}"
-                                  SelectedItem="{Binding Bookmarks.SelectedBookmark, Mode=TwoWay}"
-                                  ItemTemplate="{StaticResource BookmarkItemTemplate}"
-                                  Background="Transparent"
-                                  BorderThickness="0"
-                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                  Height="400">
+                                      SelectedItem="{Binding Bookmarks.SelectedBookmark, Mode=TwoWay}"
+                                      ItemTemplate="{StaticResource BookmarkItemTemplate}"
+                                      Background="Transparent"
+                                      BorderThickness="0"
+                                      VerticalAlignment="Stretch">
                             <ListView.ItemContainerStyle>
                                 <Style TargetType="ListViewItem">
                                     <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
@@ -274,7 +273,8 @@
                                 </Style>
                             </ListView.ItemContainerStyle>
                         </ListView>
-                    </Grid>
+                    </ScrollViewer>
+                </Grid>
 
                     <StackPanel Grid.Row="2" Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
                         <StackPanel.Style>
@@ -315,12 +315,12 @@
                             </Style>
                         </Grid.Style>
 
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <ListView ItemsSource="{Binding ContinueReading.Entries}"
-                                  ItemTemplate="{StaticResource ContinueReadingTemplate}"
-                                  Background="Transparent"
-                                  BorderThickness="0"
-                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                  Height="400">
+                                      ItemTemplate="{StaticResource ContinueReadingTemplate}"
+                                      Background="Transparent"
+                                      BorderThickness="0"
+                                      VerticalAlignment="Stretch">
                             <ListView.ItemContainerStyle>
                                 <Style TargetType="ListViewItem">
                                     <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
@@ -333,7 +333,8 @@
                                 </Style>
                             </ListView.ItemContainerStyle>
                         </ListView>
-                    </Grid>
+                    </ScrollViewer>
+                </Grid>
 
                     <TextBlock Grid.Row="1"
                                Text="Start reading a chapter to see it here."
@@ -355,5 +356,4 @@
                 </Grid>
             </Border>
         </Grid>
-    </ScrollViewer>
 </UserControl>
