@@ -171,6 +171,7 @@ namespace MSCS.ViewModels
                 CurrentFolderPath = path;
                 SelectedFolder = null;
                 LoadFolderEntries();
+                LoadChapterFileEntries();
                 ApplyFilters(resetCursor: true);
             }
             catch (Exception ex)
@@ -874,14 +875,6 @@ namespace MSCS.ViewModels
 
             var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            foreach (var entry in _visibleEntries)
-            {
-                if (seenPaths.Add(entry.Path))
-                {
-                    _previewEntries.Add(entry);
-                }
-            }
-
             foreach (var folder in _folderEntries)
             {
                 if (seenPaths.Add(folder.FullPath))
@@ -895,6 +888,14 @@ namespace MSCS.ViewModels
                 if (seenPaths.Add(chapterFile.FullPath))
                 {
                     _previewEntries.Add(chapterFile);
+                }
+            }
+
+            foreach (var entry in _visibleEntries)
+            {
+                if (seenPaths.Add(entry.Path))
+                {
+                    _previewEntries.Add(entry);
                 }
             }
         }

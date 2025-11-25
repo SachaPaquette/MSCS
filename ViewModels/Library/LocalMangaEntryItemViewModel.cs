@@ -52,7 +52,7 @@ namespace MSCS.ViewModels
 
                 if (string.IsNullOrWhiteSpace(extension))
                 {
-                    return Directory.Exists(Path) ? "FOLDER" : string.Empty;
+                    return string.Empty;
                 }
 
                 return extension.TrimStart('.').ToUpper(CultureInfo.InvariantCulture);

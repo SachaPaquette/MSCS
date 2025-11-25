@@ -20,6 +20,6 @@ namespace MSCS.ViewModels
 
         public string FullPath { get; }
 
-        public string ExtensionLabel => "FOLDER";
+        public string ExtensionLabel => string.Empty;
     }
 }
