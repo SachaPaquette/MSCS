@@ -2,6 +2,19 @@
 
 namespace MSCS.ViewModels
 {
+    public class LocalChapterRequestedEventArgs : EventArgs
+    {
+        public LocalChapterRequestedEventArgs(string chapterPath)
+        {
+            ChapterPath = chapterPath ?? throw new ArgumentNullException(nameof(chapterPath));
+        }
+
+        public string ChapterPath { get; }
+    }
+}
+
+namespace MSCS.ViewModels
+{
     public class HomeViewModel : BaseViewModel
     {
         public HomeViewModel(
@@ -14,10 +27,22 @@ namespace MSCS.ViewModels
             ContinueReading = continueReadingViewModel ?? throw new ArgumentNullException(nameof(continueReadingViewModel));
         }
 
+        public event EventHandler<LocalChapterRequestedEventArgs>? LocalChapterRequested;
+
         public LocalLibraryViewModel LocalLibrary { get; }
 
         public BookmarkLibraryViewModel Bookmarks { get; }
 
         public ContinueReadingViewModel ContinueReading { get; }
+
+        public void OpenLocalChapter(LocalLibraryChapterEntryViewModel chapter)
+        {
+            if (chapter == null || string.IsNullOrWhiteSpace(chapter.FullPath))
+            {
+                return;
+            }
+
+            LocalChapterRequested?.Invoke(this, new LocalChapterRequestedEventArgs(chapter.FullPath));
+        }
     }
 }

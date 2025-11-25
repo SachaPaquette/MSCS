@@ -4,6 +4,7 @@ using MSCS.Services;
 using MSCS.Sources;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
 
 namespace MSCS.ViewModels
 {
@@ -61,7 +62,7 @@ namespace MSCS.ViewModels
 
             ContinueReadingVM = continueReadingViewModel ?? throw new ArgumentNullException(nameof(continueReadingViewModel));
             ContinueReadingVM.ContinueReadingRequested += OnContinueReadingRequested;
-
+            HomeVM.LocalChapterRequested += OnLocalChapterRequested;
             SettingsVM = settingsViewModel ?? throw new ArgumentNullException(nameof(settingsViewModel));
 
             Tabs = new ObservableCollection<MainMenuTab>
@@ -328,6 +329,56 @@ namespace MSCS.ViewModels
         }
 
 
+        private async void OnLocalChapterRequested(object? sender, LocalChapterRequestedEventArgs e)
+        {
+            if (_disposed || e == null)
+            {
+                return;
+            }
+
+            var chapterPath = e.ChapterPath;
+            if (string.IsNullOrWhiteSpace(chapterPath))
+            {
+                return;
+            }
+
+            var mangaDirectory = GetMangaDirectory(chapterPath);
+            if (string.IsNullOrWhiteSpace(mangaDirectory) || !Directory.Exists(mangaDirectory))
+            {
+                return;
+            }
+
+            var normalizedChapterPath = NormalizePathSafe(chapterPath);
+            var chapterTitle = Path.GetFileNameWithoutExtension(normalizedChapterPath) ?? Path.GetFileName(normalizedChapterPath) ?? normalizedChapterPath;
+            var mangaTitle = new DirectoryInfo(mangaDirectory).Name;
+
+            var chapters = await _localSource.GetChaptersAsync(mangaDirectory).ConfigureAwait(false);
+            var chapterIndex = FindChapterIndex(chapters, normalizedChapterPath);
+
+            var progress = new MangaReadingProgress(
+                chapterIndex >= 0 ? chapterIndex : 0,
+                chapterTitle,
+                0,
+                DateTimeOffset.UtcNow,
+                mangaDirectory,
+                SourceKeyConstants.LocalLibrary);
+
+            var manga = new Manga
+            {
+                Title = mangaTitle,
+                Url = mangaDirectory,
+                Description = string.Empty
+            };
+
+            NavigateToChapterList(
+                _localSource,
+                manga,
+                SourceKeyConstants.LocalLibrary,
+                autoOpenChapter: true,
+                skipChapterListNavigation: true,
+                initialProgress: progress);
+        }
+
         public void NavigateTo<TViewModel>() where TViewModel : BaseViewModel
         {
             if (_disposed)
@@ -389,6 +440,83 @@ namespace MSCS.ViewModels
             }
         }
 
+
+        private static int FindChapterIndex(IReadOnlyList<Chapter> chapters, string chapterPath)
+        {
+            if (chapters == null || chapters.Count == 0 || string.IsNullOrWhiteSpace(chapterPath))
+            {
+                return -1;
+            }
+
+            var normalizedTarget = NormalizePathSafe(chapterPath);
+
+            for (var i = 0; i < chapters.Count; i++)
+            {
+                var candidate = chapters[i];
+                if (string.IsNullOrWhiteSpace(candidate?.Url))
+                {
+                    continue;
+                }
+
+                var normalizedCandidate = NormalizePathSafe(candidate.Url);
+                if (PathsEqual(normalizedCandidate, normalizedTarget))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        private static string? GetMangaDirectory(string chapterPath)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(chapterPath))
+                {
+                    return null;
+                }
+
+                if (Directory.Exists(chapterPath))
+                {
+                    return Directory.GetParent(chapterPath)?.FullName;
+                }
+
+                if (File.Exists(chapterPath))
+                {
+                    return Path.GetDirectoryName(chapterPath);
+                }
+            }
+            catch
+            {
+            }
+
+            return null;
+        }
+
+        private static bool PathsEqual(string? first, string? second)
+        {
+            if (string.IsNullOrWhiteSpace(first) || string.IsNullOrWhiteSpace(second))
+            {
+                return false;
+            }
+
+            return string.Equals(NormalizePathSafe(first), NormalizePathSafe(second), StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string NormalizePathSafe(string path)
+        {
+            try
+            {
+                return Path.GetFullPath(path)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            }
+            catch
+            {
+                return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            }
+        }
+
         private void DisposeActiveChapterViewModel()
         {
             var existing = _activeChapterViewModel;
@@ -411,6 +539,7 @@ namespace MSCS.ViewModels
             LocalLibraryVM.MangaSelected -= OnLocalMangaSelected;
             BookmarksVM.BookmarkSelected -= OnBookmarkSelected;
             ContinueReadingVM.ContinueReadingRequested -= OnContinueReadingRequested;
+            HomeVM.LocalChapterRequested -= OnLocalChapterRequested;
             DisposeActiveChapterViewModel();
             MangaListVM.Dispose();
             LocalLibraryVM.Dispose();

@@ -40,17 +40,7 @@ namespace MSCS.Views
             }
             else if (dataContext is LocalLibraryChapterEntryViewModel chapter)
             {
-                try
-                {
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = chapter.FullPath,
-                        UseShellExecute = true
-                    });
-                }
-                catch
-                {
-                }
+                homeViewModel.OpenLocalChapter(chapter);
             }
         }
     }
