@@ -1,8 +1,10 @@
 ﻿using MSCS.ViewModels;
 using System.Diagnostics;
 using System.IO;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using ListViewItem = System.Windows.Controls.ListViewItem;
 using UserControl = System.Windows.Controls.UserControl;
 
@@ -16,6 +18,19 @@ namespace MSCS.Views
         }
         private void OnContinueReadingClicked(object sender, MouseButtonEventArgs e)
         {
+            if (e.OriginalSource is DependencyObject source)
+            {
+                while (source != null)
+                {
+                    if (source is System.Windows.Controls.Primitives.ButtonBase)
+                    {
+                        return;
+                    }
+
+                    source = VisualTreeHelper.GetParent(source);
+                }
+            }
+
             if (sender is ListViewItem { DataContext: ContinueReadingEntryViewModel entry } item)
             {
                 entry.ContinueCommand?.Execute(entry);
