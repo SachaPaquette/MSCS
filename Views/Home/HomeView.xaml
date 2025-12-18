@@ -41,15 +41,9 @@
                         Style="{StaticResource ExtensionLabelBorderStyle}">
                     <TextBlock Text="{Binding ExtensionLabel}" FontWeight="SemiBold" Foreground="{DynamicResource Fg}"/>
                 </Border>
-                <StackPanel Grid.Column="1">
-                    <TextBlock Text="{Binding Title}"
-                               FontSize="16"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource Fg}"/>
-                    <TextBlock Text="{Binding Path}"
-                               Foreground="{DynamicResource FgMuted}"
-                               FontSize="12"
-                               TextTrimming="CharacterEllipsis"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="" FontFamily="Segoe MDL2 Assets" Margin="0,0,8,0" Foreground="{DynamicResource FgSubtle}"/>
+                    <TextBlock Text="{Binding Title}" Foreground="{DynamicResource Fg}"/>
                 </StackPanel>
             </Grid>
         </DataTemplate>
@@ -212,22 +206,24 @@
                              ToolTip="Type to search"
                              Margin="0,0,0,12"/>
 
-                <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
-                    <ListView ItemsSource="{Binding LocalLibrary.PreviewEntries}"
-                                  Background="Transparent"
-                                  BorderThickness="0"
-                                  VerticalAlignment="Stretch">
-                        <ListView.ItemContainerStyle>
-                            <Style TargetType="ListViewItem">
-                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                                <Setter Property="Margin" Value="0,0,0,10"/>
-                                <Setter Property="Background" Value="Transparent"/>
-                                <Setter Property="Cursor" Value="Hand"/>
-                                <EventSetter Event="MouseDoubleClick" Handler="OnLibraryItemDoubleClick"/>
-                            </Style>
-                        </ListView.ItemContainerStyle>
-                    </ListView>
-                </ScrollViewer>
+                <ListView Grid.Row="3"
+          ItemsSource="{Binding LocalLibrary.PreviewEntries}"
+          Background="Transparent"
+          BorderThickness="0"
+          VerticalAlignment="Stretch"
+          ScrollViewer.VerticalScrollBarVisibility="Auto"
+          ScrollViewer.CanContentScroll="True">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                            <Setter Property="Margin" Value="0,0,0,10"/>
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="Cursor" Value="Hand"/>
+                            <EventSetter Event="MouseDoubleClick" Handler="OnLibraryItemDoubleClick"/>
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                </ListView>
+
             </Grid>
             </Border>
 
@@ -259,14 +255,14 @@
                                 </Style.Triggers>
                             </Style>
                         </Grid.Style>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <ListView ItemsSource="{Binding Bookmarks.Bookmarks}"
-                                      SelectedItem="{Binding Bookmarks.SelectedBookmark, Mode=TwoWay}"
-                                      ItemTemplate="{StaticResource BookmarkItemTemplate}"
-                                      Background="Transparent"
-                                      BorderThickness="0"
-                                      VerticalAlignment="Stretch">
-                            <ListView.ItemContainerStyle>
+                    <ListView ItemsSource="{Binding Bookmarks.Bookmarks}"
+                      SelectedItem="{Binding Bookmarks.SelectedBookmark, Mode=TwoWay}"
+                      ItemTemplate="{StaticResource BookmarkItemTemplate}"
+                      Background="Transparent"
+                      BorderThickness="0"
+                      VerticalAlignment="Stretch"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListView.ItemContainerStyle>
                                 <Style TargetType="ListViewItem">
                                     <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                                     <Setter Property="Margin" Value="0,0,0,10"/>
@@ -274,7 +270,6 @@
                                 </Style>
                             </ListView.ItemContainerStyle>
                         </ListView>
-                    </ScrollViewer>
                 </Grid>
 
                     <StackPanel Grid.Row="2" Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -316,13 +311,13 @@
                             </Style>
                         </Grid.Style>
 
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <ListView ItemsSource="{Binding ContinueReading.Entries}"
-                                      ItemTemplate="{StaticResource ContinueReadingTemplate}"
-                                      Background="Transparent"
-                                      BorderThickness="0"
-                                      VerticalAlignment="Stretch">
-                            <ListView.ItemContainerStyle>
+                    <ListView ItemsSource="{Binding ContinueReading.Entries}"
+                      ItemTemplate="{StaticResource ContinueReadingTemplate}"
+                      Background="Transparent"
+                      BorderThickness="0"
+                      VerticalAlignment="Stretch"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListView.ItemContainerStyle>
                                 <Style TargetType="ListViewItem">
                                     <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                                     <Setter Property="Padding" Value="0"/>
@@ -334,7 +329,6 @@
                                 </Style>
                             </ListView.ItemContainerStyle>
                         </ListView>
-                    </ScrollViewer>
                 </Grid>
 
                     <TextBlock Grid.Row="1"

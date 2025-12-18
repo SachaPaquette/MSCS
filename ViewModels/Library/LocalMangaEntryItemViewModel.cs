@@ -48,6 +48,11 @@ namespace MSCS.ViewModels
         {
             get
             {
+                if (Directory.Exists(Path))
+                {
+                    return string.Empty;
+                }
+
                 var extension = System.IO.Path.GetExtension(Path);
 
                 if (string.IsNullOrWhiteSpace(extension))

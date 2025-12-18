@@ -112,6 +112,8 @@ namespace MSCS.ViewModels
                 if (SetProperty(ref _searchQuery, value))
                 {
                     ApplyFilters(resetCursor: true);
+                    LoadFolderEntries();
+                    LoadChapterFileEntries();
                 }
             }
         }
@@ -524,11 +526,7 @@ namespace MSCS.ViewModels
 
         private bool MatchesFilters(LocalMangaEntryItemViewModel entry)
         {
-            if (!string.IsNullOrWhiteSpace(SearchQuery) &&
-                entry.Title.IndexOf(SearchQuery, StringComparison.OrdinalIgnoreCase) < 0)
-            {
-                return false;
-            }
+            if (!MatchesSearch(entry.Title))
 
             if (!IsEntryInCurrentFolder(entry))
             {
@@ -829,6 +827,26 @@ namespace MSCS.ViewModels
             }
         }
 
+        private bool MatchesSearch(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(SearchQuery))
+            {
+                return true;
+            }
+
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return false;
+            }
+
+            if (value.StartsWith(".", StringComparison.Ordinal) && !SearchQuery.StartsWith(".", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            return value.IndexOf(SearchQuery, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
         private static string NormalizePath(string path)
         {
             return Path.GetFullPath(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
@@ -845,9 +863,17 @@ namespace MSCS.ViewModels
 
             foreach (var directoryPath in _libraryService.GetChildDirectories(CurrentFolderPath))
             {
+                var name = Path.GetFileName(directoryPath);
+                if (string.IsNullOrEmpty(name))
+                    continue;
+
+                if (!MatchesSearch(name))
+                    continue;
+
                 _folderEntries.Add(new LocalLibraryFolderEntryViewModel(directoryPath));
             }
         }
+
 
         private void LoadChapterFileEntries()
         {
@@ -877,7 +903,7 @@ namespace MSCS.ViewModels
 
             foreach (var folder in _folderEntries)
             {
-                if (seenPaths.Add(folder.FullPath))
+                if (MatchesSearch(folder.Name) && seenPaths.Add(folder.FullPath))
                 {
                     _previewEntries.Add(folder);
                 }
@@ -885,7 +911,7 @@ namespace MSCS.ViewModels
 
             foreach (var chapterFile in _chapterFileEntries)
             {
-                if (seenPaths.Add(chapterFile.FullPath))
+                if (MatchesSearch(chapterFile.Name) && seenPaths.Add(chapterFile.FullPath))
                 {
                     _previewEntries.Add(chapterFile);
                 }
@@ -893,6 +919,11 @@ namespace MSCS.ViewModels
 
             foreach (var entry in _visibleEntries)
             {
+                if (!IsEntryInCurrentFolder(entry))
+                {
+                    continue;
+                }
+
                 if (seenPaths.Add(entry.Path))
                 {
                     _previewEntries.Add(entry);

@@ -56,10 +56,11 @@ namespace MSCS.Helpers
             if (sv == null) return;
 
             var from = sv.VerticalOffset;
+            var target = Math.Clamp(targetOffset, 0, sv.ScrollableHeight);
             var anim = new DoubleAnimation
             {
                 From = from,
-                To = Math.Max(0, targetOffset),
+                To = target,
                 Duration = duration,
                 EasingFunction = easing ?? new QuadraticEase { EasingMode = EasingMode.EaseInOut }
             };
@@ -75,10 +76,11 @@ namespace MSCS.Helpers
             if (sv == null) return;
 
             var from = sv.HorizontalOffset;
+            var target = Math.Clamp(targetOffset, 0, sv.ScrollableWidth);
             var anim = new DoubleAnimation
             {
                 From = from,
-                To = Math.Max(0, targetOffset),
+                To = target,
                 Duration = duration,
                 EasingFunction = easing ?? new QuadraticEase { EasingMode = EasingMode.EaseInOut }
             };
