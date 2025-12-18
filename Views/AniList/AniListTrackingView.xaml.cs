@@ -11,13 +11,5 @@ namespace MSCS.Views
         {
             InitializeComponent();
         }
-
-        private void ListBox_MouseDoubleClick(object sender, MouseButtonEventArgs e)
-        {
-            if (DataContext is AniListTrackingViewModel viewModel && viewModel.ConfirmCommand.CanExecute(null))
-            {
-                viewModel.ConfirmCommand.Execute(null);
-            }
-        }
     }
 }

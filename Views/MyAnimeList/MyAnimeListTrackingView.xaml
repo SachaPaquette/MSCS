@@ -1,316 +1,156 @@
 ﻿<UserControl x:Class="MSCS.Views.MyAnimeListTrackingView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             Background="{DynamicResource SurfaceLow}">
+             xmlns:views="clr-namespace:MSCS.Views">
 
     <UserControl.Resources>
-        <Style x:Key="AccentButton" TargetType="Button">
-            <Setter Property="Background" Value="#7C9CFF" />
-            <Setter Property="Foreground" Value="White" />
-            <Setter Property="BorderBrush" Value="{x:Null}" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="ButtonBorder"
-                                Background="{TemplateBinding Background}"
-                                CornerRadius="8"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="#91ACFF" />
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="#6987F7" />
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.5" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        <DataTemplate x:Key="MyAnimeListResultTemplate">
+            <Grid Margin="4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="80" />
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0"
+                        Width="80"
+                        Height="110"
+                        Background="{DynamicResource SurfaceAlt}"
+                        CornerRadius="4">
+                    <Image Source="{Binding CoverImageUrl}"
+                           Stretch="UniformToFill"
+                           ClipToBounds="True"
+                           SnapsToDevicePixels="True" />
+                </Border>
+
+                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Title}"
+                               Foreground="{DynamicResource SidebarText}"
+                               FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding Synopsis}"
+                               Foreground="{DynamicResource FgMuted}"
+                               FontSize="12"
+                               TextWrapping="Wrap"
+                               MaxHeight="48"
+                               TextTrimming="CharacterEllipsis" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                        <TextBlock Text="Chapters:" Foreground="{DynamicResource FgSubtle}" FontSize="12" />
+                        <TextBlock Text="{Binding Chapters}" Foreground="{DynamicResource FgMuted}" FontSize="12" Margin="4,0,0,0" />
+                        <TextBlock Text="•" Foreground="{DynamicResource FgSubtle}" FontSize="12" Margin="8,0" />
+                        <TextBlock Text="Score:" Foreground="{DynamicResource FgSubtle}" FontSize="12" />
+                        <TextBlock Text="{Binding Score, StringFormat={}{0:0.#}}" Foreground="{DynamicResource FgMuted}" FontSize="12" Margin="4,0,0,0" />
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="MyAnimeListSelectedTemplate">
+            <Grid Margin="0,8,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0"
+                        Width="120"
+                        Height="165"
+                        Background="{DynamicResource SurfaceAlt}"
+                        CornerRadius="6">
+                    <Image Source="{Binding CoverImageUrl}"
+                           Stretch="UniformToFill"
+                           ClipToBounds="True"
+                           SnapsToDevicePixels="True" />
+                </Border>
+
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="{Binding Title}"
+                               Foreground="{DynamicResource FgMuted}"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap" />
+
+                    <TextBlock Text="{Binding Synopsis}"
+                               Foreground="{DynamicResource FgSubtle}"
+                               FontSize="12"
+                               TextWrapping="Wrap"
+                               Margin="0,6,0,0" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
+                            <TextBlock Text="Chapters:" Foreground="{DynamicResource FgSubtle}" FontSize="12" />
+                            <TextBlock Text="{Binding Chapters}" Foreground="{DynamicResource FgMuted}" FontSize="12" Margin="4,0,0,0" />
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Score:" Foreground="{DynamicResource FgSubtle}" FontSize="12" />
+                            <TextBlock Text="{Binding Score, StringFormat={}{0:0.#}}" Foreground="{DynamicResource FgMuted}" FontSize="12" Margin="4,0,0,0" />
+                        </StackPanel>
+
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="MyAnimeListUpdateTemplate">
+            <StackPanel>
+                <ComboBox ItemsSource="{Binding StatusOptions}"
+                          SelectedValuePath="Value"
+                          DisplayMemberPath="Display"
+                          SelectedValue="{Binding SelectedStatus, Mode=TwoWay}"
+                          Height="32"
+                          Background="{DynamicResource SurfaceAlt}"
+                          Foreground="{DynamicResource SidebarText}"
+                          BorderBrush="{DynamicResource SurfaceBorder}" />
+
+                <StackPanel Orientation="Horizontal" Margin="0,12,0,0" VerticalAlignment="Center">
+                    <CheckBox Content="Set progress"
+                              IsChecked="{Binding UseProgress}"
+                              Foreground="{DynamicResource SidebarText}"
+                              Margin="0,0,8,0" />
+                    <TextBox Text="{Binding ProgressText, UpdateSourceTrigger=PropertyChanged}"
+                             Width="80"
+                             Height="28"
+                             IsEnabled="{Binding UseProgress}"
+                             Background="{DynamicResource SurfaceAlt}"
+                             Foreground="{DynamicResource SidebarText}"
+                             BorderBrush="{DynamicResource SurfaceBorder}" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Margin="0,10,0,0" VerticalAlignment="Center">
+                    <CheckBox Content="Set score"
+                              IsChecked="{Binding UseScore}"
+                              Foreground="{DynamicResource SidebarText}"
+                              Margin="0,0,8,0" />
+                    <Slider Minimum="0"
+                            Maximum="10"
+                            Width="180"
+                            Value="{Binding Score, Mode=TwoWay}"
+                            IsEnabled="{Binding UseScore}"
+                            TickFrequency="1"
+                            IsSnapToTickEnabled="True" />
+                    <TextBlock Text="{Binding ScoreDisplay}"
+                               Foreground="{DynamicResource FgMuted}"
+                               Margin="8,0,0,0" />
+                </StackPanel>
+
+            </StackPanel>
+        </DataTemplate>
     </UserControl.Resources>
 
-    <Grid Margin="16">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+    <views:TrackingDialogBase Title="MyAnimeList Tracking"
+                               SearchQuery="{Binding SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                               SearchCommand="{Binding SearchCommand}"
+                               Results="{Binding Results}"
+                               SelectedItem="{Binding SelectedMedia, Mode=TwoWay}"
+                               ResultItemTemplate="{StaticResource MyAnimeListResultTemplate}"
+                               SelectedContentTemplate="{StaticResource MyAnimeListSelectedTemplate}"
+                               UpdateContentTemplate="{StaticResource MyAnimeListUpdateTemplate}"
+                               ExistingEntrySummary="{Binding ExistingEntrySummary}"
+                               UpdateHeader="Update MyAnimeList entry"
+                               StatusMessage="{Binding StatusMessage}"
+                               ConfirmCommand="{Binding ConfirmCommand}"
+                               CancelCommand="{Binding CancelCommand}" />
 
-        <TextBlock Text="MyAnimeList Tracking"
-                   FontSize="22"
-                   Foreground="{DynamicResource SidebarText}"
-                   FontWeight="SemiBold" />
-
-        <DockPanel Grid.Row="1" Margin="0,12,0,12">
-            <Button Content="Search"
-                    Width="90"
-                    Margin="8,0,0,0"
-                    Style="{DynamicResource AccentButton}"
-                    Command="{Binding SearchCommand}"
-                    DockPanel.Dock="Right" />
-            <TextBox Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
-                     Height="36"
-                     Padding="10,4"
-                     VerticalContentAlignment="Center"
-                     Background="{DynamicResource SurfaceAlt}"
-                     Foreground="{DynamicResource SidebarText}"
-                     BorderBrush="{DynamicResource SurfaceBorder}" />
-        </DockPanel>
-
-        <ScrollViewer Grid.Row="2"
-                      VerticalScrollBarVisibility="Auto"
-                      HorizontalScrollBarVisibility="Disabled">
-            <StackPanel>
-
-                <Border Background="{DynamicResource SurfaceAlt}"
-                        BorderBrush="{DynamicResource SurfaceBorderSoft}"
-                        BorderThickness="1"
-                        CornerRadius="8"
-                        Padding="4"
-                        Margin="0,0,0,12">
-                    <ListBox ItemsSource="{Binding Results}"
-                             SelectedItem="{Binding SelectedMedia, Mode=TwoWay}"
-                             Background="{DynamicResource SurfaceLow}"
-                             BorderThickness="0"
-                             ScrollViewer.VerticalScrollBarVisibility="Auto"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                             ScrollViewer.CanContentScroll="False"
-                             MouseDoubleClick="ListBox_MouseDoubleClick">
-
-                        <ListBox.ItemContainerStyle>
-                            <Style TargetType="ListBoxItem">
-                                <Setter Property="Padding" Value="4" />
-                                <Setter Property="Margin" Value="0,4" />
-                                <Setter Property="Background" Value="Transparent" />
-                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="ListBoxItem">
-                                            <Border x:Name="ItemBorder"
-                                                    Background="Transparent"
-                                                    CornerRadius="6">
-                                                <ContentPresenter />
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource ControlHover}" />
-                                                </Trigger>
-                                                <Trigger Property="IsSelected" Value="True">
-                                                    <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource ControlPressed}" />
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </ListBox.ItemContainerStyle>
-
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Margin="4">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="80" />
-                                        <ColumnDefinition Width="10" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-
-                                    <Border Grid.Column="0"
-                                            Width="80"
-                                            Height="110"
-                                            Background="{DynamicResource SurfaceAlt}"
-                                            CornerRadius="4">
-                                        <Image Source="{Binding CoverImageUrl}"
-                                               Stretch="UniformToFill"
-                                               ClipToBounds="True"
-                                               SnapsToDevicePixels="True" />
-                                    </Border>
-
-                                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Title}"
-                                                   Foreground="{DynamicResource SidebarText}"
-                                                   FontWeight="SemiBold" />
-                                        <TextBlock Text="{Binding Synopsis}"
-                                                   Foreground="{DynamicResource FgMuted}"
-                                                   FontSize="12"
-                                                   TextWrapping="Wrap"
-                                                   MaxHeight="48"
-                                                   TextTrimming="CharacterEllipsis" />
-
-                                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                                            <TextBlock Text="Chapters:" Foreground="{DynamicResource FgSubtle}" FontSize="12" />
-                                            <TextBlock Text="{Binding Chapters}" Foreground="{DynamicResource FgMuted}" FontSize="12" Margin="4,0,0,0" />
-                                            <TextBlock Text="•" Foreground="{DynamicResource FgSubtle}" FontSize="12" Margin="8,0" />
-                                            <TextBlock Text="Score:" Foreground="{DynamicResource FgSubtle}" FontSize="12" />
-                                            <TextBlock Text="{Binding Score, StringFormat={}{0:0.#}}" Foreground="{DynamicResource FgMuted}" FontSize="12" Margin="4,0,0,0" />
-                                        </StackPanel>
-                                    </StackPanel>
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-
-                    </ListBox>
-                </Border>
-
-                <Border Background="{DynamicResource SurfaceLow}"
-                        BorderBrush="{DynamicResource SurfaceBorderSoft}"
-                        BorderThickness="1"
-                        CornerRadius="8"
-                        Padding="12"
-                        Margin="0,0,0,12">
-                    <Border.Style>
-                        <Style TargetType="Border">
-                            <Setter Property="Visibility" Value="Visible" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding SelectedMedia}" Value="{x:Null}">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
-
-                    <StackPanel>
-                        <TextBlock Text="Selected series"
-                                   Foreground="{DynamicResource SidebarText}"
-                                   FontWeight="SemiBold" />
-
-                        <Grid Margin="0,8,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="120" />
-                                <ColumnDefinition Width="12" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-
-                            <Border Grid.Column="0"
-                                    Width="120"
-                                    Height="165"
-                                    Background="{DynamicResource SurfaceAlt}"
-                                    CornerRadius="6">
-                                <Image Source="{Binding SelectedMedia.CoverImageUrl}"
-                                       Stretch="UniformToFill"
-                                       ClipToBounds="True"
-                                       SnapsToDevicePixels="True" />
-                            </Border>
-
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="{Binding SelectedMedia.Title}"
-                                           Foreground="{DynamicResource FgMuted}"
-                                           FontWeight="SemiBold"
-                                           TextWrapping="Wrap" />
-
-                                <TextBlock Text="{Binding SelectedMedia.Synopsis}"
-                                           Foreground="{DynamicResource FgSubtle}"
-                                           FontSize="12"
-                                           TextWrapping="Wrap"
-                                           Margin="0,6,0,0" />
-
-                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
-                                        <TextBlock Text="Chapters:" Foreground="{DynamicResource FgSubtle}" FontSize="12" />
-                                        <TextBlock Text="{Binding SelectedMedia.Chapters}" Foreground="{DynamicResource FgMuted}" FontSize="12" Margin="4,0,0,0" />
-                                    </StackPanel>
-
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="Score:" Foreground="{DynamicResource FgSubtle}" FontSize="12" />
-                                        <TextBlock Text="{Binding SelectedMedia.Score, StringFormat={}{0:0.#}}" Foreground="{DynamicResource FgMuted}" FontSize="12" Margin="4,0,0,0" />
-                                    </StackPanel>
-
-                                </StackPanel>
-                            </StackPanel>
-                        </Grid>
-
-                        <TextBlock Text="{Binding ExistingEntrySummary}"
-                                   Foreground="{DynamicResource FgMuted}"
-                                   FontSize="12"
-                                   Margin="0,6,0,0"
-                                   TextWrapping="Wrap" />
-
-                    </StackPanel>
-                </Border>
-
-                <Border Background="{DynamicResource SurfaceLow}"
-                        BorderBrush="{DynamicResource SurfaceBorderSoft}"
-                        BorderThickness="1"
-                        CornerRadius="8"
-                        Padding="12">
-                    <StackPanel>
-
-                        <TextBlock Text="Update MyAnimeList entry"
-                                   Foreground="{DynamicResource SidebarText}"
-                                   FontWeight="SemiBold" />
-
-                        <ComboBox ItemsSource="{Binding StatusOptions}"
-                                  SelectedValuePath="Value"
-                                  DisplayMemberPath="Display"
-                                  SelectedValue="{Binding SelectedStatus, Mode=TwoWay}"
-                                  Margin="0,6,0,0"
-                                  Height="32"
-                                  Background="{DynamicResource SurfaceAlt}"
-                                  Foreground="{DynamicResource SidebarText}"
-                                  BorderBrush="{DynamicResource SurfaceBorder}" />
-
-                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0" VerticalAlignment="Center">
-                            <CheckBox Content="Set progress"
-                                      IsChecked="{Binding UseProgress}"
-                                      Foreground="{DynamicResource SidebarText}"
-                                      Margin="0,0,8,0" />
-                            <TextBox Text="{Binding ProgressText, UpdateSourceTrigger=PropertyChanged}"
-                                     Width="80"
-                                     Height="28"
-                                     IsEnabled="{Binding UseProgress}"
-                                     Background="{DynamicResource SurfaceAlt}"
-                                     Foreground="{DynamicResource SidebarText}"
-                                     BorderBrush="{DynamicResource SurfaceBorder}" />
-                        </StackPanel>
-
-                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0" VerticalAlignment="Center">
-                            <CheckBox Content="Set score"
-                                      IsChecked="{Binding UseScore}"
-                                      Foreground="{DynamicResource SidebarText}"
-                                      Margin="0,0,8,0" />
-                            <Slider Minimum="0"
-                                    Maximum="10"
-                                    Width="180"
-                                    Value="{Binding Score, Mode=TwoWay}"
-                                    IsEnabled="{Binding UseScore}"
-                                    TickFrequency="1"
-                                    IsSnapToTickEnabled="True" />
-                            <TextBlock Text="{Binding ScoreDisplay}"
-                                       Foreground="{DynamicResource FgMuted}"
-                                       Margin="8,0,0,0" />
-                        </StackPanel>
-
-                    </StackPanel>
-                </Border>
-
-            </StackPanel>
-        </ScrollViewer>
-
-        <StackPanel Grid.Row="3" Margin="0,12,0,0">
-            <TextBlock Text="{Binding StatusMessage}"
-                       Foreground="{DynamicResource FgMuted}"
-                       Margin="0,0,0,12" />
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="Cancel"
-                        Width="90"
-                        Margin="0,0,8,0"
-                        Command="{Binding CancelCommand}" />
-                <Button Content="Confirm"
-                        Width="90"
-                        Style="{DynamicResource AccentButton}"
-                        Command="{Binding ConfirmCommand}" />
-            </StackPanel>
-        </StackPanel>
-
-    </Grid>
 </UserControl>
