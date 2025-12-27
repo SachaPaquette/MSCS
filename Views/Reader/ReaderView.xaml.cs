@@ -897,15 +897,10 @@ namespace MSCS.Views
         }
 
 
+
         private (string ImageUrl, double Progress)? GetCurrentScrollAnchor()
         {
             if (ScrollView == null || ImageList == null || ImageList.Items.Count == 0)
-            {
-                return null;
-            }
-
-            var generator = ImageList.ItemContainerGenerator;
-            if (generator.Status != GeneratorStatus.ContainersGenerated)
             {
                 return null;
             }
@@ -916,10 +911,16 @@ namespace MSCS.Views
                 return null;
             }
 
-            int itemCount = ImageList.Items.Count;
-            for (int i = 0; i < itemCount; i++)
+            var panel = FindDescendant<VirtualizingStackPanel>(ImageList);
+            if (panel == null || panel.Children.Count == 0)
             {
-                if (generator.ContainerFromIndex(i) is not FrameworkElement container || container.ActualHeight <= 0)
+                return null;
+            }
+
+            var realizedContainers = new List<(FrameworkElement Container, double Top)>();
+            foreach (UIElement child in panel.Children)
+            {
+                if (child is not FrameworkElement container || container.ActualHeight <= 0)
                 {
                     continue;
                 }
@@ -934,7 +935,16 @@ namespace MSCS.Views
                     continue;
                 }
 
-                double top = relative.Y;
+                realizedContainers.Add((container, relative.Y));
+            }
+
+            if (realizedContainers.Count == 0)
+            {
+                return null;
+            }
+
+            foreach (var (container, top) in realizedContainers.OrderBy(entry => entry.Top))
+            {
                 double bottom = top + container.ActualHeight;
 
                 if (bottom <= 0)
@@ -947,7 +957,7 @@ namespace MSCS.Views
                     break;
                 }
 
-                if (ImageList.Items[i] is ChapterImage image)
+                if (container.DataContext is ChapterImage image)
                 {
                     double progress = top < 0
                         ? Math.Clamp(-top / container.ActualHeight, 0.0, 1.0)
