@@ -145,6 +145,9 @@ namespace MSCS.Views
         {
             if (sender is not ScrollViewer sv) return;
 
+            if (SmoothScroll.GetIsAnimating(sv))
+                return;
+
             var vm = ViewModel;
             double? previousProgress = vm?.ScrollProgress;
             vm?.UpdateScrollPosition(sv.VerticalOffset, sv.ExtentHeight, sv.ViewportHeight);
@@ -547,35 +550,31 @@ namespace MSCS.Views
         private void ScrollEventHandler(object sender, MouseButtonEventArgs e)
         {
             if (ScrollView == null || ViewModel == null || sender is not System.Windows.Controls.Image)
-            {
                 return;
-            }
 
-            var pos = e.GetPosition(ScrollView);
-            var vm = ViewModel;
-            var duration = vm?.Preferences.ScrollDuration ?? TimeSpan.FromMilliseconds(Constants.DefaultSmoothScrollDuration);
-            double displayedHeight = ScrollView.ViewportHeight > 0 ? ScrollView.ViewportHeight : ScrollView.ActualHeight;
-            if (displayedHeight <= 0)
-            {
-                displayedHeight = 1;
-            }
+            ClearPendingScrollRestoration();
+            SmoothScroll.Cancel(ScrollView);
+            _suppressViewportRestoreCount = 2;
 
-            double clickFraction = pos.Y / displayedHeight;
-            var fraction = vm?.Preferences.ScrollPageFraction ?? Constants.DefaultSmoothScrollPageFraction;
-            double scrollAmount = ScrollView.ViewportHeight * fraction;
-            if (scrollAmount <= 0)
-            {
-                scrollAmount = ScrollView.ActualHeight * fraction;
-            }
+            var displayedHeight = ScrollView.ViewportHeight > 0
+              ? ScrollView.ViewportHeight
+              : ScrollView.ActualHeight;
+            if (displayedHeight <= 0) displayedHeight = 1;
 
-            if (clickFraction < 0.33)
-            {
-                SmoothScroll.By(ScrollView, -scrollAmount, duration);
-            }
-            else
-            {
-                SmoothScroll.By(ScrollView, scrollAmount, duration);
-            }
+            var clickFraction = e.GetPosition(ScrollView).Y / displayedHeight;
+
+            var fraction = ViewModel.Preferences.ScrollPageFraction;
+            var baseHeight = ScrollView.ViewportHeight > 0
+              ? ScrollView.ViewportHeight
+              : ScrollView.ActualHeight;
+
+            var scrollAmount = baseHeight * fraction;
+            if (scrollAmount <= 0) scrollAmount = 1;
+
+            SmoothScroll.By(
+              ScrollView,
+              clickFraction < 0.33 ? -scrollAmount : scrollAmount,
+              ViewModel.Preferences.ScrollDuration);
 
             e.Handled = true;
         }

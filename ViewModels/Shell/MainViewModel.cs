@@ -69,11 +69,8 @@ namespace MSCS.ViewModels
             {
                 new("home", "Home", "\uE80F", HomeVM),
                 new("external", "External Sources", "\uE774", MangaListVM),
-                new("local", "Local Library", "\uE8D2", LocalLibraryVM),
-                new("bookmarks", "Bookmarks", "\uE735", BookmarksVM),
                 new("tracking-libraries", "Tracking Libraries", "\uE12B", TrackingLibrariesVM),
                 new("recommendations", "AniList Recommendations", "\uE734", RecommendationsVM),
-                new("continue", "Continue Reading", "\uE823", ContinueReadingVM),
                 new("settings", "Settings", "\uE713", SettingsVM)
             };
 
@@ -134,11 +131,6 @@ namespace MSCS.ViewModels
 
             if (ReferenceEquals(CurrentViewModel, tab.ViewModel))
             {
-                if (tab.ViewModel is LocalLibraryViewModel alreadyActiveLocal)
-                {
-                    alreadyActiveLocal.EnsureLibraryLoaded();
-                }
-
                 return;
             }
 
@@ -147,11 +139,6 @@ namespace MSCS.ViewModels
             if (tab.ViewModel is MangaListViewModel mangaListViewModel)
             {
                 mangaListViewModel.SelectedResult = null;
-            }
-            else if (tab.ViewModel is LocalLibraryViewModel localLibraryViewModel)
-            {
-                localLibraryViewModel.SelectedManga = null;
-                localLibraryViewModel.EnsureLibraryLoaded();
             }
 
             CurrentViewModel = tab.ViewModel;
@@ -423,12 +410,6 @@ namespace MSCS.ViewModels
                 if (viewModel is MangaListViewModel mangaListViewModel)
                 {
                     mangaListViewModel.SelectedResult = null;
-                    DisposeActiveChapterViewModel();
-                }
-                else if (viewModel is LocalLibraryViewModel localLibraryViewModel)
-                {
-                    localLibraryViewModel.SelectedManga = null;
-                    localLibraryViewModel.EnsureLibraryLoaded();
                     DisposeActiveChapterViewModel();
                 }
 

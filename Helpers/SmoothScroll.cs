@@ -1,6 +1,3 @@
-﻿using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Media.Animation;
 ﻿using System;
 using System.Windows;
 using System.Windows.Controls;
@@ -10,53 +7,48 @@ namespace MSCS.Helpers
 {
     public static class SmoothScroll
     {
-        // Dummy attached DP we animate; on change we call ScrollToVerticalOffset.
         public static readonly DependencyProperty VerticalOffsetProperty =
-            DependencyProperty.RegisterAttached(
-                "VerticalOffset",
-                typeof(double),
-                typeof(SmoothScroll),
-                new PropertyMetadata(0.0, OnVerticalOffsetChanged));
+          DependencyProperty.RegisterAttached(
+            "VerticalOffset",
+            typeof(double),
+            typeof(SmoothScroll),
+            new PropertyMetadata(0.0, OnVerticalOffsetChanged));
 
-        public static readonly DependencyProperty HorizontalOffsetProperty =
-            DependencyProperty.RegisterAttached(
-                "HorizontalOffset",
-                typeof(double),
-                typeof(SmoothScroll),
-                new PropertyMetadata(0.0, OnHorizontalOffsetChanged));
+        public static readonly DependencyProperty IsAnimatingProperty =
+          DependencyProperty.RegisterAttached(
+            "IsAnimating",
+            typeof(bool),
+            typeof(SmoothScroll),
+            new PropertyMetadata(false));
 
         private static void OnVerticalOffsetChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             if (d is ScrollViewer sv)
-            {
                 sv.ScrollToVerticalOffset((double)e.NewValue);
-            }
         }
 
-        private static void OnHorizontalOffsetChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        public static bool GetIsAnimating(DependencyObject d) =>
+          (bool)d.GetValue(IsAnimatingProperty);
+
+        private static void SetIsAnimating(DependencyObject d, bool value) =>
+          d.SetValue(IsAnimatingProperty, value);
+
+        public static void Cancel(ScrollViewer sv)
         {
-            if (d is ScrollViewer sv)
-            {
-                sv.ScrollToHorizontalOffset((double)e.NewValue);
-            }
+            if (sv == null) return;
+            sv.BeginAnimation(VerticalOffsetProperty, null);
+            SetIsAnimating(sv, false);
         }
-
-        public static double GetVerticalOffset(DependencyObject d) =>
-            (double)d.GetValue(VerticalOffsetProperty);
-        public static void SetVerticalOffset(DependencyObject d, double value) =>
-            d.SetValue(VerticalOffsetProperty, value);
-
-        public static double GetHorizontalOffset(DependencyObject d) =>
-            (double)d.GetValue(HorizontalOffsetProperty);
-        public static void SetHorizontalOffset(DependencyObject d, double value) =>
-            d.SetValue(HorizontalOffsetProperty, value);
 
         public static void To(ScrollViewer sv, double targetOffset, TimeSpan duration, IEasingFunction? easing = null)
         {
             if (sv == null) return;
 
+            Cancel(sv);
+
             var from = sv.VerticalOffset;
             var target = Math.Clamp(targetOffset, 0, sv.ScrollableHeight);
+
             var anim = new DoubleAnimation
             {
                 From = from,
@@ -64,31 +56,14 @@ namespace MSCS.Helpers
                 Duration = duration,
                 EasingFunction = easing ?? new QuadraticEase { EasingMode = EasingMode.EaseInOut }
             };
+
+            SetIsAnimating(sv, true);
+            anim.Completed += (_, __) => SetIsAnimating(sv, false);
 
             sv.BeginAnimation(VerticalOffsetProperty, anim, HandoffBehavior.SnapshotAndReplace);
         }
 
-        public static void By(ScrollViewer sv, double delta, TimeSpan duration, IEasingFunction? easing = null)
-            => To(sv, sv.VerticalOffset + delta, duration, easing);
-
-        public static void ToHorizontal(ScrollViewer sv, double targetOffset, TimeSpan duration, IEasingFunction? easing = null)
-        {
-            if (sv == null) return;
-
-            var from = sv.HorizontalOffset;
-            var target = Math.Clamp(targetOffset, 0, sv.ScrollableWidth);
-            var anim = new DoubleAnimation
-            {
-                From = from,
-                To = target,
-                Duration = duration,
-                EasingFunction = easing ?? new QuadraticEase { EasingMode = EasingMode.EaseInOut }
-            };
-
-            sv.BeginAnimation(HorizontalOffsetProperty, anim, HandoffBehavior.SnapshotAndReplace);
-        }
-
-        public static void ByHorizontal(ScrollViewer sv, double delta, TimeSpan duration, IEasingFunction? easing = null)
-            => ToHorizontal(sv, sv.HorizontalOffset + delta, duration, easing);
+        public static void By(ScrollViewer sv, double delta, TimeSpan duration, IEasingFunction? easing = null) =>
+          To(sv, sv.VerticalOffset + delta, duration, easing);
     }
 }
