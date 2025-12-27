@@ -101,8 +101,15 @@
                           SelectedValue="{Binding SelectedStatus, Mode=TwoWay}"
                           Height="32"
                           Background="{DynamicResource SurfaceAlt}"
-                          Foreground="{DynamicResource SidebarText}"
-                          BorderBrush="{DynamicResource SurfaceBorder}" />
+                          Foreground="Black"
+                          BorderBrush="{DynamicResource SurfaceBorder}">
+                    <ComboBox.ItemContainerStyle>
+                        <Style TargetType="ComboBoxItem">
+                            <Setter Property="Foreground" Value="Black" />
+                            <Setter Property="Background" Value="White" />
+                        </Style>
+                    </ComboBox.ItemContainerStyle>
+                </ComboBox>
 
                 <StackPanel Orientation="Horizontal" Margin="0,12,0,0" VerticalAlignment="Center">
                     <CheckBox Content="Set progress"
