@@ -89,6 +89,12 @@ namespace MSCS.ViewModels.Settings
         {
             try
             {
+                if (string.Equals(_service.ServiceId, "Kitsu", StringComparison.OrdinalIgnoreCase))
+                {
+                    System.Windows.MessageBox.Show("Kitsu integration is not yet developed for the app.", DisplayName, MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
                 var owner = System.Windows.Application.Current?.MainWindow;
                 var success = await _service.AuthenticateAsync(owner).ConfigureAwait(true);
                 if (success)
