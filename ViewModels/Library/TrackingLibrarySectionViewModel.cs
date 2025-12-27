@@ -7,12 +7,13 @@ namespace MSCS.ViewModels
 {
     public class TrackingLibrarySectionViewModel : BaseViewModel
     {
-        private bool _isExpanded = true;
+        private bool _isExpanded;
 
-        public TrackingLibrarySectionViewModel(object statusValue, string title)
+        public TrackingLibrarySectionViewModel(object statusValue, string title, bool isExpanded = true)
         {
             StatusValue = statusValue;
             Title = title;
+            _isExpanded = isExpanded;
             Items = new ObservableCollection<TrackingLibraryEntryViewModel>();
             Items.CollectionChanged += OnItemsCollectionChanged;
         }

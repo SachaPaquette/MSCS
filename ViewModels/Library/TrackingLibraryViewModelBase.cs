@@ -36,7 +36,8 @@ namespace MSCS.ViewModels
             StatusOptions = CreateStatusOptions();
 
             _sections = new ObservableCollection<TrackingLibrarySectionViewModel>(
-                GetOrderedStatuses().Select(status => new TrackingLibrarySectionViewModel(status!, GetStatusDisplayName(status))));
+                GetOrderedStatuses().ToList().Select((status, index) =>
+                    new TrackingLibrarySectionViewModel(status!, GetStatusDisplayName(status), index == 0)));
             Sections = new ReadOnlyObservableCollection<TrackingLibrarySectionViewModel>(_sections);
 
             RefreshCommand = new AsyncRelayCommand(_ => LoadAsync(), _ => !IsLoading);
