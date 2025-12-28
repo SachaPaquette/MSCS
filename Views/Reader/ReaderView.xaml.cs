@@ -35,6 +35,9 @@ namespace MSCS.Views
         private Window? _hostWindow;
         private double? _restoreWidthFactor;
         private int _suppressViewportRestoreCount;
+        private DateTime _lastAnchorUpdate = DateTime.MinValue;
+        private bool _loadMoreScheduled;
+
         public static readonly DependencyProperty IsFullscreenModeProperty =
             DependencyProperty.Register(nameof(IsFullscreenMode), typeof(bool), typeof(ReaderView), new PropertyMetadata(false));
 
@@ -106,6 +109,21 @@ namespace MSCS.Views
             }
         }
 
+        private void ImageList_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            if (_pendingScrollOffset.HasValue || _pendingScrollProgress.HasValue)
+            {
+                ClearPendingScrollRestoration();
+            }
+
+            if (ScrollView != null)
+            {
+                SmoothScroll.Cancel(ScrollView);
+            }
+
+            _suppressViewportRestoreCount = 1;
+        }
+
         private static T? FindDescendant<T>(DependencyObject? root)
             where T : DependencyObject
         {
@@ -141,6 +159,20 @@ namespace MSCS.Views
             }
         }
 
+        private void ScheduleLoadMoreImages()
+        {
+            if (_loadMoreScheduled || ViewModel == null) return;
+            _loadMoreScheduled = true;
+
+            var dispatcher = Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
+            dispatcher.InvokeAsync(async () =>
+            {
+                try { await ViewModel.LoadMoreImagesAsync(); }
+                catch (OperationCanceledException) { }
+                finally { _loadMoreScheduled = false; }
+            }, DispatcherPriority.Background);
+        }
+
         private async void ScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
             if (sender is not ScrollViewer sv) return;
@@ -152,18 +184,26 @@ namespace MSCS.Views
             double? previousProgress = vm?.ScrollProgress;
             vm?.UpdateScrollPosition(sv.VerticalOffset, sv.ExtentHeight, sv.ViewportHeight);
 
-            TryApplyPendingScroll();
+            if (_pendingScrollOffset.HasValue || _pendingScrollProgress.HasValue)
+                TryApplyPendingScroll();
+
             if (vm != null)
             {
-                var anchorInfo = GetCurrentScrollAnchor();
-                if (anchorInfo.HasValue)
+                var now = DateTime.UtcNow;
+                if ((now - _lastAnchorUpdate).TotalMilliseconds >= 100)
                 {
-                    var (anchorUrl, anchorProgress) = anchorInfo.Value;
-                    vm.UpdateScrollAnchor(anchorUrl, anchorProgress);
-                }
-                else
-                {
-                    vm.UpdateScrollAnchor(null, null);
+                    _lastAnchorUpdate = now;
+
+                    var anchorInfo = GetCurrentScrollAnchor();
+                    if (anchorInfo.HasValue)
+                    {
+                        var (anchorUrl, anchorProgress) = anchorInfo.Value;
+                        vm.UpdateScrollAnchor(anchorUrl, anchorProgress);
+                    }
+                    else
+                    {
+                        vm.UpdateScrollAnchor(null, null);
+                    }
                 }
             }
 
@@ -201,12 +241,7 @@ namespace MSCS.Views
 
             if (distanceToBottom <= loadMoreThreshold)
             {
-                try
-                {
-                    await vm!.LoadMoreImagesAsync();
-                }
-                catch (OperationCanceledException) { Debug.WriteLine("Image loading cancelled during scroll."); }
-
+                ScheduleLoadMoreImages();
                 distanceToBottom = Math.Max(0, sv.ScrollableHeight - sv.VerticalOffset);
             }
 
