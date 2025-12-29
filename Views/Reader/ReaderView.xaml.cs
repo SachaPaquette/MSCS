@@ -17,6 +17,8 @@ namespace MSCS.Views
 {
     public partial class ReaderView : System.Windows.Controls.UserControl
     {
+        private const int MaxRestoreAttempts = 12;
+        private static readonly TimeSpan RestoreTimeout = TimeSpan.FromSeconds(3);
         private double? _pendingScrollProgress;
         private double? _pendingScrollOffset;
         private string? _pendingAnchorImageUrl;
@@ -37,6 +39,8 @@ namespace MSCS.Views
         private int _suppressViewportRestoreCount;
         private DateTime _lastAnchorUpdate = DateTime.MinValue;
         private bool _loadMoreScheduled;
+        private DateTime _restoreRequestStartedUtc = DateTime.MinValue;
+        private int _restoreAttemptCount;
 
         public static readonly DependencyProperty IsFullscreenModeProperty =
             DependencyProperty.Register(nameof(IsFullscreenMode), typeof(bool), typeof(ReaderView), new PropertyMetadata(false));
@@ -283,6 +287,12 @@ namespace MSCS.Views
                 return;
             }
 
+            TrackRestoreAttempt();
+            if (ShouldAbortRestore(ViewModel))
+            {
+                return;
+            }
+
             if (_isApplyingPendingScroll)
             {
                 return;
@@ -303,6 +313,11 @@ namespace MSCS.Views
                 if (vm?.RemainingImages > 0)
                 {
                     _ = vm.LoadMoreImagesAsync();
+                }
+                else
+                {
+                    FinalizeScrollRestore(vm);
+                    return;
                 }
 
                 _lastRequestedScrollOffset = null;
@@ -399,13 +414,26 @@ namespace MSCS.Views
                 return true;
             }
 
+            TrackRestoreAttempt();
+            if (ShouldAbortRestore(ViewModel))
+            {
+                return true;
+            }
+
             var vm = ViewModel;
             ScrollView.UpdateLayout();
 
             var extent = ScrollView.ExtentHeight;
             var viewport = ScrollView.ViewportHeight;
+
             if (extent <= 0 || viewport <= 0)
             {
+                if ((vm?.RemainingImages ?? 0) <= 0)
+                {
+                    FinalizeScrollRestore(vm);
+                    return true;
+                }
+
                 _lastRequestedScrollOffset = null;
                 WaitForLayoutUpdate();
                 return false;
@@ -518,6 +546,14 @@ namespace MSCS.Views
 
             if (_pendingAnchorIndex.Value < 0 || _pendingAnchorIndex.Value >= ImageList.Items.Count)
             {
+                if ((ViewModel?.RemainingImages ?? 0) <= 0)
+                {
+                    _pendingAnchorImageUrl = null;
+                    _pendingAnchorImageProgress = null;
+                    _pendingAnchorIndex = null;
+                    return true;
+                }
+
                 WaitForLayoutUpdate();
                 return false;
             }
@@ -529,6 +565,15 @@ namespace MSCS.Views
                 {
                     _anchorBringIntoViewRequested = true;
                     ImageList.ScrollIntoView(ImageList.Items[_pendingAnchorIndex.Value]);
+                }
+                else if ((ViewModel?.RemainingImages ?? 0) <= 0
+                    && ImageList.ItemContainerGenerator.Status == GeneratorStatus.ContainersGenerated)
+                {
+                    _pendingAnchorImageUrl = null;
+                    _pendingAnchorImageProgress = null;
+                    _pendingAnchorIndex = null;
+                    _anchorBringIntoViewRequested = false;
+                    return true;
                 }
 
                 WaitForLayoutUpdate();
@@ -1067,6 +1112,8 @@ namespace MSCS.Views
             _anchorBringIntoViewRequested = false;
             _lastRequestedScrollOffset = null;
             _suppressAutoAdvance = true;
+            _restoreRequestStartedUtc = DateTime.UtcNow;
+            _restoreAttemptCount = 0;
 
             if (ScrollView != null)
             {
@@ -1088,6 +1135,41 @@ namespace MSCS.Views
             _isApplyingPendingScroll = false;
             _suppressAutoAdvance = false;
             CancelLayoutValidation();
+            _restoreRequestStartedUtc = DateTime.MinValue;
+            _restoreAttemptCount = 0;
+        }
+
+        private void TrackRestoreAttempt()
+        {
+            if (_restoreRequestStartedUtc == DateTime.MinValue)
+            {
+                _restoreRequestStartedUtc = DateTime.UtcNow;
+            }
+
+            _restoreAttemptCount++;
+        }
+
+        private bool ShouldAbortRestore(ReaderViewModel? vm)
+        {
+            if (!_pendingScrollOffset.HasValue && !_pendingScrollProgress.HasValue && string.IsNullOrWhiteSpace(_pendingAnchorImageUrl))
+            {
+                return false;
+            }
+
+            if (_restoreRequestStartedUtc == DateTime.MinValue)
+            {
+                return false;
+            }
+
+            var elapsed = DateTime.UtcNow - _restoreRequestStartedUtc;
+            if (_restoreAttemptCount <= MaxRestoreAttempts && elapsed <= RestoreTimeout)
+            {
+                return false;
+            }
+
+            Debug.WriteLine("Scroll restore timed out; cancelling pending restore.");
+            FinalizeScrollRestore(vm);
+            return true;
         }
     }
 }
