@@ -27,6 +27,45 @@
             </Style.Triggers>
         </Style>
 
+
+        <Style x:Key="RemoveIconButtonStyle" TargetType="Button">
+            <Setter Property="Foreground" Value="{DynamicResource FgMuted}"/>
+            <Setter Property="Background" Value="{DynamicResource SurfaceAlt}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="6"/>
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="{DynamicResource ControlHover}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource Fg}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="{DynamicResource ControlPressed}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Border" Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <DataTemplate DataType="{x:Type vm:LocalMangaEntryItemViewModel}">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -59,9 +98,10 @@
                     <TextBlock Text="{Binding SourceDisplay}" Margin="0,4,0,0" Foreground="{DynamicResource FgMuted}" FontSize="12"/>
                 </StackPanel>
                 <Button Grid.Column="1"
-                        Content="Remove"
-                        Padding="8,4"
+                        Content=""
+                        Style="{StaticResource RemoveIconButtonStyle}"
                         Margin="12,0,0,0"
+                        ToolTip="Remove"
                         Command="{Binding DataContext.RemoveBookmarkCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
                         CommandParameter="{Binding}"/>
             </Grid>
@@ -133,8 +173,9 @@
                                FontWeight="SemiBold"
                                Foreground="{DynamicResource Fg}"/>
                     <Button Grid.Row="0" Grid.Column="1"
-                            Content="Remove"
-                            Padding="8,4"
+                            Content=""
+                            Style="{StaticResource RemoveIconButtonStyle}"
+                            ToolTip="Remove"
                             Command="{Binding RemoveCommand}"
                             CommandParameter="{Binding}"/>
                     <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
