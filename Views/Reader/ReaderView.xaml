@@ -99,7 +99,7 @@
                  ScrollViewer.CanContentScroll="False"
                  VirtualizingPanel.IsVirtualizing="True"
                  VirtualizingPanel.VirtualizationMode="Recycling"
-                 VirtualizingPanel.CacheLength="3"
+                 VirtualizingPanel.CacheLength="1"
                  VirtualizingPanel.ScrollUnit="Pixel"
                  VirtualizingStackPanel.CleanUpVirtualizedItem="Images_CleanUpVirtualizedItem"
                  PreviewMouseWheel="ImageList_PreviewMouseWheel"

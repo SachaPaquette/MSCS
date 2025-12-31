@@ -8,7 +8,7 @@ namespace MSCS.Helpers
 {
     public static partial class Constants
     {
-        public const int DefaultLoadedBatchSize = 3; // number of images to load at once
+        public const int DefaultLoadedBatchSize = 1; // number of images to load at once
         public const int LegacyDefaultMaxPageWidth = 900; // historical max width for a page
         public const int DefaultMaxPageWidth = 1400; // max width for a page
         public const double DefaultWidthFactor = 0.40; // default width factor for images
