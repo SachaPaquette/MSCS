@@ -45,6 +45,8 @@ namespace MSCS.Commands
             return _canExecute?.Invoke(parameter) ?? true;
         }
 
+        public event EventHandler<Exception>? ExecutionFailed;
+
         public async void Execute(object? parameter)
         {
             if (!CanExecute(parameter))
@@ -58,9 +60,10 @@ namespace MSCS.Commands
                 RaiseCanExecuteChanged();
                 await _executeAsync(parameter).ConfigureAwait(true);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) { }
+            catch (Exception ex)
             {
-                // Ignore cancellations to avoid surfacing benign exceptions to the UI thread.
+                ExecutionFailed?.Invoke(this, ex);
             }
             finally
             {

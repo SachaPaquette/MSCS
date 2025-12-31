@@ -33,8 +33,8 @@ namespace MSCS.ViewModels
                 parameter => parameter is ContinueReadingEntryViewModel);
 
             _userSettings.ReadingProgressChanged += OnReadingProgressChanged;
-            ExportReadingListCommand = new RelayCommand(_ => ExportReadingList(), _ => !_disposed);
-            ImportReadingListCommand = new RelayCommand(_ => ImportReadingList(), _ => !_disposed);
+            ExportReadingListCommand = new RelayCommand(_ => ExportReadingListAsync(), _ => !_disposed);
+            ImportReadingListCommand = new RelayCommand(_ => ImportReadingListAsync(), _ => !_disposed);
 
             ReloadEntries();
         }
@@ -112,7 +112,7 @@ namespace MSCS.ViewModels
             ReloadEntries();
         }
 
-        private void ExportReadingList()
+        private async void ExportReadingListAsync()
         {
             if (_disposed)
             {
@@ -134,7 +134,7 @@ namespace MSCS.ViewModels
 
             try
             {
-                var result = _readingListService.Export(dialog.FileName);
+                var result = await Task.Run(() => _readingListService.ExportAsync(dialog.FileName));
                 var message = BuildExportSummary(result);
                 System.Windows.MessageBox.Show(message, "Reading List Export", MessageBoxButton.OK, MessageBoxImage.Information);
             }
@@ -185,7 +185,7 @@ namespace MSCS.ViewModels
             return builder.ToString();
         }
 
-        private void ImportReadingList()
+        private async void ImportReadingListAsync()
         {
             if (_disposed)
             {
@@ -205,7 +205,7 @@ namespace MSCS.ViewModels
 
             try
             {
-                var result = _readingListService.Import(dialog.FileName);
+                var result = await Task.Run(() => _readingListService.ImportAsync(dialog.FileName));
                 var message = BuildImportSummary(result);
                 System.Windows.MessageBox.Show(message, "Reading List Import", MessageBoxButton.OK, MessageBoxImage.Information);
             }
