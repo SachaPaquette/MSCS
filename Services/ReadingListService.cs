@@ -20,7 +20,7 @@ namespace MSCS.Services
             _userSettings = userSettings ?? throw new ArgumentNullException(nameof(userSettings));
         }
 
-        public ReadingListExportResult Export(string filePath)
+        public async Task<ReadingListExportResult> ExportAsync(string filePath)
         {
             if (string.IsNullOrWhiteSpace(filePath))
             {
@@ -76,13 +76,13 @@ namespace MSCS.Services
                 Directory.CreateDirectory(directory);
             }
 
-            var json = JsonSerializer.Serialize(records, SerializerOptions);
-            File.WriteAllText(filePath, json);
+            await using var stream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, 4096, useAsync: true);
+            await JsonSerializer.SerializeAsync(stream, records, SerializerOptions);
 
             return new ReadingListExportResult(records.Count, skippedLocal, skippedMissing);
         }
 
-        public ReadingListImportResult Import(string filePath)
+        public async Task<ReadingListImportResult> ImportAsync(string filePath)
         {
             if (string.IsNullOrWhiteSpace(filePath))
             {
@@ -97,8 +97,8 @@ namespace MSCS.Services
             List<ReadingListRecord>? records;
             try
             {
-                var json = File.ReadAllText(filePath);
-                records = JsonSerializer.Deserialize<List<ReadingListRecord>>(json, SerializerOptions);
+                await using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
+                records = await JsonSerializer.DeserializeAsync<List<ReadingListRecord>>(stream, SerializerOptions);
             }
             catch (JsonException ex)
             {

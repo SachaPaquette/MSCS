@@ -1,9 +1,11 @@
-﻿using System;
-using System.Windows.Input;
-using MSCS.Commands;
+﻿using MSCS.Commands;
 using MSCS.Models;
 using MSCS.Services;
 using MSCS.Sources;
+using System;
+using System.Globalization;
+using System.IO;
+using System.Windows.Input;
 
 namespace MSCS.ViewModels
 {
@@ -41,6 +43,26 @@ namespace MSCS.ViewModels
         public string Title => Entry.Title;
 
         public string Path => Entry.Path;
+
+        public string ExtensionLabel
+        {
+            get
+            {
+                if (Directory.Exists(Path))
+                {
+                    return string.Empty;
+                }
+
+                var extension = System.IO.Path.GetExtension(Path);
+
+                if (string.IsNullOrWhiteSpace(extension))
+                {
+                    return string.Empty;
+                }
+
+                return extension.TrimStart('.').ToUpper(CultureInfo.InvariantCulture);
+            }
+        }
 
         public int ChapterCount => Entry.ChapterCount;
 

@@ -32,7 +32,7 @@ namespace MSCS.Services.MyAnimeList
         private readonly UserSettings _userSettings;
         private readonly HttpClient _httpClient;
         private readonly SemaphoreSlim _authLock = new(1, 1);
-        private readonly string _clientId;
+        private string _clientId = string.Empty;
 
         private bool _isAuthenticated;
         private string? _accessToken;
@@ -44,12 +44,9 @@ namespace MSCS.Services.MyAnimeList
         {
             _userSettings = userSettings ?? throw new ArgumentNullException(nameof(userSettings));
             _httpClient = CreateHttpClient();
-            _clientId = Constants.MyAnimeListClientId;
-
-            if (!string.IsNullOrWhiteSpace(_clientId))
-            {
-                _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("X-MAL-CLIENT-ID", _clientId);
-            }
+            _clientId = ResolveClientId();
+            UpdateClientIdHeader();
+            _userSettings.SettingsChanged += OnUserSettingsChanged;
 
             LoadExistingAuthentication();
 
@@ -81,8 +78,8 @@ namespace MSCS.Services.MyAnimeList
             if (string.IsNullOrWhiteSpace(_clientId))
             {
                 System.Windows.MessageBox.Show(owner ?? System.Windows.Application.Current?.MainWindow,
-                    "A MyAnimeList client id is required. Set the MSCS_MYANIMELIST_CLIENT_ID environment variable and try again.",
-                    "MyAnimeList", MessageBoxButton.OK, MessageBoxImage.Information);
+                    "A MyAnimeList client ID is required. Set it in Settings > Tracking integrations and try again.",
+                                        "MyAnimeList", MessageBoxButton.OK, MessageBoxImage.Information);
                 return false;
             }
 
@@ -243,6 +240,50 @@ namespace MSCS.Services.MyAnimeList
             catch
             {
                 return Array.Empty<MyAnimeListMedia>();
+            }
+        }
+
+        private string ResolveClientId()
+        {
+            if (!string.IsNullOrWhiteSpace(_userSettings.MyAnimeListClientId))
+            {
+                return _userSettings.MyAnimeListClientId!;
+            }
+
+            return string.Empty;
+        }
+
+        private void UpdateClientIdHeader()
+        {
+            _httpClient.DefaultRequestHeaders.Remove("X-MAL-CLIENT-ID");
+            if (!string.IsNullOrWhiteSpace(_clientId))
+            {
+                _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("X-MAL-CLIENT-ID", _clientId);
+            }
+        }
+
+        private void OnUserSettingsChanged(object? sender, EventArgs e)
+        {
+            var resolved = ResolveClientId();
+            if (string.Equals(_clientId, resolved, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _clientId = resolved;
+            UpdateClientIdHeader();
+
+            if (_isAuthenticated)
+            {
+                _isAuthenticated = false;
+                _accessToken = null;
+                _refreshToken = null;
+                _tokenExpiry = null;
+                _userName = null;
+                _httpClient.DefaultRequestHeaders.Authorization = null;
+                _userSettings.ClearMyAnimeListAuthentication();
+                _userSettings.SetTrackingProviderConnection(ServiceId, false);
+                AuthenticationChanged?.Invoke(this, EventArgs.Empty);
             }
         }
 

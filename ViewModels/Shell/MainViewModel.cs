@@ -4,6 +4,7 @@ using MSCS.Services;
 using MSCS.Sources;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
 
 namespace MSCS.ViewModels
 {
@@ -28,6 +29,7 @@ namespace MSCS.ViewModels
             ThemeService themeService,
             MediaTrackingServiceRegistry mediaTrackingRegistry,
             LocalSource localSource,
+            HomeViewModel homeViewModel,
             MangaListViewModel mangaListViewModel,
             LocalLibraryViewModel localLibraryViewModel,
             BookmarkLibraryViewModel bookmarkLibraryViewModel,
@@ -41,6 +43,7 @@ namespace MSCS.ViewModels
             _themeService = themeService ?? throw new ArgumentNullException(nameof(themeService));
             _mediaTrackingRegistry = mediaTrackingRegistry ?? throw new ArgumentNullException(nameof(mediaTrackingRegistry));
             _localSource = localSource ?? throw new ArgumentNullException(nameof(localSource));
+            HomeVM = homeViewModel ?? throw new ArgumentNullException(nameof(homeViewModel));
 
             _themeService.ApplyTheme(_userSettings.AppTheme);
 
@@ -59,17 +62,15 @@ namespace MSCS.ViewModels
 
             ContinueReadingVM = continueReadingViewModel ?? throw new ArgumentNullException(nameof(continueReadingViewModel));
             ContinueReadingVM.ContinueReadingRequested += OnContinueReadingRequested;
-
+            HomeVM.LocalChapterRequested += OnLocalChapterRequested;
             SettingsVM = settingsViewModel ?? throw new ArgumentNullException(nameof(settingsViewModel));
 
             Tabs = new ObservableCollection<MainMenuTab>
             {
+                new("home", "Home", "\uE80F", HomeVM),
                 new("external", "External Sources", "\uE774", MangaListVM),
-                new("local", "Local Library", "\uE8D2", LocalLibraryVM),
-                new("bookmarks", "Bookmarks", "\uE735", BookmarksVM),
                 new("tracking-libraries", "Tracking Libraries", "\uE12B", TrackingLibrariesVM),
                 new("recommendations", "AniList Recommendations", "\uE734", RecommendationsVM),
-                new("continue", "Continue Reading", "\uE823", ContinueReadingVM),
                 new("settings", "Settings", "\uE713", SettingsVM)
             };
 
@@ -93,6 +94,7 @@ namespace MSCS.ViewModels
         public AniListRecommendationsViewModel RecommendationsVM { get; }
         public SettingsViewModel SettingsVM { get; }
         public ContinueReadingViewModel ContinueReadingVM { get; }
+        public HomeViewModel HomeVM { get; }
         public ObservableCollection<MainMenuTab> Tabs { get; }
         public MediaTrackingServiceRegistry MediaTrackingRegistry => _mediaTrackingRegistry;
 
@@ -129,11 +131,6 @@ namespace MSCS.ViewModels
 
             if (ReferenceEquals(CurrentViewModel, tab.ViewModel))
             {
-                if (tab.ViewModel is LocalLibraryViewModel alreadyActiveLocal)
-                {
-                    alreadyActiveLocal.EnsureLibraryLoaded();
-                }
-
                 return;
             }
 
@@ -142,11 +139,6 @@ namespace MSCS.ViewModels
             if (tab.ViewModel is MangaListViewModel mangaListViewModel)
             {
                 mangaListViewModel.SelectedResult = null;
-            }
-            else if (tab.ViewModel is LocalLibraryViewModel localLibraryViewModel)
-            {
-                localLibraryViewModel.SelectedManga = null;
-                localLibraryViewModel.EnsureLibraryLoaded();
             }
 
             CurrentViewModel = tab.ViewModel;
@@ -324,6 +316,56 @@ namespace MSCS.ViewModels
         }
 
 
+        private async void OnLocalChapterRequested(object? sender, LocalChapterRequestedEventArgs e)
+        {
+            if (_disposed || e == null)
+            {
+                return;
+            }
+
+            var chapterPath = e.ChapterPath;
+            if (string.IsNullOrWhiteSpace(chapterPath))
+            {
+                return;
+            }
+
+            var mangaDirectory = GetMangaDirectory(chapterPath);
+            if (string.IsNullOrWhiteSpace(mangaDirectory) || !Directory.Exists(mangaDirectory))
+            {
+                return;
+            }
+
+            var normalizedChapterPath = NormalizePathSafe(chapterPath);
+            var chapterTitle = Path.GetFileNameWithoutExtension(normalizedChapterPath) ?? Path.GetFileName(normalizedChapterPath) ?? normalizedChapterPath;
+            var mangaTitle = new DirectoryInfo(mangaDirectory).Name;
+
+            var chapters = await _localSource.GetChaptersAsync(mangaDirectory).ConfigureAwait(false);
+            var chapterIndex = FindChapterIndex(chapters, normalizedChapterPath);
+
+            var progress = new MangaReadingProgress(
+                chapterIndex >= 0 ? chapterIndex : 0,
+                chapterTitle,
+                0,
+                DateTimeOffset.UtcNow,
+                mangaDirectory,
+                SourceKeyConstants.LocalLibrary);
+
+            var manga = new Manga
+            {
+                Title = mangaTitle,
+                Url = mangaDirectory,
+                Description = string.Empty
+            };
+
+            NavigateToChapterList(
+                _localSource,
+                manga,
+                SourceKeyConstants.LocalLibrary,
+                autoOpenChapter: true,
+                skipChapterListNavigation: true,
+                initialProgress: progress);
+        }
+
         public void NavigateTo<TViewModel>() where TViewModel : BaseViewModel
         {
             if (_disposed)
@@ -370,18 +412,89 @@ namespace MSCS.ViewModels
                     mangaListViewModel.SelectedResult = null;
                     DisposeActiveChapterViewModel();
                 }
-                else if (viewModel is LocalLibraryViewModel localLibraryViewModel)
-                {
-                    localLibraryViewModel.SelectedManga = null;
-                    localLibraryViewModel.EnsureLibraryLoaded();
-                    DisposeActiveChapterViewModel();
-                }
 
                 _navigationService.SetRootViewModel(viewModel);
             }
             else if (viewModel is ChapterListViewModel chapterViewModel)
             {
                 _activeChapterViewModel = chapterViewModel;
+            }
+        }
+
+
+        private static int FindChapterIndex(IReadOnlyList<Chapter> chapters, string chapterPath)
+        {
+            if (chapters == null || chapters.Count == 0 || string.IsNullOrWhiteSpace(chapterPath))
+            {
+                return -1;
+            }
+
+            var normalizedTarget = NormalizePathSafe(chapterPath);
+
+            for (var i = 0; i < chapters.Count; i++)
+            {
+                var candidate = chapters[i];
+                if (string.IsNullOrWhiteSpace(candidate?.Url))
+                {
+                    continue;
+                }
+
+                var normalizedCandidate = NormalizePathSafe(candidate.Url);
+                if (PathsEqual(normalizedCandidate, normalizedTarget))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        private static string? GetMangaDirectory(string chapterPath)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(chapterPath))
+                {
+                    return null;
+                }
+
+                if (Directory.Exists(chapterPath))
+                {
+                    return Directory.GetParent(chapterPath)?.FullName;
+                }
+
+                if (File.Exists(chapterPath))
+                {
+                    return Path.GetDirectoryName(chapterPath);
+                }
+            }
+            catch
+            {
+            }
+
+            return null;
+        }
+
+        private static bool PathsEqual(string? first, string? second)
+        {
+            if (string.IsNullOrWhiteSpace(first) || string.IsNullOrWhiteSpace(second))
+            {
+                return false;
+            }
+
+            return string.Equals(NormalizePathSafe(first), NormalizePathSafe(second), StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string NormalizePathSafe(string path)
+        {
+            try
+            {
+                return Path.GetFullPath(path)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            }
+            catch
+            {
+                return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             }
         }
 
@@ -407,6 +520,7 @@ namespace MSCS.ViewModels
             LocalLibraryVM.MangaSelected -= OnLocalMangaSelected;
             BookmarksVM.BookmarkSelected -= OnBookmarkSelected;
             ContinueReadingVM.ContinueReadingRequested -= OnContinueReadingRequested;
+            HomeVM.LocalChapterRequested -= OnLocalChapterRequested;
             DisposeActiveChapterViewModel();
             MangaListVM.Dispose();
             LocalLibraryVM.Dispose();

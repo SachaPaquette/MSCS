@@ -266,11 +266,11 @@
             </StackPanel>
         </Border>
         <Grid x:Name="SidebarHost"
-              HorizontalAlignment="Left"
-              VerticalAlignment="Stretch"
-              Margin="4,0,0,0"
-              Panel.ZIndex="10"
-              Background="Transparent">
+      HorizontalAlignment="Left"
+      VerticalAlignment="Stretch"
+      Margin="4,0,0,0"
+      Panel.ZIndex="10"
+      Background="{x:Null}">
             <Grid.Style>
                 <Style TargetType="Grid">
                     <Setter Property="Visibility" Value="Visible"/>
@@ -283,9 +283,20 @@
             </Grid.Style>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="8"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
+            <Grid x:Name="SidebarHoverZone"
+        Grid.ColumnSpan="3"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Top"
+        Background="Transparent">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="8"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
 
             <StackPanel Grid.Column="0"
                         VerticalAlignment="Top"
@@ -300,15 +311,15 @@
                         SnapsToDevicePixels="True">
                     <StackPanel>
                         <Button Style="{StaticResource SidebarIconButtonStyle}"
-                                Command="{Binding GoBackCommand}"
-                                ToolTip="Back"
-                                Margin="0,0,0,8">
+                Command="{Binding GoBackCommand}"
+                ToolTip="Back"
+                Margin="0,0,0,8">
                             <TextBlock Text="&#xE72B;" FontSize="16"/>
                         </Button>
 
                         <ToggleButton x:Name="SidebarToggleButton"
-                                      Style="{StaticResource SidebarIconToggleButtonStyle}"
-                                      Margin="0,0,0,8">
+                      Style="{StaticResource SidebarIconToggleButtonStyle}"
+                      Margin="0,0,0,8">
                             <ToggleButton.ToolTip>
                                 <ToolTip>
                                     <ToolTip.Style>
@@ -338,17 +349,15 @@
                         </ToggleButton>
 
                         <Button x:Name="FullscreenButton"
-                                Style="{StaticResource SidebarIconButtonStyle}"
-                                ToolTip="Enter fullscreen"
-                                Click="FullscreenButton_Click">
+                Style="{StaticResource SidebarIconButtonStyle}"
+                ToolTip="Enter fullscreen"
+                Click="FullscreenButton_Click">
                             <TextBlock x:Name="FullscreenButtonIcon"
-                                       FontSize="16"
-                                       Text="&#xE740;"/>
+                     FontSize="16"
+                     Text="&#xE740;"/>
                         </Button>
                     </StackPanel>
                 </Border>
-            </StackPanel>
-
 
             <Border x:Name="ChapterSidebar"
                     Grid.Column="1"
@@ -386,24 +395,56 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
+                <Border x:Name="ChapterSidebar"
+            Grid.Column="2"
+            Margin="0,4,0,4"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Stretch"
+            Background="{DynamicResource SidebarBackground}"
+            BorderBrush="{DynamicResource SurfaceBorder}"
+            BorderThickness="1"
+            CornerRadius="10"
+            Padding="10"
+            Width="300"
+            SnapsToDevicePixels="True">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Value="True">
+                                    <DataTrigger.Binding>
+                                        <MultiBinding Converter="{StaticResource BooleanOr}">
+                                            <Binding ElementName="SidebarToggleButton" Path="IsChecked" TargetNullValue="False" FallbackValue="False"/>
+                                            <Binding ElementName="SidebarHoverZone" Path="IsMouseOver"/>
+                                        </MultiBinding>
+                                    </DataTrigger.Binding>
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
 
-                    <!-- Reader preferences -->
-
-                    <TabControl Grid.Row="1"
-                                Style="{StaticResource SidebarTabControlStyle}"
-                                ItemContainerStyle="{StaticResource SidebarTabItemStyle}">
-                        <TabItem Header="Reader">
-                            <reader:ReaderPreferencesPanel/>
-                        </TabItem>
-                        <TabItem Header="Series">
-                            <reader:ReaderSeriesPanel/>
-                        </TabItem>
-                        <TabItem Header="Chapters">
-                            <reader:ReaderChaptersPanel/>
-                        </TabItem>
-                    </TabControl>
-                </Grid>
-            </Border>
+                        <TabControl Grid.Row="1"
+                    Style="{StaticResource SidebarTabControlStyle}"
+                    ItemContainerStyle="{StaticResource SidebarTabItemStyle}">
+                            <TabItem Header="Reader">
+                                <reader:ReaderPreferencesPanel/>
+                            </TabItem>
+                            <TabItem Header="Series">
+                                <reader:ReaderSeriesPanel/>
+                            </TabItem>
+                            <TabItem Header="Chapters">
+                                <reader:ReaderChaptersPanel/>
+                            </TabItem>
+                        </TabControl>
+                    </Grid>
+                </Border>
+            </Grid>
         </Grid>
     </Grid>
 </UserControl>

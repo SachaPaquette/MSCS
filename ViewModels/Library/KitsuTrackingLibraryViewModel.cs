@@ -47,7 +47,16 @@ namespace MSCS.ViewModels
 
         protected override TrackingLibraryEntryViewModel CreateEntryViewModel(KitsuMedia media, KitsuLibraryStatus status)
         {
-            _service.TryGetTracking(media.Title, out var trackingInfo);
+            if (media == null)
+            {
+                throw new ArgumentNullException(nameof(media));
+            }
+
+            var trackingKey = !string.IsNullOrWhiteSpace(media.Title)
+                ? media.Title
+                : media.Id ?? string.Empty;
+
+            _service.TryGetTracking(trackingKey, out var trackingInfo);
 
             var effectiveStatus = trackingInfo?.Status ?? status;
             var statusDisplay = GetStatusDisplayName(effectiveStatus);
@@ -81,8 +90,12 @@ namespace MSCS.ViewModels
             return new TrackingLibraryEntryViewModel(
                 media,
                 trackingInfo,
-                media.Title,
-                media.Title,
+                trackingKey,
+                !string.IsNullOrWhiteSpace(trackingInfo?.Title)
+                    ? trackingInfo.Title
+                    : !string.IsNullOrWhiteSpace(media.Title)
+                        ? media.Title
+                        : media.Id ?? string.Empty,
                 statusDisplay,
                 progressText,
                 scoreText,
@@ -93,11 +106,19 @@ namespace MSCS.ViewModels
                 trackingInfo?.SiteUrl ?? media.SiteUrl,
                 trackingInfo?.UpdatedAt,
                 effectiveStatus);
+            
         }
 
         protected override string GetTrackingKey(KitsuMedia media)
         {
-            return media.Title;
+            if (media == null)
+            {
+                throw new ArgumentNullException(nameof(media));
+            }
+
+            return !string.IsNullOrWhiteSpace(media.Title)
+                ? media.Title
+                : media.Id ?? string.Empty;
         }
 
         protected override TrackingLibraryStatisticsSummary CreateStatisticsSummary(IReadOnlyDictionary<KitsuLibraryStatus, IReadOnlyList<KitsuMedia>> lists)
@@ -112,7 +133,9 @@ namespace MSCS.ViewModels
             {
                 foreach (var media in kvp.Value)
                 {
-                    if (_service.TryGetTracking(media.Title, out var info) && info != null)
+                    var trackingKey = GetTrackingKey(media);
+
+                    if (_service.TryGetTracking(trackingKey, out var info) && info != null)
                     {
                         trackingInfos.Add(info);
                     }

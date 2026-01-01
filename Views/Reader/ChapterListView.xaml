@@ -7,12 +7,61 @@
              Height="Auto" Width="Auto">
 
     <UserControl.Resources>
+        <LinearGradientBrush x:Key="HeroBackgroundBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#33253A5A" Offset="0"/>
+            <GradientStop Color="#27101828" Offset="0.55"/>
+            <GradientStop Color="#33101010" Offset="1"/>
+        </LinearGradientBrush>
+
+        <RadialGradientBrush x:Key="HeroGlowBrush"
+                              GradientOrigin="0.2,0.2"
+                              Center="0.2,0.2"
+                              RadiusX="0.8"
+                              RadiusY="0.8">
+            <GradientStop Color="#66295BE7" Offset="0"/>
+            <GradientStop Color="#00295BE7" Offset="1"/>
+        </RadialGradientBrush>
+
+        <Style x:Key="InfoChipStyle" TargetType="Border">
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Background" Value="{DynamicResource SurfaceLow}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderSoft}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Margin" Value="0,0,10,0"/>
+            <Setter Property="Opacity" Value="0.85"/>
+        </Style>
+
+        <Style x:Key="HeroInfoCardStyle" TargetType="Border">
+            <Setter Property="Padding" Value="14"/>
+            <Setter Property="CornerRadius" Value="14"/>
+            <Setter Property="Background" Value="{DynamicResource SurfaceLow}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderSoft}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Margin" Value="0,8,12,0"/>
+            <Setter Property="Opacity" Value="0.95"/>
+        </Style>
+
         <Style x:Key="MetadataTextStyle" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource FgSubtle}"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Margin" Value="0,0,0,6"/>
         </Style>
 
+        <Style x:Key="HeroCardLabelStyle"
+           TargetType="TextBlock"
+           BasedOn="{StaticResource MetadataTextStyle}">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="TextOptions.TextFormattingMode" Value="Ideal"/>
+            <Setter Property="TextOptions.TextRenderingMode" Value="Auto"/>
+        </Style>
+
+        <Style x:Key="HeroCardValueStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource Fg}"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="0,2,0,0"/>
+        </Style>
         <Style x:Key="ChapterRowBorderStyle" TargetType="Border">
             <Setter Property="Background" Value="{DynamicResource Surface}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderSoft}"/>
@@ -20,6 +69,98 @@
             <Setter Property="CornerRadius" Value="12"/>
             <Setter Property="Padding" Value="14"/>
             <Setter Property="SnapsToDevicePixels" Value="True"/>
+        </Style>
+
+        <Style x:Key="BookmarkActionButtonStyle" TargetType="Button">
+            <Setter Property="Foreground" Value="{DynamicResource Fg}"/>
+            <Setter Property="Background" Value="{DynamicResource SurfaceLow}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderSoft}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="18,12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="14"
+                                SnapsToDevicePixels="True"
+                                RenderTransformOrigin="0.5,0.5">
+                            <Border.RenderTransform>
+                                <ScaleTransform x:Name="Scale" ScaleX="1" ScaleY="1"/>
+                            </Border.RenderTransform>
+                            <ContentPresenter HorizontalAlignment="Stretch"
+                                              VerticalAlignment="Center"
+                                              Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="Scale"
+                                                             Storyboard.TargetProperty="ScaleX"
+                                                             To="1.02"
+                                                             Duration="0:0:0.15"/>
+                                            <DoubleAnimation Storyboard.TargetName="Scale"
+                                                             Storyboard.TargetProperty="ScaleY"
+                                                             To="1.02"
+                                                             Duration="0:0:0.15"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="Scale"
+                                                             Storyboard.TargetProperty="ScaleX"
+                                                             To="1"
+                                                             Duration="0:0:0.15"/>
+                                            <DoubleAnimation Storyboard.TargetName="Scale"
+                                                             Storyboard.TargetProperty="ScaleY"
+                                                             To="1"
+                                                             Duration="0:0:0.15"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.9"/>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="Scale"
+                                                             Storyboard.TargetProperty="ScaleX"
+                                                             To="1"
+                                                             Duration="0:0:0.10"/>
+                                            <DoubleAnimation Storyboard.TargetName="Scale"
+                                                             Storyboard.TargetProperty="ScaleY"
+                                                             To="1"
+                                                             Duration="0:0:0.10"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.55"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsBookmarked}" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource Accent}"/>
+                    <Setter Property="Foreground" Value="{DynamicResource AccentForeground}"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource Accent}"/>
+                </DataTrigger>
+            </Style.Triggers>
         </Style>
     </UserControl.Resources>
 
@@ -35,47 +176,84 @@
                         Effect="{x:Null}">
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="20"/>
                             <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
-                        <!-- Back button uses Accent style -->
-                        <Button Grid.Column="0"
-                                MinWidth="110"
-                                Height="38"
-                                HorizontalAlignment="Left"
-                                VerticalAlignment="Top"
-                                Command="{Binding BackCommand}"
-                                Style="{StaticResource AccentButtonStyle}">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="" FontFamily="Segoe MDL2 Assets" Margin="0,0,6,0"/>
-                                <TextBlock Text="Back"/>
-                            </StackPanel>
-                        </Button>
+                        <Border Grid.ColumnSpan="2"
+                                Background="{StaticResource HeroBackgroundBrush}"
+                                CornerRadius="18"
+                                Margin="-24"
+                                IsHitTestVisible="False"
+                                ClipToBounds="True">
+                            <Grid>
+                                <Ellipse Width="380"
+                                         Height="380"
+                                         Fill="{StaticResource HeroGlowBrush}"
+                                         Opacity="0.5"
+                                         HorizontalAlignment="Left"
+                                         VerticalAlignment="Top"
+                                         Margin="-120,-160,0,0"/>
+                                <Ellipse Width="260"
+                                         Height="260"
+                                         Fill="{StaticResource HeroGlowBrush}"
+                                         Opacity="0.35"
+                                         HorizontalAlignment="Right"
+                                         VerticalAlignment="Bottom"
+                                         Margin="0,0,-80,-80"/>
+                            </Grid>
+                        </Border>
 
-                        <StackPanel Grid.Column="2">
-                            <TextBlock Text="{Binding Manga.Title}"
-                                       Foreground="{DynamicResource Fg}"
-                                       FontSize="24"
-                                       FontWeight="Bold"
-                                       TextWrapping="Wrap"/>
+                        <Grid Margin="0,0,20,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="16"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
 
-                            <TextBlock Text="{Binding Manga.AlternativeTitles, Converter={StaticResource ListToStringConverter}}"
-                                       Foreground="{DynamicResource FgMuted}"
-                                       FontSize="12"
-                                       Margin="0,6,0,0"
-                                       TextWrapping="Wrap"
-                                       TextTrimming="CharacterEllipsis"/>
+                            <!-- Back button uses Accent style -->
+                            <Button Grid.Column="0"
+                                    MinWidth="110"
+                                    Height="38"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Top"
+                                    Command="{Binding BackCommand}"
+                                    Style="{StaticResource AccentButtonStyle}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="" FontFamily="Segoe MDL2 Assets" Margin="0,0,6,0"/>
+                                    <TextBlock Text="Back"/>
+                                </StackPanel>
+                            </Button>
 
-                            <StackPanel>
-                                <TextBlock Text="{Binding Manga.TotalChapters, StringFormat=Total chapters\: {0}}"
-                                           Margin="0,14,0,6">
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="{Binding Manga.Title}"
+                                           Foreground="{DynamicResource Fg}"
+                                           FontSize="26"
+                                           FontWeight="Bold"
+                                           TextWrapping="Wrap"/>
+
+                                <TextBlock Text="{Binding Manga.AlternativeTitles, Converter={StaticResource ListToStringConverter}}"
+                                           Foreground="{DynamicResource FgMuted}"
+                                           FontSize="12"
+                                           Margin="0,6,0,0"
+                                           TextWrapping="Wrap"
+                                           TextTrimming="CharacterEllipsis"/>
+
+                                <TextBlock Text="{Binding Manga.Description}"
+                                           Foreground="{DynamicResource FgMuted}"
+                                           FontSize="12"
+                                           Margin="0,12,0,0"
+                                           TextWrapping="Wrap"
+                                           TextTrimming="WordEllipsis"
+                                           MaxHeight="80">
                                     <TextBlock.Style>
-                                        <Style TargetType="TextBlock" BasedOn="{StaticResource MetadataTextStyle}">
+                                        <Style TargetType="TextBlock">
                                             <Setter Property="Visibility" Value="Visible"/>
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding Manga.TotalChapters}" Value="{x:Null}">
+                                                <DataTrigger Binding="{Binding Manga.Description}" Value="{x:Null}">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Manga.Description}" Value="">
                                                     <Setter Property="Visibility" Value="Collapsed"/>
                                                 </DataTrigger>
                                             </Style.Triggers>
@@ -83,23 +261,224 @@
                                     </TextBlock.Style>
                                 </TextBlock>
 
-                                <TextBlock Text="{Binding Manga.LastUpdated, StringFormat=Last updated\: {0:d}}"
-                                           Margin="0">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock" BasedOn="{StaticResource MetadataTextStyle}">
+                                <ItemsControl Margin="0,16,0,0"
+                                              ItemsSource="{Binding Manga.Genres}">
+                                    <ItemsControl.Style>
+                                        <Style TargetType="ItemsControl">
                                             <Setter Property="Visibility" Value="Visible"/>
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding Manga.LastUpdated}" Value="{x:Null}">
+                                                <DataTrigger Binding="{Binding Manga.Genres}" Value="{x:Null}">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Manga.Genres.Count}" Value="0">
                                                     <Setter Property="Visibility" Value="Collapsed"/>
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
+                                    </ItemsControl.Style>
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel IsItemsHost="True"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Style="{StaticResource InfoChipStyle}" Margin="0,6,8,0" Padding="12,6">
+                                                <TextBlock Text="{Binding}" Foreground="{DynamicResource Fg}" FontSize="12"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <UniformGrid Margin="0,20,0,0" Columns="3">
+                                    <Border>
+                                        <Border.Style>
+                                            <Style TargetType="Border" BasedOn="{StaticResource HeroInfoCardStyle}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Manga.TotalChapters}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <StackPanel>
+                                            <TextBlock Text="Total chapters" Style="{StaticResource HeroCardLabelStyle}"/>
+                                            <TextBlock Text="{Binding Manga.TotalChapters}" Style="{StaticResource HeroCardValueStyle}"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border>
+                                        <Border.Style>
+                                            <Style TargetType="Border" BasedOn="{StaticResource HeroInfoCardStyle}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Manga.Status}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Manga.Status}" Value="">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <StackPanel>
+                                            <TextBlock Text="Status" Style="{StaticResource HeroCardLabelStyle}"/>
+                                            <TextBlock Text="{Binding Manga.Status}" Style="{StaticResource HeroCardValueStyle}"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border>
+                                        <Border.Style>
+                                            <Style TargetType="Border" BasedOn="{StaticResource HeroInfoCardStyle}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Manga.LastUpdated}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <StackPanel>
+                                            <TextBlock Text="Last updated" Style="{StaticResource HeroCardLabelStyle}"/>
+                                            <TextBlock
+                                                Text="{Binding Manga.LastUpdated, StringFormat='{}{0:MMM d, yyyy}'}"
+                                                Style="{StaticResource HeroCardValueStyle}" />
+                                        </StackPanel>
+                                    </Border>
+                                    <Border>
+                                        <Border.Style>
+                                            <Style TargetType="Border" BasedOn="{StaticResource HeroInfoCardStyle}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Manga.LatestChapter}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Manga.LatestChapter}" Value="">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <StackPanel>
+                                            <TextBlock Text="Latest chapter" Style="{StaticResource HeroCardLabelStyle}"/>
+                                            <TextBlock Text="{Binding Manga.LatestChapter}" Style="{StaticResource HeroCardValueStyle}"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border>
+                                        <Border.Style>
+                                            <Style TargetType="Border" BasedOn="{StaticResource HeroInfoCardStyle}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Manga.Rating}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Manga.Rating}" Value="0">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <StackPanel>
+                                            <TextBlock Text="Rating" Style="{StaticResource HeroCardLabelStyle}"/>
+                                            <TextBlock Text="{Binding Manga.Rating, StringFormat=\{0:0.0\}/5}"
+                                                       Style="{StaticResource HeroCardValueStyle}"/>
+                                        </StackPanel>
+                                    </Border>
+                                </UniformGrid>
                             </StackPanel>
+                        </Grid>
+
+                        <StackPanel Grid.Column="1"
+                                    VerticalAlignment="Stretch"
+                                    Width="260">
+                            <TextBlock Text="Organize your reading"
+                                       Foreground="{DynamicResource FgSubtle}"
+                                       Margin="0,0,0,8"
+                                       FontSize="12"/>
+                            <Border Padding="20"
+                                    CornerRadius="20"
+                                    BorderBrush="{DynamicResource SurfaceBorderSoft}"
+                                    BorderThickness="1"
+                                    Opacity="0.95">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                        <GradientStop Color="#28FFFFFF" Offset="0"/>
+                                        <GradientStop Color="#1A2C2F40" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Width="44"
+                                                Height="44"
+                                                Background="{DynamicResource Surface}"
+                                                CornerRadius="14"
+                                                Opacity="0.9">
+                                            <TextBlock Text="{Binding BookmarkIconGlyph}"
+                                                       FontFamily="Segoe MDL2 Assets"
+                                                       FontSize="20"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource Accent}"/>
+                                        </Border>
+                                        <StackPanel Margin="12,0,0,0">
+                                            <TextBlock Text="Bookmark this series"
+                                                       FontWeight="SemiBold"
+                                                       FontSize="16"
+                                                       Foreground="{DynamicResource Fg}"/>
+                                            <TextBlock Text="Pin it to your library for instant access."
+                                                       Foreground="{DynamicResource FgSubtle}"
+                                                       FontSize="12"
+                                                       Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <TextBlock Text="Bookmarks keep ongoing reads within one tap."
+                                               Foreground="{DynamicResource FgMuted}"
+                                               Margin="0,16,0,0"
+                                               TextWrapping="Wrap"/>
+
+                                    <Button Style="{StaticResource BookmarkActionButtonStyle}"
+                                            Margin="0,16,0,0"
+                                            Command="{Binding ToggleBookmarkCommand}"
+                                            ToolTip="{Binding BookmarkToolTip}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Border Width="40"
+                                                    Height="40"
+                                                    Background="{DynamicResource SurfaceAlt}"
+                                                    CornerRadius="12"
+                                                    HorizontalAlignment="Center"
+                                                    VerticalAlignment="Center"
+                                                    Opacity="0.9">
+                                                <TextBlock Text="{Binding BookmarkIconGlyph}"
+                                                           FontFamily="Segoe MDL2 Assets"
+                                                           FontSize="18"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                                            </Border>
+                                            <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                                <TextBlock Text="{Binding BookmarkButtonText}"
+                                                           FontSize="14"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                                                <TextBlock Text="{Binding BookmarkToolTip}"
+                                                           FontSize="11"
+                                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                           Opacity="0.75"
+                                                           Margin="0,4,0,0"/>
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="2"
+                                                       Text=""
+                                                       FontFamily="Segoe MDL2 Assets"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                                        </Grid>
+                                    </Button>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                     </Grid>
                 </Border>
+
 
                 <!-- Chapters list -->
                 <Border Margin="16"

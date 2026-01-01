@@ -8,7 +8,7 @@ namespace MSCS.Helpers
 {
     public static partial class Constants
     {
-        public const int DefaultLoadedBatchSize = 3; // number of images to load at once
+        public const int DefaultLoadedBatchSize = 1; // number of images to load at once
         public const int LegacyDefaultMaxPageWidth = 900; // historical max width for a page
         public const int DefaultMaxPageWidth = 1400; // max width for a page
         public const double DefaultWidthFactor = 0.40; // default width factor for images
@@ -16,9 +16,5 @@ namespace MSCS.Helpers
         public const int DefaultSmoothScrollDuration = 250; // default duration for smooth scroll in ms
         public const double DefaultSmoothScrollPageFraction = 0.85; // factor for smooth scroll
         public const string ClientID = "30966";
-
-        private static string? _myAnimeListClientId;
-
-        public static string MyAnimeListClientId = "5273226fb0886cf8df7e66a576374a98";
     }
 }

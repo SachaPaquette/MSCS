@@ -41,14 +41,11 @@ namespace MSCS.Services
             set
             {
                 var sanitized = string.IsNullOrWhiteSpace(value) ? null : value?.Trim();
-                if (string.Equals(_data.LocalLibraryPath, sanitized, StringComparison.Ordinal))
-                {
-                    return;
-                }
-
-                _data.LocalLibraryPath = sanitized;
-                SaveInternal();
-                SettingsChanged?.Invoke(this, EventArgs.Empty);
+                SetIfChanged(
+                    () => _data.LocalLibraryPath,
+                    sanitized,
+                    updated => _data.LocalLibraryPath = updated,
+                    () => SettingsChanged?.Invoke(this, EventArgs.Empty));
             }
         }
 
@@ -84,9 +81,11 @@ namespace MSCS.Services
                 return;
             }
 
-            _data.LocalLibraryIgnoreList = sanitized;
-            SaveInternal();
-            SettingsChanged?.Invoke(this, EventArgs.Empty);
+            SetIfChanged(
+                () => _data.LocalLibraryIgnoreList,
+                sanitized,
+                updated => _data.LocalLibraryIgnoreList = updated,
+                () => SettingsChanged?.Invoke(this, EventArgs.Empty));
         }
 
         public bool IncludeHiddenLibraryItems
@@ -99,9 +98,11 @@ namespace MSCS.Services
                     return;
                 }
 
-                _data.IncludeHiddenLibraryItems = value;
-                SaveInternal();
-                SettingsChanged?.Invoke(this, EventArgs.Empty);
+                SetIfChanged(
+                    () => _data.IncludeHiddenLibraryItems,
+                    value,
+                    updated => _data.IncludeHiddenLibraryItems = updated,
+                    () => SettingsChanged?.Invoke(this, EventArgs.Empty));
             }
         }
 
@@ -110,14 +111,11 @@ namespace MSCS.Services
             get => _data.AniListAccessToken;
             set
             {
-                if (string.Equals(_data.AniListAccessToken, value, StringComparison.Ordinal))
-                {
-                    return;
-                }
-
-                _data.AniListAccessToken = value;
-                SaveInternal();
-                SettingsChanged?.Invoke(this, EventArgs.Empty);
+                SetIfChanged(
+                     () => _data.AniListAccessToken,
+                     value,
+                     updated => _data.AniListAccessToken = updated,
+                     () => SettingsChanged?.Invoke(this, EventArgs.Empty));
             }
         }
 
@@ -126,14 +124,11 @@ namespace MSCS.Services
             get => _data.AniListAccessTokenExpiry;
             set
             {
-                if (_data.AniListAccessTokenExpiry == value)
-                {
-                    return;
-                }
-
-                _data.AniListAccessTokenExpiry = value;
-                SaveInternal();
-                SettingsChanged?.Invoke(this, EventArgs.Empty);
+                SetIfChanged(
+                    () => _data.AniListAccessTokenExpiry,
+                    value,
+                    updated => _data.AniListAccessTokenExpiry = updated,
+                    () => SettingsChanged?.Invoke(this, EventArgs.Empty));
             }
         }
 
@@ -142,14 +137,11 @@ namespace MSCS.Services
             get => _data.MyAnimeListAccessToken;
             set
             {
-                if (string.Equals(_data.MyAnimeListAccessToken, value, StringComparison.Ordinal))
-                {
-                    return;
-                }
-
-                _data.MyAnimeListAccessToken = value;
-                SaveInternal();
-                SettingsChanged?.Invoke(this, EventArgs.Empty);
+                SetIfChanged(
+                    () => _data.MyAnimeListAccessToken,
+                    value,
+                    updated => _data.MyAnimeListAccessToken = updated,
+                    () => SettingsChanged?.Invoke(this, EventArgs.Empty));
             }
         }
 
@@ -158,14 +150,11 @@ namespace MSCS.Services
             get => _data.MyAnimeListRefreshToken;
             set
             {
-                if (string.Equals(_data.MyAnimeListRefreshToken, value, StringComparison.Ordinal))
-                {
-                    return;
-                }
-
-                _data.MyAnimeListRefreshToken = value;
-                SaveInternal();
-                SettingsChanged?.Invoke(this, EventArgs.Empty);
+                SetIfChanged(
+                    () => _data.MyAnimeListRefreshToken,
+                    value,
+                    updated => _data.MyAnimeListRefreshToken = updated,
+                    () => SettingsChanged?.Invoke(this, EventArgs.Empty));
             }
         }
 
@@ -174,14 +163,11 @@ namespace MSCS.Services
             get => _data.MyAnimeListAccessTokenExpiry;
             set
             {
-                if (_data.MyAnimeListAccessTokenExpiry == value)
-                {
-                    return;
-                }
-
-                _data.MyAnimeListAccessTokenExpiry = value;
-                SaveInternal();
-                SettingsChanged?.Invoke(this, EventArgs.Empty);
+                SetIfChanged(
+                    () => _data.MyAnimeListAccessTokenExpiry,
+                    value,
+                    updated => _data.MyAnimeListAccessTokenExpiry = updated,
+                    () => SettingsChanged?.Invoke(this, EventArgs.Empty));
             }
         }
 
@@ -190,14 +176,25 @@ namespace MSCS.Services
             get => _data.MyAnimeListUserName;
             set
             {
-                if (string.Equals(_data.MyAnimeListUserName, value, StringComparison.Ordinal))
-                {
-                    return;
-                }
+                SetIfChanged(
+                    () => _data.MyAnimeListUserName,
+                    value,
+                    updated => _data.MyAnimeListUserName = updated,
+                    () => SettingsChanged?.Invoke(this, EventArgs.Empty));
+            }
+        }
 
-                _data.MyAnimeListUserName = value;
-                SaveInternal();
-                SettingsChanged?.Invoke(this, EventArgs.Empty);
+        public string? MyAnimeListClientId
+        {
+            get => _data.MyAnimeListClientId;
+            set
+            {
+                var sanitized = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+                SetIfChanged(
+                    () => _data.MyAnimeListClientId,
+                    sanitized,
+                    updated => _data.MyAnimeListClientId = updated,
+                    () => SettingsChanged?.Invoke(this, EventArgs.Empty));
             }
         }
 
@@ -241,14 +238,11 @@ namespace MSCS.Services
             get => _data.AniListUserName;
             set
             {
-                if (string.Equals(_data.AniListUserName, value, StringComparison.Ordinal))
-                {
-                    return;
-                }
-
-                _data.AniListUserName = value;
-                SaveInternal();
-                SettingsChanged?.Invoke(this, EventArgs.Empty);
+                SetIfChanged(
+                    () => _data.AniListUserName,
+                    value,
+                    updated => _data.AniListUserName = updated,
+                    () => SettingsChanged?.Invoke(this, EventArgs.Empty));
             }
         }
 
@@ -257,14 +251,11 @@ namespace MSCS.Services
             get => _data.AppTheme;
             set
             {
-                if (_data.AppTheme == value)
-                {
-                    return;
-                }
-
-                _data.AppTheme = value;
-                SaveInternal();
-                SettingsChanged?.Invoke(this, EventArgs.Empty);
+                SetIfChanged(
+                    () => _data.AppTheme,
+                    value,
+                    updated => _data.AppTheme = updated,
+                    () => SettingsChanged?.Invoke(this, EventArgs.Empty));
             }
         }
 
@@ -274,13 +265,7 @@ namespace MSCS.Services
             get => _data.LastSeenUpdateId;
             set
             {
-                if (_data.LastSeenUpdateId == value)
-                {
-                    return;
-                }
-
-                _data.LastSeenUpdateId = value;
-                SaveInternal();
+                SetIfChanged(() => _data.LastSeenUpdateId, value, updated => _data.LastSeenUpdateId = updated);
             }
         }
 
@@ -289,14 +274,10 @@ namespace MSCS.Services
             get => _data.LastSeenUpdateTimestamp;
             set
             {
-                if (_data.LastSeenUpdateTimestamp == value)
-                {
-                    return;
-                }
-
-                _data.LastSeenUpdateTimestamp = value;
-                SaveInternal();
-            }
+                SetIfChanged(
+                    () => _data.LastSeenUpdateTimestamp,
+                    value,
+                    updated => _data.LastSeenUpdateTimestamp = updated);            }
         }
 
 
@@ -960,6 +941,19 @@ namespace MSCS.Services
             }
         }
 
+        private bool SetIfChanged<T>(Func<T> getter, T value, Action<T> setter, Action? afterSave = null)
+        {
+            if (EqualityComparer<T>.Default.Equals(getter(), value))
+            {
+                return false;
+            }
+
+            setter(value);
+            SaveInternal();
+            afterSave?.Invoke();
+            return true;
+        }
+
         private static JsonSerializerOptions CreateSerializerOptions()
         {
             var options = new JsonSerializerOptions
@@ -1229,6 +1223,7 @@ namespace MSCS.Services
             public string? MyAnimeListRefreshToken { get; set; }
             public DateTimeOffset? MyAnimeListAccessTokenExpiry { get; set; }
             public string? MyAnimeListUserName { get; set; }
+            public string? MyAnimeListClientId { get; set; }
             public AppTheme AppTheme { get; set; } = AppTheme.Dark;
             public long? LastSeenUpdateId { get; set; }
             public DateTimeOffset? LastSeenUpdateTimestamp { get; set; }

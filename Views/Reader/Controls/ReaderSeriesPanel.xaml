@@ -40,37 +40,11 @@
                                 VerticalAlignment="Center"
                                 Visibility="{Binding HasTrackingProviders, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <ContentControl Content="{Binding ActiveTrackingProvider}"/>
-                        <ComboBox ItemsSource="{Binding TrackingProviders}"
-                                  SelectedItem="{Binding ActiveTrackingProvider}"
-                                  DisplayMemberPath="DisplayName"
-                                  Width="150"
-                                  Margin="8,0,0,0">
-                            <ComboBox.Style>
-                                <Style TargetType="ComboBox">
-                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding HasMultipleTrackingProviders}" Value="True">
-                                            <Setter Property="Visibility" Value="Visible"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </ComboBox.Style>
-                        </ComboBox>
                         <TextBlock Text="{Binding ActiveTrackerName}"
                                    Margin="8,0,0,0"
                                    Foreground="{DynamicResource FgMuted}"
                                    FontSize="12"
                                    VerticalAlignment="Center">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="Visibility" Value="Visible"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding HasMultipleTrackingProviders}" Value="True">
-                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
                         </TextBlock>
                     </StackPanel>
                     <StackPanel Orientation="Vertical"

@@ -19,7 +19,7 @@ namespace MSCS.Services.Reader
         private readonly SemaphoreSlim _prefetchSemaphore = new(4, 4);
         private readonly HttpClient _httpClient = new();
         private bool _isNavigationInProgress;
-        private const int MaxCachedImages = 96;
+        private const int MaxCachedImages = 3;
         private readonly ConcurrentDictionary<string, CachedImage> _imageCache = new();
         private readonly LinkedList<string> _cacheOrder = new();
         private readonly object _cacheLock = new();
@@ -81,7 +81,7 @@ namespace MSCS.Services.Reader
                     ? _chapterListViewModel.Chapters[index]
                     : null;
 
-                PrefetchImages(images, 0, Math.Min(12, images.Count));
+                PrefetchImages(images, 0, Math.Min(2, images.Count));
                 _ = _chapterListViewModel.PrefetchChapterAsync(index + 1);
 
                 return new ReaderChapterNavigationResult(index, chapter, images);

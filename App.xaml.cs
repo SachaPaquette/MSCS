@@ -107,6 +107,7 @@ public partial class App : System.Windows.Application
         services.AddSingleton(provider => new ContinueReadingViewModel(
         provider.GetRequiredService<UserSettings>(),
         provider.GetRequiredService<ReadingListService>()));
+        services.AddSingleton<HomeViewModel>();
         services.AddSingleton(provider => new SettingsViewModel(
         provider.GetRequiredService<LocalLibraryService>(),
         provider.GetRequiredService<UserSettings>(),

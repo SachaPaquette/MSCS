@@ -141,6 +141,67 @@ namespace MSCS.Services
         }
 
 
+        public IEnumerable<string> GetChildDirectories(string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(LibraryPath))
+            {
+                yield break;
+            }
+
+            DirectoryInfo root;
+            try
+            {
+                root = new DirectoryInfo(path);
+            }
+            catch
+            {
+                yield break;
+            }
+
+            foreach (var directory in SafeEnumerateDirectories(root))
+            {
+                yield return directory.FullName;
+            }
+        }
+
+        public IEnumerable<string> GetChildArchiveFiles(string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(LibraryPath))
+            {
+                yield break;
+            }
+
+            DirectoryInfo root;
+            try
+            {
+                root = new DirectoryInfo(path);
+            }
+            catch
+            {
+                yield break;
+            }
+
+            IEnumerable<FileInfo> files;
+            try
+            {
+                files = root.EnumerateFiles();
+            }
+            catch
+            {
+                yield break;
+            }
+
+            foreach (var file in files)
+            {
+                if (!ShouldInclude(file) || !IsArchive(file.FullName))
+                {
+                    continue;
+                }
+
+                yield return file.FullName;
+            }
+        }
+
         private bool ShouldInclude(FileSystemInfo entry)
         {
             if (entry == null)

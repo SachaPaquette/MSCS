@@ -78,14 +78,21 @@
                 </Grid>
 
                 <Grid>
-                    <TextBlock Text="No chapters found."
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0"
+                               Text="No chapters found."
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"
                                Foreground="{DynamicResource FgMuted}"
                                Margin="12"
                                Visibility="{Binding IsEmptyAfterFilter, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
-                    <ListBox ItemsSource="{Binding FilteredChapters}"
+                    <ListBox Grid.Row="0"
+                             ItemsSource="{Binding FilteredChapters}"
                              SelectedItem="{Binding SelectedChapter, Mode=TwoWay}"
                              BorderThickness="0"
                              Background="Transparent"
@@ -128,6 +135,27 @@
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
+
+                    <Button Grid.Row="1"
+                            Margin="0,8,0,0"
+                            Padding="12,6"
+                            HorizontalAlignment="Stretch"
+                            Command="{Binding LoadMoreChaptersCommand}"
+                            Content="Load more chapters"
+                            Visibility="{Binding CanLoadMoreChapters, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource AccentButton}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsLoadingChapters}" Value="True">
+                                        <Setter Property="IsEnabled" Value="False"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsApplyingChapterFilters}" Value="True">
+                                        <Setter Property="IsEnabled" Value="False"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
                 </Grid>
             </DockPanel>
         </Border>

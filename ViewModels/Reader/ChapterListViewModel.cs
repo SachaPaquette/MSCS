@@ -24,6 +24,7 @@ namespace MSCS.ViewModels
     public class ChapterListViewModel : BaseViewModel, IDisposable
     {
         private const int DefaultChapterLimit = 100;
+        private const int ChapterLoadIncrement = 100;
         private readonly IMangaSource _source;
         private readonly INavigationService _navigationService;
         private readonly CancellationTokenSource _cts = new();
@@ -53,6 +54,7 @@ namespace MSCS.ViewModels
         private ChapterSortOption? _selectedChapterSortOption;
         private HashSet<Chapter>? _limitedChapterSet;
         private bool _isApplyingChapterFilters;
+        private int _chapterDisplayLimit = DefaultChapterLimit;
 
         public Manga Manga
         {
@@ -117,6 +119,7 @@ namespace MSCS.ViewModels
         public ICommand BackCommand { get; }
         public ICommand ToggleChapterListLengthCommand { get; }
         public ICommand ToggleBookmarkCommand { get; }
+        public ICommand LoadMoreChaptersCommand { get; }
 
         public string SourceKey { get; }
 
@@ -237,16 +240,18 @@ namespace MSCS.ViewModels
             }
         }
 
-        public bool HasChapterOverflow => Chapters?.Count > DefaultChapterLimit;
+        public bool HasChapterOverflow => Chapters?.Count > _chapterDisplayLimit;
 
         public bool IsShowingLimitedList => HasChapterOverflow && !ShowAllChapters && string.IsNullOrWhiteSpace(ChapterSearchText);
+
+        public bool CanLoadMoreChapters => HasChapterOverflow && !ShowAllChapters && string.IsNullOrWhiteSpace(ChapterSearchText);
 
         public string ChapterOverflowMessage
         {
             get
             {
                 var total = Chapters?.Count ?? 0;
-                var limited = Math.Min(DefaultChapterLimit, total);
+                var limited = Math.Min(_chapterDisplayLimit, total);
                 return $"Showing the first {limited} of {total} chapters. Use search or Show all to browse the rest.";
             }
         }
@@ -289,6 +294,7 @@ namespace MSCS.ViewModels
             BackCommand = new RelayCommand(_ => _navigationService.GoBack(), _ => _navigationService.CanGoBack);
             WeakEventManager<INavigationService, EventArgs>.AddHandler(_navigationService, nameof(INavigationService.CanGoBackChanged), OnNavigationStateChanged);
             ToggleChapterListLengthCommand = new RelayCommand(_ => ToggleChapterListMode(), _ => HasChapterOverflow);
+            LoadMoreChaptersCommand = new RelayCommand(_ => LoadMoreChapters(), _ => CanLoadMoreChapters);
             ToggleBookmarkCommand = new RelayCommand(_ => ToggleBookmark(), _ => CanToggleBookmark());
             InitializeChapterListState();
             InitializeChapterSortOptions();
@@ -304,6 +310,7 @@ namespace MSCS.ViewModels
             OpenChapterCommand = new RelayCommand(_ => { }, _ => false);
             BackCommand = new RelayCommand(_ => { }, _ => false);
             ToggleChapterListLengthCommand = new RelayCommand(_ => ToggleChapterListMode(), _ => HasChapterOverflow);
+            LoadMoreChaptersCommand = new RelayCommand(_ => LoadMoreChapters(), _ => CanLoadMoreChapters);
             ToggleBookmarkCommand = new RelayCommand(_ => { }, _ => false);
             InitializeChapterListState();
             InitializeChapterSortOptions();
@@ -377,6 +384,7 @@ namespace MSCS.ViewModels
         {
             OnPropertyChanged(nameof(HasChapterOverflow));
             OnPropertyChanged(nameof(IsShowingLimitedList));
+            OnPropertyChanged(nameof(CanLoadMoreChapters));
             OnPropertyChanged(nameof(ChapterOverflowMessage));
             OnPropertyChanged(nameof(ChapterToggleButtonText));
             CommandManager.InvalidateRequerySuggested();
@@ -388,9 +396,45 @@ namespace MSCS.ViewModels
             RefreshFilteredChapters();
         }
 
+
         private void ToggleChapterListMode()
         {
+            if (ShowAllChapters)
+            {
+                ResetChapterDisplayLimit();
+            }
+
             ShowAllChapters = !ShowAllChapters;
+        }
+
+        private void ResetChapterDisplayLimit()
+        {
+            if (_chapterDisplayLimit == DefaultChapterLimit)
+            {
+                return;
+            }
+
+            _chapterDisplayLimit = DefaultChapterLimit;
+            UpdateLimitedState();
+        }
+
+        private void LoadMoreChapters()
+        {
+            var total = Chapters?.Count ?? 0;
+            if (ShowAllChapters || total <= 0)
+            {
+                return;
+            }
+
+            var newLimit = Math.Min(total, _chapterDisplayLimit + ChapterLoadIncrement);
+            if (newLimit <= _chapterDisplayLimit)
+            {
+                return;
+            }
+
+            _chapterDisplayLimit = newLimit;
+            UpdateLimitedState();
+            RefreshFilteredChapters();
         }
 
         private void EnsureChapterVisible(Chapter? chapter)
@@ -424,6 +468,7 @@ namespace MSCS.ViewModels
             {
                 var chapters = await _source.GetChaptersAsync(Manga.Url, _cts.Token);
                 ClearChapterCache();
+                _chapterDisplayLimit = DefaultChapterLimit;
                 Chapters = new ObservableCollection<Chapter>(chapters);
                 ChapterSearchText = string.Empty;
                 ShowAllChapters = false;
@@ -443,6 +488,18 @@ namespace MSCS.ViewModels
 
         private void RefreshFilteredChapters()
         {
+            if (_disposed)
+            {
+                return;
+            }
+
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher != null && !dispatcher.CheckAccess())
+            {
+                dispatcher.Invoke(RefreshFilteredChapters);
+                return;
+            }
+
             if (FilteredChapters == null)
             {
                 _limitedChapterSet = null;
@@ -543,8 +600,15 @@ namespace MSCS.ViewModels
                 return;
             }
 
+            var limit = Math.Min(_chapterDisplayLimit, Chapters?.Count ?? 0);
+            if (limit <= 0)
+            {
+                _limitedChapterSet = null;
+                return;
+            }
+
             var ordered = EnumerateChaptersInCurrentSortOrder()
-                .Take(DefaultChapterLimit)
+                .Take(limit)
                 .ToList();
 
             _limitedChapterSet = ordered.Count > 0
