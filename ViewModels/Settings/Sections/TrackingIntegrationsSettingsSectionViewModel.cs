@@ -9,8 +9,10 @@ namespace MSCS.ViewModels.Settings
     public class TrackingIntegrationsSettingsSectionViewModel : SettingsSectionViewModel
     {
         private readonly List<TrackingProviderViewModel> _providers;
+        private readonly UserSettings _userSettings;
+        private string? _myAnimeListClientId;
 
-        public TrackingIntegrationsSettingsSectionViewModel(MediaTrackingServiceRegistry trackingRegistry)
+        public TrackingIntegrationsSettingsSectionViewModel(MediaTrackingServiceRegistry trackingRegistry, UserSettings userSettings)
             : base("trackingIntegrations", "Tracking integrations", "Connect your media-tracking accounts to sync reading progress across services.")
         {
             if (trackingRegistry == null)
@@ -18,6 +20,14 @@ namespace MSCS.ViewModels.Settings
                 throw new ArgumentNullException(nameof(trackingRegistry));
             }
 
+            if (userSettings == null)
+            {
+                throw new ArgumentNullException(nameof(userSettings));
+            }
+
+            _userSettings = userSettings;
+            _myAnimeListClientId = _userSettings.MyAnimeListClientId;
+            _userSettings.SettingsChanged += OnUserSettingsChanged;
             _providers = trackingRegistry.Services
                 .OrderBy(service => service.DisplayName, StringComparer.OrdinalIgnoreCase)
                 .Select(service => new TrackingProviderViewModel(service))
@@ -28,6 +38,19 @@ namespace MSCS.ViewModels.Settings
         }
 
         public IReadOnlyList<TrackingProviderViewModel> TrackingProviders { get; }
+
+        public string? MyAnimeListClientId
+        {
+            get => _myAnimeListClientId;
+            set
+            {
+                var sanitized = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+                if (SetProperty(ref _myAnimeListClientId, sanitized))
+                {
+                    _userSettings.MyAnimeListClientId = sanitized;
+                }
+            }
+        }
 
         protected override void Dispose(bool disposing)
         {
@@ -40,6 +63,13 @@ namespace MSCS.ViewModels.Settings
             {
                 provider.Dispose();
             }
+
+            _userSettings.SettingsChanged -= OnUserSettingsChanged;
+        }
+
+        private void OnUserSettingsChanged(object? sender, EventArgs e)
+        {
+            MyAnimeListClientId = _userSettings.MyAnimeListClientId;
         }
     }
 }

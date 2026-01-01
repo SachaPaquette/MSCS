@@ -205,6 +205,7 @@
 
     <Style x:Key="InputComboBoxStyle" TargetType="ComboBox" BasedOn="{StaticResource InputBaseStyle}">
         <Setter Property="IsEditable" Value="False"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
 
     <!-- Icon button (MDL2) -->

@@ -47,7 +47,7 @@ namespace MSCS.ViewModels
                 new AppearanceSettingsSectionViewModel(themeService, userSettings),
                 new ReaderDefaultsSettingsSectionViewModel(userSettings),
                 new LibraryFolderSettingsSectionViewModel(libraryService),
-                new TrackingIntegrationsSettingsSectionViewModel(trackingRegistry),
+                new TrackingIntegrationsSettingsSectionViewModel(trackingRegistry, userSettings),
                 new UpdateSettingsSectionViewModel(updateService, userSettings),
             };
         }

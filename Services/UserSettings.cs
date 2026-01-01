@@ -184,6 +184,20 @@ namespace MSCS.Services
             }
         }
 
+        public string? MyAnimeListClientId
+        {
+            get => _data.MyAnimeListClientId;
+            set
+            {
+                var sanitized = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+                SetIfChanged(
+                    () => _data.MyAnimeListClientId,
+                    sanitized,
+                    updated => _data.MyAnimeListClientId = updated,
+                    () => SettingsChanged?.Invoke(this, EventArgs.Empty));
+            }
+        }
+
         public bool IsTrackingProviderConnected(string serviceId)
         {
             if (string.IsNullOrWhiteSpace(serviceId))
@@ -1209,6 +1223,7 @@ namespace MSCS.Services
             public string? MyAnimeListRefreshToken { get; set; }
             public DateTimeOffset? MyAnimeListAccessTokenExpiry { get; set; }
             public string? MyAnimeListUserName { get; set; }
+            public string? MyAnimeListClientId { get; set; }
             public AppTheme AppTheme { get; set; } = AppTheme.Dark;
             public long? LastSeenUpdateId { get; set; }
             public DateTimeOffset? LastSeenUpdateTimestamp { get; set; }

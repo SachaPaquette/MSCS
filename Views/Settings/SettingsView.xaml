@@ -10,13 +10,11 @@
 
         <sys:Double x:Key="ControlMaxWidth">520</sys:Double>
 
-        <Style x:Key="SettingsTextBox" TargetType="TextBox">
-            <Setter Property="Height" Value="38"/>
-            <Setter Property="Padding" Value="12,0"/>
-            <Setter Property="Foreground" Value="{DynamicResource Fg}"/>
+        <Style x:Key="SettingsTextBox"
+               TargetType="TextBox"
+               BasedOn="{StaticResource InputTextBoxStyle}">
             <Setter Property="Background" Value="{DynamicResource Surface}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource SurfaceAlt}"/>
-            <Setter Property="BorderThickness" Value="1"/>
         </Style>
 
         <Style x:Key="AccentButton" TargetType="Button">
@@ -267,68 +265,79 @@
         <DataTemplate DataType="{x:Type viewModels:TrackingIntegrationsSettingsSectionViewModel}">
             <settings:SettingsSection Title="{Binding Title}"
                                       Description="{Binding Description}">
-                <ItemsControl ItemsSource="{Binding TrackingProviders}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Background="{DynamicResource Surface}"
-                                    BorderBrush="{DynamicResource SurfaceAlt}"
-                                    BorderThickness="1"
-                                    CornerRadius="8"
-                                    Padding="16"
-                                    Margin="{StaticResource SettingsControlMargin}">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="MyAnimeList client ID"
+                               Style="{StaticResource SettingsLabelStyle}"/>
+                    <TextBox Text="{Binding MyAnimeListClientId, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource SettingsTextBox}"
+                             Margin="{StaticResource SettingsControlMargin}"/>
+                    <TextBlock Text="Use your own MyAnimeList client ID to enable sign-in."
+                               Style="{StaticResource SettingsHelperTextStyle}"/>
 
-                                    <StackPanel>
-                                        <TextBlock Text="{Binding DisplayName}"
-                                                   FontSize="16"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource Fg}"/>
-                                        <TextBlock Text="{Binding StatusText}"
-                                                   Margin="{StaticResource SettingsSmallTopSpacing}">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Foreground" Value="#F08A7E"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsConnected}" Value="True">
-                                                            <Setter Property="Foreground" Value="#7BD88F"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                    </StackPanel>
+                    <ItemsControl ItemsSource="{Binding TrackingProviders}"
+                                  Margin="{StaticResource SettingsSectionSpacing}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{DynamicResource Surface}"
+                                        BorderBrush="{DynamicResource SurfaceAlt}"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Padding="16"
+                                        Margin="{StaticResource SettingsControlMargin}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
 
-                                    <StackPanel Orientation="Horizontal"
-                                                Grid.Column="1"
-                                                VerticalAlignment="Center">
-                                        <Button Content="Connect"
-                                                Command="{Binding ConnectCommand}">
-                                            <Button.Style>
-                                                <Style TargetType="Button" BasedOn="{StaticResource AccentButton}">
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsConnected}" Value="True">
-                                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Button.Style>
-                                        </Button>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding DisplayName}"
+                                                       FontSize="16"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource Fg}"/>
+                                            <TextBlock Text="{Binding StatusText}"
+                                                       Margin="{StaticResource SettingsSmallTopSpacing}">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="#F08A7E"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                                                <Setter Property="Foreground" Value="#7BD88F"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </StackPanel>
 
-                                        <Button Content="Disconnect"
-                                                Margin="{StaticResource SettingsInlineValueMargin}"
-                                                Command="{Binding DisconnectCommand}"
-                                                Visibility="{Binding IsConnected, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                                Style="{StaticResource AccentButton}"/>
-                                    </StackPanel>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                                        <StackPanel Orientation="Horizontal"
+                                                    Grid.Column="1"
+                                                    VerticalAlignment="Center">
+                                            <Button Content="Connect"
+                                                    Command="{Binding ConnectCommand}">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource AccentButton}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+
+                                            <Button Content="Disconnect"
+                                                    Margin="{StaticResource SettingsInlineValueMargin}"
+                                                    Command="{Binding DisconnectCommand}"
+                                                    Visibility="{Binding IsConnected, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                    Style="{StaticResource AccentButton}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
             </settings:SettingsSection>
         </DataTemplate>
 
