@@ -17,44 +17,14 @@ namespace MSCS.Converters
                 return Binding.DoNothing;
 
             if (image.StreamFactory is not null)
-                return TryLoadFromFactory(image, image.StreamFactory);
+                return TryLoadFromFactory(image.StreamFactory);
 
             if (!string.IsNullOrWhiteSpace(image.ImageUrl))
             {
                 if (File.Exists(image.ImageUrl))
-                    return TryLoadFromFile(image, image.ImageUrl);
+                    return TryLoadFromFile(image.ImageUrl);
 
-                try
-                {
-                    var bi = new BitmapImage();
-                    bi.BeginInit();
-                    bi.CacheOption = BitmapCacheOption.OnLoad;
-                    bi.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
-                    bi.UriSource = new Uri(image.ImageUrl, UriKind.RelativeOrAbsolute);
-                    bi.EndInit();
-
-                    if (bi.PixelWidth > 0 && bi.PixelHeight > 0)
-                    {
-                        image.PixelWidth = bi.PixelWidth;
-                        image.PixelHeight = bi.PixelHeight;
-                    }
-                    else
-                    {
-                        bi.DownloadCompleted += (_, __) =>
-                        {
-                            image.PixelWidth = bi.PixelWidth;
-                            image.PixelHeight = bi.PixelHeight;
-                        };
-                    }
-
-                    if (bi.CanFreeze) bi.Freeze();
-                    return bi;
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Failed to load image from uri '{image.ImageUrl}': {ex.Message}");
-                    return image.ImageUrl; // graceful fallback
-                }
+                return image.ImageUrl;
             }
 
             return null;
@@ -63,13 +33,13 @@ namespace MSCS.Converters
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
             => Binding.DoNothing;
 
-        private static BitmapSource? TryLoadFromFactory(ChapterImage owner, Func<Stream> factory)
+        private static BitmapSource? TryLoadFromFactory(Func<Stream> factory)
         {
             try
             {
                 using var stream = factory();
                 if (stream is null) return null;
-                return LoadBitmapFromStream(owner, stream);
+                return LoadBitmapFromStream(stream);
             }
             catch (Exception ex)
             {
@@ -78,12 +48,12 @@ namespace MSCS.Converters
             }
         }
 
-        private static BitmapSource? TryLoadFromFile(ChapterImage owner, string path)
+        private static BitmapSource? TryLoadFromFile(string path)
         {
             try
             {
                 using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-                return LoadBitmapFromStream(owner, stream);
+                return LoadBitmapFromStream(stream);
             }
             catch (Exception ex)
             {
@@ -92,7 +62,7 @@ namespace MSCS.Converters
             }
         }
 
-        private static BitmapSource? LoadBitmapFromStream(ChapterImage owner, Stream source)
+        private static BitmapSource? LoadBitmapFromStream(Stream source)
         {
             Stream input = source;
             MemoryStream? buffer = null;
@@ -116,10 +86,6 @@ namespace MSCS.Converters
                 bmp.CacheOption = BitmapCacheOption.OnLoad;
                 bmp.StreamSource = input;
                 bmp.EndInit();
-
-                owner.PixelWidth = bmp.PixelWidth;
-                owner.PixelHeight = bmp.PixelHeight;
-
                 if (bmp.CanFreeze) bmp.Freeze();
                 return bmp;
             }

@@ -180,8 +180,12 @@ namespace MSCS.Views
         private async void ScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
             if (sender is not ScrollViewer sv) return;
-            var vm = ViewModel;
 
+            if (SmoothScroll.GetIsAnimating(sv))
+                return;
+
+            var vm = ViewModel;
+            double? previousProgress = vm?.ScrollProgress;
             vm?.UpdateScrollPosition(sv.VerticalOffset, sv.ExtentHeight, sv.ViewportHeight);
 
             if (_pendingScrollOffset.HasValue || _pendingScrollProgress.HasValue)
@@ -218,7 +222,7 @@ namespace MSCS.Views
                 {
                     if (!vm.IsRestoringProgress && !vm.IsInRestoreCooldown)
                     {
-                        double? targetProgress = vm?.ScrollProgress;
+                        double? targetProgress = previousProgress;
                         if (!targetProgress.HasValue)
                         {
                             targetProgress = GetCurrentNormalizedScrollProgress();
@@ -238,16 +242,12 @@ namespace MSCS.Views
             double viewport = sv.ViewportHeight > 0 ? sv.ViewportHeight : sv.ActualHeight;
             double loadMoreThreshold = Math.Max(400, viewport * 1.25);
             double distanceToBottom = Math.Max(0, sv.ScrollableHeight - sv.VerticalOffset);
+
             if (distanceToBottom <= loadMoreThreshold)
             {
-                try
-                {
-                    await vm!.LoadMoreImagesAsync();
-            }
-                catch (OperationCanceledException) { Debug.WriteLine("Image loading cancelled during scroll."); }
-
+                ScheduleLoadMoreImages();
                 distanceToBottom = Math.Max(0, sv.ScrollableHeight - sv.VerticalOffset);
-        }
+            }
 
             if (vm != null)
             {
@@ -619,16 +619,6 @@ namespace MSCS.Views
             {
                 ViewModel?.ChapterCoordinator?.ReleaseImage(image);
             }
-        }
-
-        private void ImageList_RequestBringIntoView(object sender, RequestBringIntoViewEventArgs e)
-        {
-            if (_anchorBringIntoViewRequested)
-            {
-                return;
-            }
-
-            e.Handled = true;
         }
 
         private void FinalizeScrollRestore(ReaderViewModel? vm)

@@ -169,58 +169,38 @@ namespace MSCS.Sources
             resp.EnsureSuccessStatusCode();
             var html = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
 
-            var doc = new HtmlAgilityPack.HtmlDocument();
+            var doc = new HtmlDocument();
             doc.LoadHtml(html);
-
+            Debug.WriteLine("Html: " + html);
             var imageNodes = doc.DocumentNode.SelectNodes(Settings.ReaderImageXPath);
             if (imageNodes == null || imageNodes.Count == 0)
+            {
                 return Array.Empty<ChapterImage>();
+            }
 
-            var items = imageNodes
-                .Select((img, idx) =>
-                {
-                    var picked = this.PickBestImage(img);
-                    return new
-                    {
-                        Node = img,
-                        Picked = picked,
-                        OriginalIndex = idx,
-                        Key = ComputePageKey(img, idx, picked) 
-                    };
-                })
-                .GroupBy(x => NormalizeUrlForDedup(x.Picked ?? string.Empty), StringComparer.OrdinalIgnoreCase)
-                .Select(g =>
-                {
-                    var best = g.OrderByDescending(x => x.Key.HasValue)
-                                .ThenBy(x => x.Key ?? int.MaxValue)
-                                .ThenBy(x => x.OriginalIndex)
-                                .First();
-                    return best;
-                })
-                .OrderBy(x => x.Key ?? int.MaxValue)
-                .ThenBy(x => x.OriginalIndex)
-                .ToList();
-
-            if (items.Count == 0)
-                return Array.Empty<ChapterImage>();
-
-            var list = new List<ChapterImage>(items.Count);
+            var list = new List<ChapterImage>(imageNodes.Count);
             var referer = uri.ToString();
             var cookieHeader = Handler.CookieContainer.GetCookieHeader(uri);
 
-            foreach (var item in items)
+            foreach (var img in imageNodes)
             {
-                if (string.IsNullOrWhiteSpace(item.Picked))
+                var raw = PickBestImage(img);
+                if (string.IsNullOrWhiteSpace(raw))
+                {
                     continue;
+                }
 
-                var abs = ToAbsolute(item.Picked.Trim()).ToString();
+                var abs = ToAbsolute(raw.Trim()).ToString();
 
                 var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["Referer"] = referer
                 };
+
                 if (!string.IsNullOrWhiteSpace(cookieHeader))
+                {
                     headers["Cookie"] = cookieHeader;
+                }
 
                 list.Add(new ChapterImage
                 {
@@ -230,68 +210,6 @@ namespace MSCS.Sources
             }
 
             return list;
-        }
-
-        private static int? ComputePageKey(HtmlNode img, int fallbackIndex, string? pickedUrl)
-        {
-            if (TryGetIntAttr(img, "data-page", out var v)) return v;
-            if (TryGetIntAttr(img, "data-index", out v)) return v;
-            if (TryGetIntAttr(img, "data-id", out v)) return v;
-            if (TryGetIntAttr(img, "data-pageindex", out v)) return v;
-            if (TryGetIntAttr(img, "data-number", out v)) return v;
-
-            var alt = img.GetAttributeValue("alt", null);
-            if (TryExtractTrailingNumber(alt, out v)) return v;
-
-            var id = img.GetAttributeValue("id", null);
-            if (TryExtractTrailingNumber(id, out v)) return v;
-
-            if (TryExtractTrailingNumber(pickedUrl, out v)) return v;
-
-            return null;
-        }
-
-        private static bool TryGetIntAttr(HtmlNode n, string name, out int value)
-        {
-            value = default;
-            var s = n.GetAttributeValue(name, null);
-            return !string.IsNullOrWhiteSpace(s) &&
-                   int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
-        }
-
-        private static bool TryExtractTrailingNumber(string? s, out int value)
-        {
-            value = default;
-            if (string.IsNullOrWhiteSpace(s)) return false;
-
-            for (int i = s.Length - 1; i >= 0; i--)
-            {
-                if (char.IsDigit(s[i]))
-                {
-                    int end = i;
-                    while (i >= 0 && char.IsDigit(s[i])) i--;
-                    var span = s[(i + 1)..(end + 1)];
-                    return int.TryParse(span, NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
-                }
-            }
-            return false;
-        }
-
-        private static string NormalizeUrlForDedup(string url)
-        {
-            if (string.IsNullOrWhiteSpace(url)) return string.Empty;
-            try
-            {
-                var u = new Uri(url, UriKind.RelativeOrAbsolute);
-                if (!u.IsAbsoluteUri) return url;
-                var b = new UriBuilder(u) { Query = string.Empty, Fragment = string.Empty };
-                b.Path = (b.Path ?? string.Empty).ToLowerInvariant();
-                return b.Uri.ToString();
-            }
-            catch
-            {
-                return url;
-            }
         }
 
         protected virtual void ConfigureRequest(HttpRequestMessage request)
