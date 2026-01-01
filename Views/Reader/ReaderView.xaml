@@ -95,14 +95,14 @@
                  Background="{Binding Preferences.ReaderSurfaceBrush, FallbackValue=#111727}"
                  BorderThickness="0"
                  Padding="0"
-                 HorizontalContentAlignment="Stretch"
-                 ScrollViewer.CanContentScroll="False"
+                 HorizontalContentAlignment="Center"
+                 ScrollViewer.CanContentScroll="True"
                  VirtualizingPanel.IsVirtualizing="True"
                  VirtualizingPanel.VirtualizationMode="Recycling"
                  VirtualizingPanel.CacheLength="1"
                  VirtualizingPanel.ScrollUnit="Pixel"
                  VirtualizingStackPanel.CleanUpVirtualizedItem="Images_CleanUpVirtualizedItem"
-                 PreviewMouseWheel="ImageList_PreviewMouseWheel"
+                 RequestBringIntoView="ImageList_RequestBringIntoView"
                  Loaded="ImageList_Loaded"
                  ItemsSource="{Binding ImageUrls}">
             <ListBox.Style>
@@ -143,29 +143,23 @@
             </ListBox.ItemContainerStyle>
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <Image Stretch="Uniform"
-                           Margin="0"
-                           SnapsToDevicePixels="True"
-                           UseLayoutRounding="True"
-                           RenderOptions.BitmapScalingMode="HighQuality"
-                           MouseLeftButtonDown="Image_MouseLeftButtonDown"
-                           RenderOptions.EdgeMode="Aliased">
+                    <Image
+                HorizontalAlignment="Center"             
+                        Stretch="Uniform"
+                StretchDirection="DownOnly"
+                        MaxWidth="{Binding RelativeSource={RelativeSource AncestorType=ScrollViewer}, Path=ViewportWidth}"
+                SnapsToDevicePixels="True"
+                UseLayoutRounding="True"
+                RenderOptions.BitmapScalingMode="HighQuality"
+                MouseLeftButtonDown="Image_MouseLeftButtonDown"
+                RenderOptions.EdgeMode="Aliased">
                         <Image.Source>
                             <Binding Converter="{StaticResource ChapterImageSource}"/>
                         </Image.Source>
-                        <Image.Width>
-                            <MultiBinding Converter="{StaticResource ViewportFraction}">
-                                <Binding RelativeSource="{RelativeSource AncestorType=ScrollViewer}" Path="ViewportWidth"/>
-                                <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.Preferences.WidthFactor"/>
-                                <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.Preferences.MaxPageWidth"/>
-                                <Binding RelativeSource="{RelativeSource AncestorType=UserControl}" Path="DataContext.Preferences.AutoAdjustWidth"/>
-                            </MultiBinding>
-                        </Image.Width>
                     </Image>
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
-
         <Border HorizontalAlignment="Right"
                 VerticalAlignment="Bottom"
                 Margin="0,0,44,12"
@@ -304,17 +298,18 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <Border Grid.Column="0"
-                    VerticalAlignment="Top"
-                    HorizontalAlignment="Left"
-                    Background="{DynamicResource SurfaceAlt}"
-                    BorderBrush="{DynamicResource SurfaceBorderSoft}"
-                    BorderThickness="1"
-                    CornerRadius="10"
-                    Padding="6,6,6,10"
-                    Margin="4,4,0,4"
-                    SnapsToDevicePixels="True">
-                    <StackPanel x:Name="SidebarButtonsContainer">
+            <StackPanel Grid.Column="0"
+                        VerticalAlignment="Top"
+                        HorizontalAlignment="Left">
+                <Border x:Name="SidebarButtonsContainer"
+                        Background="{DynamicResource SurfaceAlt}"
+                        BorderBrush="{DynamicResource SurfaceBorderSoft}"
+                        BorderThickness="1"
+                        CornerRadius="10"
+                        Padding="6"
+                        Margin="4,4,0,4"
+                        SnapsToDevicePixels="True">
+                    <StackPanel>
                         <Button Style="{StaticResource SidebarIconButtonStyle}"
                 Command="{Binding GoBackCommand}"
                 ToolTip="Back"
@@ -364,9 +359,41 @@
                     </StackPanel>
                 </Border>
 
-                <Border Grid.Column="1"
-            Background="Transparent"
-            VerticalAlignment="Stretch"/>
+            <Border x:Name="ChapterSidebar"
+                    Grid.Column="1"
+                    Margin="8,4,0,4"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Stretch"
+                    Background="{DynamicResource SidebarBackground}"
+                    BorderBrush="{DynamicResource SurfaceBorder}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="10"
+                    Width="300"
+                    SnapsToDevicePixels="True">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Value="True">
+                                <DataTrigger.Binding>
+                                    <MultiBinding Converter="{StaticResource BooleanOr}">
+                                        <Binding ElementName="SidebarToggleButton" Path="IsChecked" TargetNullValue="False" FallbackValue="False"/>
+                                        <Binding ElementName="SidebarToggleButton" Path="IsMouseOver"/>
+                                        <Binding RelativeSource="{RelativeSource Self}" Path="IsMouseOver"/>
+                                        <Binding ElementName="SidebarButtonsContainer" Path="IsMouseOver"/>
+                                    </MultiBinding>
+                                </DataTrigger.Binding>
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
 
                 <Border x:Name="ChapterSidebar"
             Grid.Column="2"
