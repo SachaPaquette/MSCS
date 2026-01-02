@@ -1,0 +1,113 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:settings="clr-namespace:MSCS.Views.Settings"
+                    xmlns:viewModels="clr-namespace:MSCS.ViewModels.Settings">
+    <DataTemplate DataType="{x:Type viewModels:ReaderDefaultsSettingsSectionViewModel}">
+        <settings:SettingsSection Title="{Binding Title}"
+                                  Description="{Binding Description}">
+            <StackPanel>
+                <TextBlock Text="Color theme"
+                           Style="{DynamicResource SettingsLabelStyle}"
+                           Margin="{DynamicResource SettingsMiniSpacing}"/>
+                <ComboBox ItemsSource="{Binding ReaderThemeOptions}"
+                          SelectedValuePath="Value"
+                          DisplayMemberPath="DisplayName"
+                          SelectedValue="{Binding SelectedReaderTheme, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                          HorizontalAlignment="Left"
+                          MaxWidth="{DynamicResource ControlMaxWidth}"
+                          Margin="{DynamicResource SettingsControlMargin}"/>
+
+                <TextBlock Text="Page zoom"
+                           Style="{DynamicResource SettingsLabelStyle}"/>
+                <Grid Margin="{DynamicResource SettingsControlMargin}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Slider Grid.Column="0"
+                            Style="{DynamicResource ThinSlider}"
+                            Minimum="0.3"
+                            Maximum="2.0"
+                            TickFrequency="0.05"
+                            Value="{Binding ReaderWidthFactor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding ReaderZoomPercent, StringFormat={}{0:F0}%}"
+                               Margin="{DynamicResource SettingsInlineValueMargin}"
+                               Foreground="{DynamicResource Fg}"/>
+                </Grid>
+
+                <TextBlock Text="Maximum page width"
+                           Style="{DynamicResource SettingsLabelStyle}"/>
+                <Grid Margin="{DynamicResource SettingsControlMargin}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Slider Grid.Column="0"
+                            Style="{DynamicResource ThinSlider}"
+                            Minimum="600"
+                            Maximum="3200"
+                            TickFrequency="50"
+                            Value="{Binding ReaderMaxPageWidth, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding ReaderMaxPageWidth, StringFormat={}{0:F0}px}"
+                               Margin="{DynamicResource SettingsInlineValueMargin}"
+                               Foreground="{DynamicResource Fg}"/>
+                </Grid>
+
+                <TextBlock Text="Scroll amount per step"
+                           Style="{DynamicResource SettingsLabelStyle}"/>
+                <Grid Margin="{DynamicResource SettingsControlMargin}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Slider Grid.Column="0"
+                            Style="{DynamicResource ThinSlider}"
+                            Minimum="0.5"
+                            Maximum="1.2"
+                            TickFrequency="0.05"
+                            Value="{Binding ReaderScrollPageFraction, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding ReaderScrollPercent, StringFormat={}{0:F0}%}"
+                               Margin="{DynamicResource SettingsInlineValueMargin}"
+                               Foreground="{DynamicResource Fg}"/>
+                </Grid>
+
+                <TextBlock Text="Scroll animation duration"
+                           Style="{DynamicResource SettingsLabelStyle}"/>
+                <Grid Margin="{DynamicResource SettingsControlMargin}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Slider Grid.Column="0"
+                            Style="{DynamicResource ThinSlider}"
+                            Minimum="100"
+                            Maximum="500"
+                            TickFrequency="10"
+                            Value="{Binding ReaderScrollDurationMs, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding ReaderScrollDurationMs, StringFormat={}{0} ms}"
+                               Margin="{DynamicResource SettingsInlineValueMargin}"
+                               Foreground="{DynamicResource Fg}"/>
+                </Grid>
+
+                <TextBlock Text="Layout defaults"
+                           Style="{DynamicResource SettingsLabelStyle}"/>
+                <StackPanel Orientation="Vertical"
+                            Margin="{DynamicResource SettingsControlMargin}">
+                    <CheckBox Content="Auto-adjust page width"
+                              IsChecked="{Binding ReaderAutoAdjustWidth, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                              Margin="{DynamicResource SettingsSmallSpacing}"/>
+                    <CheckBox Content="Enable page transitions"
+                              IsChecked="{Binding ReaderEnablePageTransitions, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                </StackPanel>
+
+                <Button Content="Reset to defaults"
+                        Style="{DynamicResource AccentButton}"
+                        Command="{Binding ResetReaderDefaultsCommand}"/>
+            </StackPanel>
+        </settings:SettingsSection>
+    </DataTemplate>
+</ResourceDictionary>

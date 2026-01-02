@@ -1,0 +1,88 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:settings="clr-namespace:MSCS.Views.Settings"
+                    xmlns:viewModels="clr-namespace:MSCS.ViewModels.Settings">
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="../SettingsResources.xaml"/>
+    </ResourceDictionary.MergedDictionaries>
+
+    <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+    <DataTemplate DataType="{x:Type viewModels:TrackingIntegrationsSettingsSectionViewModel}">
+        <settings:SettingsSection Title="{Binding Title}"
+                                  Description="{Binding Description}">
+            <StackPanel>
+                <TextBlock Text="MyAnimeList client ID"
+                           Style="{DynamicResource SettingsLabelStyle}"/>
+                <TextBox Text="{Binding MyAnimeListClientId, UpdateSourceTrigger=PropertyChanged}"
+                         Style="{DynamicResource SettingsTextBox}"
+                         Margin="{DynamicResource SettingsControlMargin}"/>
+                <TextBlock Text="Use your own MyAnimeList client ID to enable sign-in."
+                           Style="{DynamicResource SettingsHelperTextStyle}"/>
+
+                <ItemsControl ItemsSource="{Binding TrackingProviders}"
+                              Margin="{DynamicResource SettingsSectionSpacing}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="{DynamicResource Surface}"
+                                    BorderBrush="{DynamicResource SurfaceAlt}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="16"
+                                    Margin="{DynamicResource SettingsControlMargin}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding DisplayName}"
+                                                   FontSize="16"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource Fg}"/>
+                                        <TextBlock Text="{Binding StatusText}"
+                                                   Margin="{DynamicResource SettingsSmallTopSpacing}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#F08A7E"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                                            <Setter Property="Foreground" Value="#7BD88F"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
+
+                                    <StackPanel Orientation="Horizontal"
+                                                Grid.Column="1"
+                                                VerticalAlignment="Center">
+                                        <Button Content="Connect"
+                                                Command="{Binding ConnectCommand}">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource AccentButton}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+
+                                        <Button Content="Disconnect"
+                                                Margin="{DynamicResource SettingsInlineValueMargin}"
+                                                Command="{Binding DisconnectCommand}"
+                                                Visibility="{Binding IsConnected, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                Style="{DynamicResource AccentButton}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </settings:SettingsSection>
+    </DataTemplate>
+</ResourceDictionary>
