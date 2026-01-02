@@ -97,10 +97,11 @@
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="{Binding IconGlyph}"
                            FontFamily="Segoe MDL2 Assets"
+                           VerticalAlignment="Center"
                            Margin="0,0,6,0"
                            Foreground="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=Foreground}"/>
                     <TextBlock Text="{Binding Title}"
-
+                           VerticalAlignment="Center"
                            Foreground="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=Foreground}"/>
                 </StackPanel>
             </DataTemplate>
