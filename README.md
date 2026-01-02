@@ -54,7 +54,7 @@ Notes:
 
 ## Known Limitations
 
-- Windows-only application 
+- Windows-only application since WPF is designed for Windows
 - Internet access is required for online sources and tracking services
 - Tracking functionality depends on third-party APIs and their availability
 
